@@ -1,0 +1,21 @@
+{
+  "//": "Examples from the package README. They compile against the PUBLIC entry, and a test compares every README code block with a region of one of these files, so a README example cannot go stale silently. The directory is not part of the package tarball.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "types": [],
+    "paths": { "@hotlayout/react": ["../src/index.ts"] }
+  },
+  "include": ["*.ts", "*.tsx"]
+}

@@ -1,0 +1,11 @@
+{
+  "//": "Type declarations only: Vite (`build.mjs`) builds the JavaScript, `tsc` puts the `.d.ts` next to it.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  }
+}

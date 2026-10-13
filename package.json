@@ -1,0 +1,77 @@
+{
+  "name": "@hotlayout/react",
+  "version": "0.18.0",
+  "private": true,
+  "description": "React renderer for HotLayout server-driven UI documents",
+  "license": "Apache-2.0",
+  "author": "The HotLayout Authors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hotlayout/hotlayout-react.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hotlayout/hotlayout-react/issues"
+  },
+  "homepage": "https://github.com/hotlayout/hotlayout-react#readme",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "AUTHORS",
+    "THIRD-PARTY-NOTICES.md"
+  ],
+  "keywords": [
+    "hotlayout",
+    "server-driven-ui",
+    "sdui",
+    "react",
+    "renderer"
+  ],
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "26.5.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "jsdom": "29.1.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "6.0.3",
+    "vite": "8.2.2",
+    "vitest": "5.0.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node ./build.mjs",
+    "icons:sync": "node ./scripts/sync-icons.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p examples/tsconfig.json",
+    "prepack": "node ./build.mjs",
+    "test": "vitest run"
+  },
+  "hotlayout": {
+    "schemaVersion": "9.19.0",
+    "themeContractVersion": "4.0.1",
+    "iconSetVersion": "1.0.0"
+  }
+}
