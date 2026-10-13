@@ -18,6 +18,8 @@ and themes a release reads is stated in every entry.
 
 ## [0.18.0] - 2026-10-13
 
+The first version published to npm: `npm install @hotlayout/react`.
+
 **Reads:** layout documents of schema **9.19.x** and themes of theme contract **4.0.x**, icon set 1.0.0. This is the second half of the reader of 9.19: **all six themes of the minor are now performed**; nothing of 9.19.0 is left out. Every new field is optional, and a document without them is drawn exactly as before.
 
 ### Added

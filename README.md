@@ -22,10 +22,11 @@ theme, layout rules come from the contract.
 - keyboard and screen-reader support built in;
 - the document and the theme are treated as **untrusted input** — see [Security model](#security-model).
 
-> **Status: not published yet.** The package is built and tested in the
-> HotLayout repository; `"private": true` stays in `package.json` until the
-> first public release. Until then you install the tarball you were given:
-> `npm install ./hotlayout-react-0.18.0.tgz`.
+```sh
+npm install @hotlayout/react
+```
+
+React 18.2 or 19 is a peer dependency; the package has no other dependencies.
 
 **Contents:** [Quick start](#quick-start) · [Props](#api) · [Actions and navigation](#actions-and-navigation) · [Data](#data) · [Forms](#forms) · [Theme](#theme) · [Fonts](#fonts) · [Languages and RTL](#languages-and-right-to-left) · [Server rendering and Next.js](#server-rendering-and-nextjs) · [Styles and isolation](#styles-and-isolation) · [Security model](#security-model) · [Accessibility](#accessibility) · [Versions](#versions) · [Updating a screen without a release](#updating-a-screen-without-a-release) · [Limitations](#limitations)
 

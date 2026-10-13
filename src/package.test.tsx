@@ -930,9 +930,8 @@ describe('icons and the press area', () => {
   })
 
   it('the Lucide licence notices ship with the package', () => {
-    const manifest = json<{ files: string[]; private: boolean }>(packageFile('package.json'))
+    const manifest = json<{ files: string[] }>(packageFile('package.json'))
     expect(manifest.files).toContain('THIRD-PARTY-NOTICES.md')
-    expect(manifest.private).toBe(true)
   })
 
   it('everything pressable has the touch-area class, which does not change the button size', () => {
@@ -1014,10 +1013,10 @@ describe('style isolation and the public entry', () => {
     }
   })
 
-  it('manifest: private until publication is decided, Apache-2.0, React is a peer dependency, no side effects', () => {
+  it('manifest: publishable, Apache-2.0, React is a peer dependency, no side effects', () => {
     const manifest = json<Record<string, unknown>>(packageFile('package.json'))
     expect(manifest.name).toBe('@hotlayout/react')
-    expect(manifest.private).toBe(true)
+    expect(manifest.private).toBeUndefined()
     expect(manifest.license).toBe('Apache-2.0')
     expect(manifest.sideEffects).toBe(false)
     expect(Object.keys(manifest.peerDependencies as object).sort()).toEqual(['react', 'react-dom'])

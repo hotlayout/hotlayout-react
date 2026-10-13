@@ -101,9 +101,9 @@ describe('@hotlayout/react package README', () => {
     expect(CHANGELOG).toMatch(new RegExp(`^## \\[${manifest.version.replaceAll('.', '\\.')}\\]`, 'm'))
   })
 
-  it('the README does not promise a publication that has not happened', () => {
-    expect(README).toContain('not published')
-    expect(README).not.toMatch(/npm (?:install|i) @hotlayout\/react(?!\S)/)
+  it('the README installs the package by its published name, not from a tarball', () => {
+    expect(README).toMatch(/npm install @hotlayout\/react(?!\S)/)
+    expect(README).not.toMatch(/\.tgz|not published/)
   })
 })
 
