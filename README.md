@@ -1,34 +1,15 @@
 # @hotlayout/react
 
-React renderer for [HotLayout](https://hotlayout.com) layout documents — screens
-that a manager assembles in the HotLayout builder and your app draws without a
+React renderer for [HotLayout](https://hotlayout.com) — server-driven UI.
+A screen is assembled in a visual builder and published as JSON; your app draws
+it with one component, and the next publish changes the screen without a
 release.
-
-The document is plain JSON. The same JSON is drawn by the Flutter renderer in a
-mobile app and by this package on the web; the contract between them
-(`screen-schema.json`, `theme.json`) is the single source of truth, so the
-renderer never invents anything: spacing, colours and typography come from the
-theme, layout rules come from the contract.
-
-- **reads** schema **9.19.x** documents. All six themes of that minor are performed — (1) the pressable container: `action` and `label` on `Column`, `Row`, `Container`, `Stack` make the box a button (`role="button"`, in the order of focus before the controls inside it, Enter and Space press it, the auto-repeat of a held key does not), the action is the very action of a `Button` (analytics first, then the action, the record of the list row), a press goes to the innermost control under the point and its ancestors get nothing, the name is the `label` first and then the text of the content; a type in its own type and a tree of up to eight levels are drawn as any other tree; (2) money as money: `currencyDisplay: 'symbol'`, `currencyPosition: 'before'` and `sign: 'always'` on a binding write «+42 000,50 ₴» (the minus is U+2212, zero has no sign, the composed form is wrapped in U+2066 … U+2069 in text shown right to left), and `Text.spans[place].parts` (`fraction`, `currency`) gives the decimal part and the currency a style of their own; (3) the top of the screen: `Screen.props.bodyTop: 'screenTop'` puts the body under the app bar (the bar stands over it, takes the presses of its box, the content shows through it) and the prop `safeAreaTop` adds the top inset; (4) write actions and choice from own nodes: `setValue` puts a literal (a string, a flag or a number, by `valueType`) under a path of the data dictionary and `toggleValue` flips the flag under it — with the very write an input field makes (into the session of the reader and to `onWrite` at the same moment, through `writablePaths`), after the analytics event of the action, and **never through `onAction`**; the path and the value are literals of the document (`paramBindings` are not read), the same value is not written twice, an invalid action writes nothing and is reported as `ignored-input`; on the finished screen such a node is not a plain button but an option (`role="radio"`, `aria-checked`, `aria-posinset` / `aria-setsize` among the options of one parent that write the same path) or a toggle (`aria-pressed`), recomputed from the data on every change, with the look of «chosen» coming from the `styleWhen` of the node — see [Write actions and choice](#write-actions-and-choice); (5) the parts of a list row and of a text field: the style and the states of the trailing text (`trailing.style`, `styleWhen`), a one-line caption under it (`caption`, `captionStyle`, `captionStyleWhen`), the colour and the tinted tile of the leading icon (`leading.color`, `leading.tile`), `titleMaxLines` / `subtitleMaxLines`; for a text field the look of the box itself (`fieldRadius`, `fieldBackground`, `fieldBorderColor`, `fieldBorderWidth`, `fieldHeight` — not read by a multi-line field), a mark at the start and at the end of the box (`prefix` / `suffix`: up to eight code points of text or an icon, never the value, a press on it focuses the field) and a character counter (`counter`, in code points, only with `maxLength`; read with the field, not announced on every key); (6) `alt` of an image or an icon as a string of the document (translated under the key of the field, from data or from a template; an empty one makes the picture decorative), an icon name from data (`iconPath`: from data comes only a name of the embedded set — anything else is an empty box — and the mirroring in a right-to-left screen follows the resolved name), date parts (`dateParts`: `dayMonth`, `weekdayDayMonth`, `dayMonthYear` beside `format: 'date'`) and the explicit `unset` of a field in a width layer (`styleOn.unset`, `propsOn.unset`). Every field of the 9.19 themes is optional: a document without them is drawn as before. Everything up to 9.18 is read in full (the action catalog, the analytics event of a press, the screen-shown event and `carryRecord` of 9.8 included — see [Actions and navigation](#actions-and-navigation); the additions of 9.9 — an own image proportion, app bar actions, a window in the middle, the status bar request, the three zones of a screen — of 9.10 — an overlay layer of a stack (`layer`) and a pulled child (`pull`) — of 9.11 — a carousel (`carousel` on a scrolling row and on a data list) and a stepped progress bar (`segments`) — and of 9.12 — the bottom zone of a screen: a navigation bar (`NavBar` / `NavItem`), a block pinned to the bottom (`pin: 'bottom'`) and the action `navigate.section` — are drawn too; see the changelog) and theme contract **4.0.x** (any 9.x / 4.x is drawn — see [Versions](#versions));
-- of schema 9.14: a required field (`required`: an asterisk after the label, `aria-required`), a button that waits for a filled form or an unmet condition (`requiresFilled`, `disabledIf`) and a number field (`TextField.valueType: 'number'`) — see [Forms](#forms);
-- of schema 9.15 (alignment on both axes: `Column.justify`, `Container.align` / `justify`, `Screen.align` / `justify`): `justify` is the main axis and `align` of a row container is the vertical axis — both are words on the flex of the host, and the free space comes from a named `style.height`, `style.minHeight` or a stretched layer (a column of the height of its content has none); `align` of a column container and of a screen is the rule of the column;
-- of schema 9.16 (an app bar assembled from a mock-up, own drawing size): a child of an app bar with `zone: 'leading'` (a button or an icon button) stands in the leading zone **instead of** the back arrow whatever `showBack` says (a node hidden by its condition gives the zone back to `showBack`) and is not counted among the two actions; its width is at most half of the bar; `AppBar.titleAlign: 'start'` puts the title right after the leading zone; `glyphSize` (an integer 8…128) is the side of the drawing of an `Icon` and an `IconButton`, clamped by the named box and not multiplied by the system font scale;
-- of schema 9.17 (text emphasis, list items, the own style of a ring label): `style.fontStyle` and `style.textDecoration` of a text (inherited field by field, read by `Text` only), `weight` / `fontStyle` / `textDecoration` of a part of a text (the line is drawn by each run itself), `Text.marker` (`bullet` / `number`, a column of the font size of the text with a hanging indent; the number counts visible items of a group of neighbours) and `labelTypography` / `labelColor` of a ring (the label never scales with the ring, never inherits and never sizes it);
-- of schema 9.18 (adaptive layout by width): a width class (`compact` / `medium` / `expanded`) measured from the root element, `showOn`, `styleOn`, `propsOn` and `Screen.contentMaxWidth`, and — on a wide place — the navigation bar at the top (in the app bar or as a bar of its own) and a modal sheet drawn as a window in the middle — see [Adaptive layout by width](#adaptive-layout-by-width);
-- ESM, typed, no runtime dependencies besides `react` / `react-dom` (18 or 19);
-- no network, no globals, no `window` access on import — server rendering and Next.js App Router work out of the box;
-- left-to-right and right-to-left scripts;
-- keyboard and screen-reader support built in;
-- the document and the theme are treated as **untrusted input** — see [Security model](#security-model).
 
 ```sh
 npm install @hotlayout/react
 ```
 
-React 18.2 or 19 is a peer dependency; the package has no other dependencies.
-
-**Contents:** [Quick start](#quick-start) · [Props](#api) · [Actions and navigation](#actions-and-navigation) · [Data](#data) · [Forms](#forms) · [Theme](#theme) · [Fonts](#fonts) · [Languages and RTL](#languages-and-right-to-left) · [Server rendering and Next.js](#server-rendering-and-nextjs) · [Styles and isolation](#styles-and-isolation) · [Security model](#security-model) · [Accessibility](#accessibility) · [Versions](#versions) · [Updating a screen without a release](#updating-a-screen-without-a-release) · [Limitations](#limitations)
+React 18.2+ or 19 · ESM with types · no other dependencies · Apache-2.0
 
 ## Quick start
 
@@ -55,27 +36,93 @@ export function Rewards({ layout, theme }: { layout: UiDocument; theme: ThemeCon
 ```
 
 That is the whole integration: give the component a document, a theme and
-data, and tell it what your app does with actions. Where the two JSON files
-come from is up to you — bundle them, fetch them on the server, or
-[load them by URL](#updating-a-screen-without-a-release) so that a republished
-screen reaches users without a deploy.
+data, and tell it what your app does with actions.
 
-**Where the three inputs come from:**
+## What you get
 
-| Input | Where to get it |
+- **One component.** `<HotlayoutScreen>` draws the document, keeps the screen
+  stack, tabs, forms and modal sheets, and hands your app the actions.
+- **Server rendering.** No `window` on import, no network, no globals; works in
+  a Next.js App Router Server Component without a wrapper.
+- **Right-to-left scripts.** Direction follows the language that is shown;
+  layout, icons and arrow keys mirror.
+- **Accessibility built in.** Real buttons and inputs, focus management,
+  WAI-ARIA tabs and dialogs.
+- **Untrusted input.** The document and the theme are parsed again where they
+  become CSS, an address or a key — see [Security model](#security-model).
+- **Nothing but React.** No runtime dependencies besides `react` and
+  `react-dom`; styles are scoped to the component's own root.
+- **One document, two platforms.** The same JSON is drawn in a mobile app by
+  the Flutter package
+  [`hotlayout_flutter`](https://pub.dev/packages/hotlayout_flutter).
+
+The builder and the product: [hotlayout.com](https://hotlayout.com).
+
+## Contents
+
+- [Getting the document, the theme and the data](#getting-the-document-the-theme-and-the-data)
+- [What the renderer does on its own](#what-the-renderer-does-on-its-own)
+- [API](#api) — props, reports, other exports
+- [Actions and navigation](#actions-and-navigation) — analytics, the
+  screen-shown event, your router, pressable cards
+- [Screen layout](#screen-layout) — scrolling, the app bar, the bottom zone,
+  safe areas, adaptive layout by width
+- [Data](#data) — templates, numbers, money and plurals; list records; writes
+- [Forms](#forms)
+- [Theme](#theme) · [Fonts](#fonts) · [Languages and right-to-left](#languages-and-right-to-left)
+- [Server rendering and Next.js](#server-rendering-and-nextjs)
+- [Styles and isolation](#styles-and-isolation)
+- [Security model](#security-model)
+- [Accessibility](#accessibility)
+- [Versions](#versions) — what each schema minor added
+- [Updating a screen without a release](#updating-a-screen-without-a-release)
+- [Limitations](#limitations)
+
+## Getting the document, the theme and the data
+
+Where the two JSON files come from is up to you — bundle them, fetch them on
+the server, or [load them by URL](#updating-a-screen-without-a-release) so that
+a republished screen reaches users without a deploy.
+
+**`document`** — the published layout of one document. It is a static JSON
+file, readable without a token:
+
+```text
+https://firebasestorage.googleapis.com/v0/b/<bucket>/o/orgs%2F<orgId>%2Fprojects%2F<projectId>%2Fdocuments%2F<documentId>%2Fpublished.json?alt=media
+```
+
+- The object path is
+  `orgs/{orgId}/projects/{projectId}/documents/{documentId}/published.json`,
+  URL-encoded.
+- The project settings in the HotLayout admin (*Delivery*) show this address as
+  a template with your bucket and ids filled in.
+- If the project delivers by **webhook**, your backend receives the same JSON
+  on every publish and serves it from wherever you like.
+
+**`theme`** — the published theme of the project, one file for all its
+documents, at the same place:
+`…/o/orgs%2F<orgId>%2Fprojects%2F<projectId>%2Ftheme%2Fpublished.json?alt=media`.
+
+**Keys of `data` and `collections`** — the project's **data dictionary**: the
+*Data dictionary* section of the project in the admin, where it can be
+downloaded as `data-contract.json` (the webhook body carries the same list as
+`dataContract`).
+
+| In the dictionary | In your props |
 |---|---|
-| `document` | The published layout of one document — a static JSON file, readable without a token: `https://firebasestorage.googleapis.com/v0/b/<bucket>/o/orgs%2F<orgId>%2Fprojects%2F<projectId>%2Fdocuments%2F<documentId>%2Fpublished.json?alt=media` (the object path `orgs/{orgId}/projects/{projectId}/documents/{documentId}/published.json`, URL-encoded). The project settings in the HotLayout admin (*Delivery*) show this address as a template with your bucket and ids filled in. If the project delivers by **webhook**, your backend receives the same JSON on every publish and serves it from wherever you like. |
-| `theme` | The published theme of the project — one file for all its documents, at the same place: `…/o/orgs%2F<orgId>%2Fprojects%2F<projectId>%2Ftheme%2Fpublished.json?alt=media`. |
-| keys of `data` and `collections` | The project's **data dictionary**: the *Data dictionary* section of the project in the admin, where it can be downloaded as `data-contract.json` (the webhook body carries the same list as `dataContract`). `paths` are the keys of `data` (`user.firstName`); `collections[].path` are the keys of `collections` (`items`), and `collections[].item` is the prefix of the record fields inside a list (`item.name` → the `name` field of a record). |
+| `paths` | the keys of `data` (`user.firstName`) |
+| `collections[].path` | the keys of `collections` (`items`) |
+| `collections[].item` | the prefix of the record fields inside a list (`item.name` → the `name` field of a record) |
 
-The examples call the variable `layout`, not `document`: inside a component
-`document` would shadow the browser's own `document`.
+Two notes on the example:
 
-Give the root a height (`style={{ minBlockSize: '100dvh' }}`): the root is a
-flex column that takes the size you give it, the screen background reaches its
-bottom, and modal sheets sit on the bottom edge of its area (with
-`scroll="page"` — of the part of the root that is visible in the window, see
-[Scrolling and the app bar](#scrolling-and-the-app-bar)).
+- The examples call the variable `layout`, not `document`: inside a component
+  `document` would shadow the browser's own `document`.
+- Give the root a height (`style={{ minBlockSize: '100dvh' }}`). The root is a
+  flex column that takes the size you give it, the screen background reaches
+  its bottom, and modal sheets sit on the bottom edge of its area (with
+  `scroll="page"` — of the part of the root that is visible in the window, see
+  [Scrolling and the app bar](#scrolling-and-the-app-bar)).
 
 ## What the renderer does on its own
 
@@ -90,48 +137,76 @@ bottom, and modal sheets sit on the bottom edge of its area (with
 | **Direction** | Sets `dir` on its own root from the language the document is shown in (CLDR via `Intl.Locale`) and mirrors directional icons. |
 | **Touch targets** | Buttons look exactly as designed (a button with `sm` padding is 40 px tall) but are *pressable* in an area of at least 48 × 48 px, without shifting neighbours. |
 
+The contract between the builder and the readers (`screen-schema.json`,
+`theme.json`) is the single source of truth, so the renderer never invents
+anything: spacing, colours and typography come from the theme, layout rules
+come from the contract.
+
 ## API
 
 ### `<HotlayoutScreen>`
 
 | Prop | Type | |
 |---|---|---|
+| **What to draw** | | |
 | `document` | `UiDocument` | **Required.** The layout document. Not validated against the schema — the builder did that — but never trusted either. |
-| `theme` | `ThemeContract` | `{ themeContractVersion, defaultThemeId, themes }` — a project's `theme/published.json`. Omit to use the built-in starter theme. |
+| `theme` | `ThemeContract` | `{ themeContractVersion, defaultThemeId, themes }` — a project's `theme/published.json`. Omit to use the built-in starter theme. See [Theme](#theme). |
 | `themeId` | `string` | Which theme of the set to use, e.g. `'dark'`. Unknown id → the set's default. |
-| `data` | `Record<string, unknown>` | Values for bindings, as a **flat** map keyed by data-contract path: `{ 'user.points': 1250 }`. A screen opened from a list row reads that row's record first. |
-| `collections` | `Record<string, object[]>` | Lists for `Repeater` widgets, keyed by collection name. |
-| `locale` | `string` | The user's locale as the platform gives it (`ar-EG`, `pt_BR`). The renderer finds the document's translation by dropping subtags from the end (`ar-EG` → `ar`), and takes date formats and (unless `dir` is set) direction from the result. No match → the document's own language. See [Languages](#languages-and-right-to-left). |
-| `timeZone` | `string` | IANA zone the bound dates are written in. Defaults to the zone of whoever renders. **Set it when you render on a server** — see [Server rendering](#server-rendering-and-nextjs). |
-| `now` | `number \| Date` | The moment the screen is rendered at (epoch milliseconds or a `Date`). The `daysUntil` format counts whole days from it. Defaults to the clock of whoever renders, read on every render. **Set it when you render on a server**, and in tests and previews — see [Sentences, numbers and plurals](#sentences-numbers-and-plurals). |
-| `dir` | `'ltr' \| 'rtl'` | Overrides the direction derived from `locale`. |
 | `entry` | `string` | Public entry-point name. Unknown name → the initial screen. Changing `entry` restarts the stack. |
 | `assets` | `Record<string, string>` | URLs for asset tokens (`logo`, `banner`, …). A token without a URL is drawn as a placeholder. |
-| `labels` | `{ back?: string }` | Texts that belong to the renderer: the accessible name of the back arrow. Translate it with your UI. |
-| `onAction` | `(action, source) => void` | Actions the renderer does not perform itself; `openUrl`, `deeplink` and `close` arrive with a verdict (`standard` or `invalid`) — see [Actions and navigation](#actions-and-navigation). `source` is `{ nodeId, screenId, record? }`; `record` is the list row (or the record of the screen) the action is about — see [One screen, many records](#one-screen-many-records). |
-| `onTrack` | `(event, source) => void` | The analytics event of a press (`action.track`: `{ event, params? }`): once per press, **before** anything else — before the renderer navigates (also when `onNavigate` then cancels), before `onAction`, and for `none` too. The handed action does not carry it. See [Actions and navigation](#actions-and-navigation). |
-| `onNavigate` | `(event) => boolean \| undefined` | Called **before** the renderer changes screens. Return `false` to cancel and navigate yourself (e.g. with your router). |
-| `onScreenChange` | `(screen) => void` | The screen-shown event: once per show of a screen, the first one included. `screen` is `{ screenId, name, presentation, documentId, entry, cause, depth, record }` — see [Screen shown](#screen-shown). |
-| `onWrite` | `(path, value: string \| boolean \| number) => void` | The user changed a data-bound input: a `ChoiceGroup` (a string), a `TextField` (a string on every change; a number field writes a **number**, or `""` when the text is not a number), or a `Switch` / `Checkbox` (a boolean). **The path is named by the document** — see [Writes](#writes-the-document-names-the-path). |
+| **Data** | | |
+| `data` | `Record<string, unknown>` | Values for bindings, as a **flat** map keyed by data-contract path: `{ 'user.points': 1250 }`. See [Data](#data). |
+| `collections` | `Record<string, object[]>` | Lists for `Repeater` widgets, keyed by collection name. |
+| `onWrite` | `(path, value: string \| boolean \| number) => void` | The user changed a data-bound input, or pressed a write action. **The path is named by the document** — see [Writes](#writes-the-document-names-the-path) and [Forms](#forms). |
 | `writablePaths` | `string[] \| (path) => boolean` | The data paths the document may write to. With it, `onWrite` is called for these paths only; without it, for any path of the dictionary form. |
-| `autofill` | `boolean` | Whether text fields may ask the browser for autofill hints (`email`, `tel`, `url`, taken from the field's keyboard). Default `true`; `false` sets `autocomplete="off"` on every field. See [Forms](#forms). |
+| `autofill` | `boolean` | Whether text fields may ask the browser for autofill hints. Default `true`; `false` sets `autocomplete="off"` on every field. See [Forms](#forms). |
+| **Language and time** | | |
+| `locale` | `string` | The user's locale as the platform gives it (`ar-EG`, `pt_BR`). The renderer finds the document's translation itself — see [Languages](#languages-and-right-to-left). |
+| `dir` | `'ltr' \| 'rtl'` | Overrides the direction derived from `locale`. |
+| `timeZone` | `string` | IANA zone the bound dates are written in. Defaults to the zone of whoever renders. **Set it when you render on a server** — see [Server rendering](#server-rendering-and-nextjs). |
+| `now` | `number \| Date` | The moment the screen is rendered at (epoch milliseconds or a `Date`); `daysUntil` counts from it. Defaults to the clock of whoever renders, read on every render. **Set it when you render on a server**, and in tests and previews — see [Sentences, numbers, money and plurals](#sentences-numbers-money-and-plurals). |
+| `labels` | `{ back?: string }` | Texts that belong to the renderer: the accessible name of the back arrow. Translate it with your UI. |
+| **Events** | | |
+| `onAction` | `(action, source) => void` | Actions the renderer does not perform itself — see [Actions and navigation](#actions-and-navigation). `source` is `{ nodeId, screenId, record? }`. |
+| `onTrack` | `(event, source) => void` | The analytics event of a press, once per press and **before** anything else — see [Analytics](#analytics-what-was-pressed-what-was-shown). |
+| `onNavigate` | `(event) => boolean \| undefined` | Called **before** the renderer changes screens. Return `false` to cancel and navigate yourself — see [Driving navigation with your router](#driving-navigation-with-your-router). |
+| `onScreenChange` | `(screen) => void` | The screen-shown event: once per show of a screen, the first one included — see [Screen shown](#screen-shown). |
+| `onReport` | `(report) => void` | Fallbacks and refusals — see [Reports](#reports). Without a handler they go to `console.warn`: no fallback is silent. |
+| **Trust and failures** | | |
 | `resolveImageUrl` | `(url, context) => string \| null` | Your decision about every image address named by the document or by bound data. Default: absolute `https:` only. See [Images](#images-https-only-unless-you-say-otherwise). |
-| `onReport` | `(report) => void` | Fallbacks and refusals: `incompatible-document`, `newer-minor-document`, `theme-fallback`, `unknown-theme-id`, `invalid-theme-values`, `unknown-entry`, `no-screen`, `ignored-input`, `render-error`. Without a handler they go to `console.warn` — no fallback is silent. |
-| `renderIncompatible` | `(verdict, version) => ReactNode` | What to show instead of a document of an incompatible major. Default: a short `role="alert"` message. |
+| `renderIncompatible` | `(verdict, version) => ReactNode` | What to show instead of a document of an incompatible major. Default: a short `role="alert"` message. See [Versions](#versions). |
 | `renderError` | `({ screenId, message }) => ReactNode` | What to show instead of a screen that threw while rendering. Default: *"This screen is not available right now."* The error never reaches your application — see [Security model](#security-model). |
-| `injectStyles` | `boolean` | Render the package stylesheet next to the screen. Default `true`. |
-| `scroll` | `'page' \| 'screen'` | Who scrolls. A screen has three zones — the app bar **stands**, only the body scrolls, the background does not move. `'page'` (default): the block has no height of its own, it grows with its content and your **page** scrolls (see `chrome`). `'screen'`: you gave the block a height (`100dvh`, a fixed height, a flex remainder) — the root fills it and the zones work literally, the body scrolls inside the block. See [Scrolling and the app bar](#scrolling-and-the-app-bar). |
-| `chrome` | `'sticky' \| 'static'` | Only with `scroll="page"`. `'sticky'` (default): the app bar sticks to the top of the viewport while the screen is in view; it paints the background of the screen root under itself. `'static'`: it stays the top row of the block and scrolls with the page (your site already has its own fixed header). |
-| `stickyOffset` | `number \| string` | Only with `scroll="page"` and `chrome="sticky"`: the `top` the app bar sticks at when your site has a fixed header above the block. A number is CSS pixels; a string is a length (`'56px'`, `'3.5rem'`) or a CSS variable of yours (`'var(--site-header-height)'`). Anything else is ignored. |
-| `safeAreaBottom` | `number \| 'env'` | The bottom safe-area inset the reader adds **under** the content of the bottom zone (a pinned block, a navigation bar) — and only when the screen has such a zone; the background of the bar reaches the physical bottom. `'env'` (default) is `env(safe-area-inset-bottom)` of the browser; a number is CSS pixels you measured yourself (`0` turns it off when your host already leaves room for the home indicator); anything else counts as `0`. With `scroll="page"` it is added only while the zone sticks. See [The bottom zone](#the-bottom-zone-navigation-bar-and-a-pinned-block). |
-| `safeAreaTop` | `number \| 'env'` | The top safe-area inset the reader adds **inside the box of the app bar, above its content** (so a named background of the bar covers the status bar); without an app bar, or with one hidden, above the body area. `'env'` (default) — `env(safe-area-inset-top)`; a number — CSS pixels you measured (`0` turns it off, when your host already wraps the reader in a safe area). Anything else, a negative number and `NaN` count as `0`. Added only with `scroll="screen"`, or while the app bar sticks to the top of the window (`scroll="page"`, `chrome="sticky"`), and never inside a modal layer; a screen with `bodyTop: 'screenTop'` adds nothing to the content of its body. |
-| `stickyBottomOffset` | `number \| string` | Only with `scroll="page"` and `chrome="sticky"`: the `bottom` the bottom zone sticks at when your site has a fixed bar below the block. Same forms as `stickyOffset`. |
-| `initialWidthClass` | `'compact' \| 'medium' \| 'expanded'` | The width class to draw until the root element has been measured (default `'compact'`). Pass it when you know the width of the place — then the server markup and the first browser frame already have the final layout. After the first layout the measured class wins. Anything else counts as `'compact'`. See [Adaptive layout by width](#adaptive-layout-by-width). |
+| **Placement on your page** | | |
 | `className`, `style` | | Applied to the root element. Use them to size and place the screen. |
+| `injectStyles` | `boolean` | Render the package stylesheet next to the screen. Default `true`. See [Strict Content-Security-Policy](#strict-content-security-policy). |
+| `scroll` | `'page' \| 'screen'` | Who scrolls: your page (default) or the block you gave a height to. See [Scrolling and the app bar](#scrolling-and-the-app-bar). |
+| `chrome` | `'sticky' \| 'static'` | Only with `scroll="page"`: whether the app bar and the bottom zone stick to the viewport (default) or scroll with the page. |
+| `stickyOffset` | `number \| string` | Only with `scroll="page"` and `chrome="sticky"`: the `top` the app bar sticks at when your site has a fixed header above the block. |
+| `stickyBottomOffset` | `number \| string` | The same for the bottom zone: the `bottom` it sticks at when your site has a fixed bar below the block. |
+| `safeAreaTop` | `number \| 'env'` | The top safe-area inset. Default `'env'`. See [Safe areas](#safe-areas). |
+| `safeAreaBottom` | `number \| 'env'` | The bottom safe-area inset under the bottom zone. Default `'env'`. See [Safe areas](#safe-areas). |
+| `initialWidthClass` | `'compact' \| 'medium' \| 'expanded'` | The width class to draw until the root element has been measured (default `'compact'`). See [Adaptive layout by width](#adaptive-layout-by-width). |
 
 The stack is tied to `document.documentId` and `entry`, not to object identity:
 re-parsing the same published file on every render does not throw the user
 back to the first screen.
+
+### Reports
+
+`onReport` receives an object with a `kind`. Every one of them is something the
+renderer already handled; the report is for your logs.
+
+| `kind` | What happened |
+|---|---|
+| `incompatible-document` | The document was **not** drawn: its schema major differs from the reader's, or the version is not readable. Carries `documentVersion`, `readerVersion`, `reason`, `relation`. |
+| `newer-minor-document` | The document comes from a newer minor: it is drawn, unknown widgets and tokens are skipped by policy. |
+| `theme-fallback` | The theme could not be read; the built-in one is drawn. |
+| `unknown-theme-id` | `themeId` is not in the set; the set's default is used. |
+| `invalid-theme-values` | Some theme entries did not have the promised form and were ignored: core tokens fall back to the built-in theme of the same brightness, custom tokens become unknown. `paths` lists up to 20 of them. |
+| `unknown-entry` | `entry` names an entry point the document does not have; the initial screen is shown. |
+| `no-screen` | The document has no screen to start from. Nothing is drawn. |
+| `ignored-input` | A part of the document, of the bound data or of a request to the host did not have the shape the contract promises and was ignored (`where`, `reason`). The rest of the screen is drawn. |
+| `render-error` | A screen threw while rendering and was replaced by the neutral notice. Your application is not affected. |
 
 ### Other exports
 
@@ -154,15 +229,8 @@ Anything not listed here is internal and may change in a minor release.
 ## Actions and navigation
 
 A button, a list row or the back arrow carries an **action**:
-`{ type: string, params?: Record<string, string> }`. The renderer performs
-exactly three of them itself — `navigate` to a screen of the same document,
-`navigate.back` and `navigate.section` (a section of the bottom navigation bar) —
-and ignores `none`. Everything else is yours and arrives in
-`onAction` with the `type` exactly as written in the document and `params` as
-a plain map of strings (a parameter that is not a string, and a key such as
-`__proto__` or `constructor`, is dropped and reported).
-
-Since schema 9.8 the contract names seven actions (`navigate.section` joined in 9.12) and says who performs each:
+`{ type: string, params?: Record<string, string> }`. The contract names nine
+of them and says who performs each; any other `type` is yours.
 
 | `type` | Performed by | Parameters |
 |---|---|---|
@@ -170,18 +238,25 @@ Since schema 9.8 the contract names seven actions (`navigate.section` joined in 
 | `navigate` | the renderer; to a screen the document does not have — you | `screenId` |
 | `navigate.back` | the renderer; on the first screen — you | — |
 | `navigate.section` | the renderer; to a screen the document does not have — you | `screenId` |
+| `setValue`, `toggleValue` | the renderer — a write, never reaches `onAction`; see [Write actions and choice](#write-actions-and-choice) | `path`, a value |
 | `openUrl` | **you** | `url` — an `https://` address |
 | `deeplink` | **you** | `url` — an app link (`myapp://offers/42`) |
 | `close` | **you** — the renderer does not touch the screen stack | — |
 
-For `openUrl`, `deeplink` and `close` the action you receive carries a
-**verdict** on its parameters: `action.standard` (`{ type: 'openUrl', url }`,
-`{ type: 'deeplink', url, scheme }` or `{ type: 'close' }`) when they passed the
-check of the contract, or `action.invalid` (`{ param, problem }`) when one did
-not. Never both; your own actions have neither. A parameter may come from the
-data (`paramBindings`): it is read from the data of the node at the moment of
-the press, and an address that does not pass the check is **not** replaced by
-the literal fallback — the action is `invalid`.
+What reaches `onAction`:
+
+- The `type` exactly as written in the document, and `params` as a plain map of
+  strings. A parameter that is not a string, and a key such as `__proto__` or
+  `constructor`, is dropped and reported.
+- For `openUrl`, `deeplink` and `close`, a **verdict** on the parameters:
+  `action.standard` (`{ type: 'openUrl', url }`,
+  `{ type: 'deeplink', url, scheme }` or `{ type: 'close' }`) when they passed
+  the check of the contract, or `action.invalid` (`{ param, problem }`) when
+  one did not. Never both; your own actions have neither.
+- A parameter may come from the data (`paramBindings`). It is read from the
+  data of the node at the moment of the press, and an address that does not
+  pass the check is **not** replaced by the literal fallback — the action is
+  `invalid`.
 
 **The renderer opens nothing by itself** — no `window.open`, no link with an
 address from the document. `runStandardAction` is an optional helper you call
@@ -265,21 +340,25 @@ Rules to keep:
   query stay untrusted: `myapp://open?url=javascript:…` is judged by your
   router. `tel:`, `sms:`, `mailto:` and `market:` pass the form too; only your
   `deeplinkSchemes` keeps them out. Without the helper, keep such a list yourself.
-- The contents of a `deeplink` are untrusted text. A key held down is one press
-  (the auto-repeat is ignored), but a double click is two actions: protect a
-  payment on your side.
-- A package older than 0.9 receives `openUrl` and `deeplink` of a 9.8 document as
-  an unknown action with raw `params` and no verdict. If you already had your own
+- A key held down is one press (the auto-repeat is ignored), but a double click
+  is two actions: protect a payment on your side.
+- A package older than 0.9 receives `openUrl` and `deeplink` as an unknown
+  action with raw `params` and no verdict. If you already had your own
   `openUrl` branch, update the package before managers start using the catalog.
 
 ### Analytics: what was pressed, what was shown
 
 An action may carry `track` — `{ event, params? }`, a name of letters, digits
 and underscores (at most 40) and flat string parameters. It arrives in
-`onTrack`, **once per press and before anything else**: before the renderer
-navigates (even when your `onNavigate` then cancels the step), before
-`onAction`, and for `none` too — a button that only measures. The action you get
-in `onAction` does not carry it. The renderer sends nothing anywhere itself.
+`onTrack`:
+
+- **once per press and before anything else** — before the renderer navigates
+  (even when your `onNavigate` then cancels the step) and before `onAction`;
+- for `none` too — a button that only measures;
+- separately from the action: the action you get in `onAction` does not carry
+  it.
+
+The renderer sends nothing anywhere itself.
 
 <!-- example: actions.tsx#analytics -->
 ```tsx
@@ -313,22 +392,29 @@ stack, and the event happens once whenever the top became another frame:
 | `back` | `navigate.back` (or closing a sheet) removed the top: the screen under it is shown again |
 | `switch` | `navigate.section` made the named screen the **only** one in the stack (`depth` is 1, `record` is `null`); pressing the item of the screen that is already shown sends nothing |
 
-The fields: `screenId`, `name`, `presentation`, `documentId`, `entry` (the name you
-passed, only if the document has it as an entry point; otherwise `null`),
-`cause`, `depth` (the stack length after the change; the first screen is 1) and
-`record` (the record the screen was opened with, a flat map of paths, or
-`null`). Two more fields exist **only when the screen named them** (schema 9.9):
-`modalPlacement` (`'bottom'` or `'center'` — where a modal layer lies; a sheet
-is the default, so a modal screen that did not name it has no key) and
-`statusBarIcons` (`'light'` or `'dark'` — a **request** for the icons of the
-system status bar: the reader never touches the status bar, whether to honour
-it is yours). A word the reader does not know is not handed over. There is no
-"hidden" event. It is **not** fired on a re-render, new data
-or locale, a new object of the same document, an action handed to you
-(`openUrl`, `close`, "back" on the first screen) or a navigation that did not
-happen (the screen is missing, your `onNavigate` cancelled it). On the server
-nothing is fired; hydration fires the first one. In React `StrictMode` it is
-still one.
+The fields of the event:
+
+| Field | |
+|---|---|
+| `screenId`, `name`, `presentation`, `documentId` | The screen that is shown. |
+| `entry` | The name you passed, only if the document has it as an entry point; otherwise `null`. |
+| `cause` | One of the four above. |
+| `depth` | The stack length after the change; the first screen is 1. |
+| `record` | The record the screen was opened with, a flat map of paths, or `null`. |
+| `modalPlacement` | `'bottom'` or `'center'` — where a modal layer lies. **Only when the screen named it**: a sheet is the default, so a modal screen that did not name it has no key. |
+| `statusBarIcons` | `'light'` or `'dark'` — a **request** for the icons of the system status bar, only when the screen named it. The renderer never touches the status bar; whether to honour it is yours. |
+
+A word the renderer does not know in the last two fields is not handed over.
+
+The event is **not** fired on:
+
+- a re-render, new data or locale, a new object of the same document;
+- an action handed to you (`openUrl`, `close`, "back" on the first screen);
+- a navigation that did not happen (the screen is missing, your `onNavigate`
+  cancelled it).
+
+There is no "hidden" event. On the server nothing is fired; hydration fires
+the first one. In React `StrictMode` it is still one.
 
 ### Driving navigation with your router
 
@@ -366,117 +452,199 @@ An entry name the document does not have opens the initial screen (and reports
 The renderer does not scroll your page. If screens are taller than the
 viewport, scroll to the top in `onScreenChange`.
 
+### Pressable cards
+
+`action` (and an optional `label`) on a `Column`, `Row`, `Container` or `Stack`
+makes the whole box a button. For your handlers it is the same action a
+`Button` would send — analytics first, then the action, with the record of the
+list row. What differs is on the screen:
+
+- The box is `role="button"` and comes in the order of focus before the
+  controls inside it. Enter and Space press it; the auto-repeat of a held key
+  does not.
+- A press goes to the **innermost** control under the point, and its ancestors
+  get nothing — a button inside a card does not also press the card.
+- The accessible name is the `label` first and then the text of the content.
+
+## Screen layout
+
 ### Scrolling and the app bar
 
-A screen has three zones (schema 9.9, `x-style.layout.screen`): the **app bar**
-(the first child of the screen root, when it is an `AppBar`), the **body**
-(everything else) and the bottom zone (9.12, see [The bottom zone](#the-bottom-zone-navigation-bar-and-a-pinned-block)). The app bar stands; only the body
-scrolls, and only vertically; the background of the root lies under all zones
-and does not move. Padding of the root is shared: the app bar gets the top and
-the sides, the body gets the sides, the bottom and — instead of the top — the
-screen's `gap`.
+A screen has three zones: the **app bar** (the first child of the screen root,
+when it is an `AppBar`), the **body** (everything else) and the
+[bottom zone](#the-bottom-zone-navigation-bar-and-a-pinned-block).
+
+- The app bar stands; only the body scrolls, and only vertically.
+- The background of the root lies under all zones and does not move.
+- Padding of the root is shared: the app bar gets the top and the sides, the
+  body gets the sides, the bottom and — instead of the top — the screen's `gap`.
+
+The rules and numbers of the zones are data of the contract
+(`x-style.layout.screen`, `bottomZone` and `navBar` in `screen-schema.json`).
 
 Who scrolls is **your** decision, not the document's:
 
-- `scroll="page"` (default) — the block grows with its content and your page
-  scrolls. The app bar **sticks** to the top of the viewport (`chrome="sticky"`,
-  default) and paints the background of the screen root under itself, so the
-  content travelling beneath never shows through; give `stickyOffset` when your
-  own header is fixed above the block, or use `chrome="static"` to let the app
-  bar scroll away with the page.
-- `scroll="screen"` — give the block a height (for example `style={{ height: '100dvh' }}`
-  on the component) and the zones work literally.
+| `scroll` | What it means | What you do |
+|---|---|---|
+| `"page"` (default) | The block has no height of its own: it grows with its content and your **page** scrolls. | Nothing. The app bar sticks to the top of the viewport — see `chrome` below. |
+| `"screen"` | The root fills the height you gave it and the zones work literally: the body scrolls inside the block. | Give the block a height: `100dvh`, a fixed height, a flex remainder. |
 
-A modal layer lies over the **whole** page under it, the app bar included (every
-layer of the stack is its own stacking context). With `scroll="screen"` its area is
-the whole block. With `scroll="page"` the block is far taller than the window, so
-the area is the part of the block that is **visible in the window** — a sticky
-area, never `position: fixed` (the root clips its content, and that is a boundary
-of trust): a sheet stands on the lower edge of that part, a window in its middle,
-and the scrim covers the block. If you need the exact area, give the block a
-height of its own (`scroll="screen"`). While the app bar is stuck, the elements of
-the body that take keyboard focus keep clear of it (`scroll-margin-block-start`
-= the height of the app bar + `stickyOffset`). The app bar draws the first two
-visible actions; a third and further are not drawn.
+With `scroll="page"`, `chrome` says what the app bar and the bottom zone do:
 
-Whatever you choose, the reader never touches the status bar of the system:
+- `chrome="sticky"` (default) — the app bar **sticks** to the top of the
+  viewport while the screen is in view, and paints the background of the screen
+  root under itself, so the content travelling beneath never shows through.
+- `chrome="static"` — the app bar stays the top row of the block and scrolls
+  away with the page. Use it when your site already has its own fixed header.
+- `stickyOffset` — the `top` the app bar sticks at when your own header is
+  fixed above the block. A number is CSS pixels; a string is a length
+  (`'56px'`, `'3.5rem'`) or a CSS variable of yours
+  (`'var(--site-header-height)'`). Anything else is ignored.
+- While the app bar is stuck, the elements of the body that take keyboard focus
+  keep clear of it (`scroll-margin-block-start` = the height of the app bar +
+  `stickyOffset`).
+
+**Modal layers.** A modal layer lies over the **whole** page under it, the app
+bar included (every layer of the stack is its own stacking context).
+
+- With `scroll="screen"` its area is the whole block.
+- With `scroll="page"` the block is far taller than the window, so the area is
+  the part of the block that is **visible in the window**. It is a sticky area,
+  never `position: fixed`: the root clips its content, and that is a boundary
+  of trust. A sheet stands on the lower edge of that part, a window in its
+  middle, and the scrim covers the block.
+- If you need the exact area, give the block a height of its own
+  (`scroll="screen"`).
+
+**What an app bar can hold.**
+
+- **Actions.** The app bar draws the first two visible actions; a third and
+  further are not drawn.
+- **A node in the leading zone.** A child with `zone: 'leading'` (a button or
+  an icon button) stands in the leading zone **instead of** the back arrow,
+  whatever `showBack` says, and is not counted among the two actions. Its width
+  is at most half of the bar. A node hidden by its condition gives the zone
+  back to `showBack`.
+- **The title.** `AppBar.titleAlign: 'start'` puts the title right after the
+  leading zone instead of the middle.
+
+Whatever you choose, the renderer never touches the status bar of the system:
 the `statusBarIcons` a screen asks for arrives in `onScreenChange` for you to
 honour (see [Screen shown](#screen-shown)).
 
 ### The bottom zone: navigation bar and a pinned block
 
-From schema 9.12 the bottom of a screen holds two things, and they never scroll
-(`x-style.layout.bottomZone`, `x-style.layout.navBar`). Which child of the screen
-root stands in which zone is decided by the **document order**, not by
-visibility: the first child is the app bar when it is an `AppBar`; the **last**
-child is the navigation bar when it is a `NavBar`; the last child that is left
-and has `pin: "bottom"` is the **pinned block** (any node: a button, a row of two
-buttons, a card with a price). Everything else is the body. A zone whose node is
-hidden by a condition does not exist, and nobody takes its place. A `pin` in any
-other place, or any other word, is not read — the node is an ordinary child.
+The bottom of a screen holds two things, and they never scroll: a navigation
+bar and a pinned block.
 
-Top to bottom the zone is: the pinned block (with the bottom padding of the root
-under it), the navigation bar, the safe inset. The body ends at the top edge of
-the zone and finishes with the screen's `gap` instead of the bottom padding, so
-the last line of content is never hidden under the block. The navigation bar has
-no padding of the root: it runs from edge to edge.
+**Which child of the screen root stands where** is decided by the **document
+order**, not by visibility:
 
-The bar draws the first five **visible** `NavItem`s in equal shares, an icon over
-a one-line label. It is a `<nav>`; every item is a button with the label as its
-name, and the item whose action is `navigate.section` to the shown screen carries
-`aria-current="page"`. Pressing an item performs its action like a button does;
-`navigate.section` makes the section the only screen of the stack (the cause of
-the screen-shown event is `switch`) and a modal layer closes with everything on
-top of it. A modal layer never draws the bar, but it does draw a pinned block at
-its bottom.
+| Child of the screen root | Zone |
+|---|---|
+| the first one, when it is an `AppBar` | the app bar |
+| the **last** one, when it is a `NavBar` | the navigation bar |
+| the last one that is left and has `pin: "bottom"` | the **pinned block** (any node: a button, a row of two buttons, a card with a price) |
+| everything else | the body |
 
-With `scroll="page"` the bottom zone **sticks** to the bottom of the viewport
-(`position: sticky; bottom: 0`) — `chrome` decides for both zones, `chrome="static"`
-leaves the zone as the last row of the block, and `stickyBottomOffset` moves the
-line when your site has a fixed bar below. A stuck pinned block paints the
-background of the screen root under itself; elements of the body that take
-keyboard focus keep clear of the zone (`scroll-margin-block-end` = the height of
-the zone + `stickyBottomOffset`). The reader does not react to the screen
-keyboard: the contract only names the rule for the day text inputs appear.
+- A zone whose node is hidden by a condition does not exist, and nobody takes
+  its place.
+- A `pin` in any other place, or any other word, is not read — the node is an
+  ordinary child.
+
+**Geometry.**
+
+- Top to bottom the zone is: the pinned block (with the bottom padding of the
+  root under it), the navigation bar, the safe inset.
+- The body ends at the top edge of the zone and finishes with the screen's
+  `gap` instead of the bottom padding, so the last line of content is never
+  hidden under the block.
+- The navigation bar has no padding of the root: it runs from edge to edge.
+
+**The navigation bar.**
+
+- It draws the first five **visible** `NavItem`s in equal shares, an icon over
+  a one-line label.
+- It is a `<nav>`; every item is a button with the label as its name, and the
+  item whose action is `navigate.section` to the shown screen carries
+  `aria-current="page"`.
+- Pressing an item performs its action like a button does. `navigate.section`
+  makes the section the only screen of the stack (the cause of the screen-shown
+  event is `switch`), and a modal layer closes with everything on top of it.
+- A modal layer never draws the bar, but it does draw a pinned block at its
+  bottom.
+
+**With `scroll="page"`** the bottom zone **sticks** to the bottom of the
+viewport (`position: sticky; bottom: 0`):
+
+- `chrome` decides for both zones: `chrome="static"` leaves the zone as the
+  last row of the block.
+- `stickyBottomOffset` moves the line when your site has a fixed bar below. It
+  takes the same forms as `stickyOffset`.
+- A stuck pinned block paints the background of the screen root under itself.
+- Elements of the body that take keyboard focus keep clear of the zone
+  (`scroll-margin-block-end` = the height of the zone + `stickyBottomOffset`).
+
+The renderer does not react to the on-screen keyboard — see [Forms](#forms).
+
+### Safe areas
+
+The renderer adds the safe-area insets itself; both props take `'env'`
+(default — `env(safe-area-inset-top)` / `env(safe-area-inset-bottom)` of the
+browser) or a number of CSS pixels you measured. Pass `0` when your host
+already leaves the room (it wraps the screen in a safe area, or leaves space
+for the home indicator). Anything else — a negative number and `NaN` for the
+top inset included — counts as `0`.
+
+| | `safeAreaTop` | `safeAreaBottom` |
+|---|---|---|
+| **Where it is added** | Inside the box of the app bar, above its content, so a named background of the bar covers the status bar. Without an app bar, or with one hidden: above the body area. | Under the content of the bottom zone (a pinned block, a navigation bar); the background of the bar reaches the physical bottom. |
+| **When** | With `scroll="screen"`, or while the app bar sticks to the top of the window (`scroll="page"`, `chrome="sticky"`). | Only when the screen has a bottom zone. With `scroll="page"`, only while the zone sticks. |
+| **Never** | Inside a modal layer. | — |
+
+**The body under the app bar.** `Screen.props.bodyTop: 'screenTop'` starts the
+body at the top edge of the screen: the app bar stands over it, takes the
+presses of its own box, and the content shows through it. Such a screen adds
+no top inset to the content of its body.
 
 ### Adaptive layout by width
 
-One document serves every width: it is built for a phone, and wider classes override it
-(schema 9.18). The reader measures the width of **its own root element** — not the window and
-not the device — and picks a class: `compact` below 600 CSS pixels, `medium` from 600,
-`expanded` from 1024 (the width is not rounded: 599.9 is `compact`). It resolves the tree for
-that class and then draws it like any other document: `propsOn` and `styleOn` override the base
-(`medium` on the base, `expanded` on the base with `medium`), `showOn` lists the classes a node
-is shown on (together with its condition `visibleIf`), and `Screen.contentMaxWidth` puts the
-content of the body, of the pinned block, of the app bar and of the navigation bar into a
-centred column while the backgrounds stay edge to edge.
+One document serves every width: it is built for a phone, and wider classes
+override it. The renderer measures the width of **its own root element** — not
+the window and not the device — and picks a class:
 
-- **Give the root a width.** The class follows the width of the element only if the
-  element has a width of its own (a block in a column, a grid cell). A root whose width
-  depends on what it draws — inside a shrink-to-fit parent, or in an area whose scrollbar
-  appears with the height of the content — would go round in a loop: the class changes the
-  content, the content changes the width, the width changes the class. The reader stops it
-  with a lock; the real fix is a width on the host.
-  - **How a loop is recognised.** Four changes of the class within half a second. There
-    are three classes, so the fourth change in a row always returns to a class that was
-    already shown, whether the loop has two classes or three; a loop makes one change per
-    repaint, a person does not cross a class boundary four times in half a second on purpose.
-  - **What the lock does.** The class becomes the **narrowest** of the classes of the loop
-    and stops changing.
-  - **When the lock is lifted.** Under the lock the class is constant, so the layout is, so
-    the width is. A width that **changes** under the lock (by more than half a pixel) was
-    changed by the host — a window, a column — and not by the content: the lock is lifted
-    and the class is taken from the new width. If the loop starts again it is locked again;
-    every lift is paid for by a real change of the width, so this cannot run forever.
-  - **Jitter at a boundary.** Dragging the edge of a window back and forth over 600 or 1024
-    looks like a loop of two classes and is locked like one. It is told apart by the width
-    under the lock, which is not the width the "loop" showed for that class. Such a lock is
-    lifted by the next change of the width like any other, and if the width never changes
-    again, by itself after one second (the class is then taken from the measured width; a
-    real loop is locked a second time, and then for good). So a window that comes to rest at
-    900 is `medium`, never `compact`.
-- **Server rendering.** There is no width on the server, so the markup is `compact`.
-  Pass `initialWidthClass` when you know the width of the place:
+| Class | Width of the root, CSS pixels |
+|---|---|
+| `compact` | below 600 |
+| `medium` | from 600 |
+| `expanded` | from 1024 |
+
+The width is not rounded: 599.9 is `compact`. The renderer resolves the tree
+for the class and then draws it like any other document. What a document can
+say per class:
+
+| Field | |
+|---|---|
+| `propsOn`, `styleOn` | Override the base: `medium` on the base, `expanded` on the base with `medium`. `unset` in a layer removes the named fields before the layer is laid on. |
+| `showOn` | The classes a node is shown on (together with its condition `visibleIf`). The screen root has no `showOn`: a screen is shown on every width. |
+| `Screen.contentMaxWidth` | Puts the content of the body, of the pinned block, of the app bar and of the navigation bar into a centred column while the backgrounds stay edge to edge. |
+
+#### What the host does
+
+**Give the root a width.** The class follows the width of the element only if
+the element has a width of its own (a block in a column, a grid cell). A root
+whose width depends on what it draws — inside a shrink-to-fit parent, or in an
+area whose scrollbar appears with the height of the content — would go round
+in a loop: the class changes the content, the content changes the width, the
+width changes the class. The renderer stops it with a
+[lock](#the-lock-against-a-flickering-class); the real fix is a width on the
+host.
+
+**On the server, say the class if you know it.** There is no width on the
+server, so the markup is `compact`. Pass `initialWidthClass` when you know the
+width of the place — then the server markup and the first browser frame
+already have the final layout. After the first layout the measured class wins;
+anything but the three words counts as `'compact'`.
 
 <!-- example: adaptive.tsx#adaptive -->
 ```tsx
@@ -494,35 +662,78 @@ export function Home({ layout, theme, columnWidth }: { layout: UiDocument; theme
 }
 ```
 
-- Resizing the host switches the class without losing anything: the stack of screens, the
-  chosen options, typed text, the position of the carousels and the focus stay. The body of
-  the screen is **not rebuilt**: the root has one shape of markup on every class and with
-  every combination of zones (root → body zone → body padding → content column → children),
-  so a class that turns on `contentMaxWidth`, hides the app bar or the pinned block changes
-  styles only — a text field stays the same element, keeps the focus and an unfinished IME
-  composition, an expanded accordion stays expanded. The items of the navigation bar are
-  built again when the bar moves between the bottom and the app bar; an item that had the
-  focus has it again in the new place.
-- The screen root has no `showOn` (the contract gives the field to every node but the
-  root), so the reader does not read it there: a screen is shown on every width.
-- **The navigation bar on a wide place.** On `medium` and `expanded` the bar stands at the
-  **top**: inside the app bar when the screen has one that is shown in this class and by its
-  condition (the items go into the trailing zone, before the actions; icon and label side by
-  side), and as a bar of its own, edge to edge, when it has none. `widePlacement: 'bottom'` on
-  the bar keeps it at the bottom on every width; on `compact` it is always at the bottom. When
-  the items do not fit, the labels of **all** of them are hidden together (they stay the
-  accessible name of the button), then the title shrinks to nothing, and what still does not
-  fit is clipped at the end of the bar. The view depends on the width alone — on the natural
-  width of the **text** of the title and of the labels — so the same width gives the same
-  view whether the bar was being narrowed or widened. The bottom zone of a wide screen is the pinned block
-  only; the safe inset is added only while that zone exists.
-- **A modal sheet on a wide place.** A modal screen without `modalPlacement` (or with `bottom`)
-  is a sheet on `compact` and a **window in the middle** on `medium` and `expanded`: at most 560
-  wide, at most 85 % of the height of the area (or the area without margins — the lesser), the
-  body scrolls while the header of the layer stays. The class of the **content** of the layer
-  is taken from its own box, so a 560 window is always `compact` even over an `expanded` page.
-  `modalPlacement: 'center'` is the window of 9.9 on every width. Closing, focus and `inert` under
-  the layer did not change.
+#### What survives a resize
+
+Resizing the host switches the class without losing anything: the stack of
+screens, the chosen options, typed text, the position of the carousels and the
+focus stay.
+
+- The body of the screen is **not rebuilt**. The root has one shape of markup
+  on every class and with every combination of zones (root → body zone → body
+  padding → content column → children), so a class that turns on
+  `contentMaxWidth`, hides the app bar or the pinned block changes styles only.
+- A text field stays the same element: it keeps the focus and an unfinished IME
+  composition. An expanded accordion stays expanded.
+- The items of the navigation bar are built again when the bar moves between
+  the bottom and the app bar; an item that had the focus has it again in the
+  new place.
+
+#### The navigation bar and modal sheets on a wide place
+
+**The navigation bar.** On `medium` and `expanded` the bar stands at the
+**top**; on `compact` it is always at the bottom.
+
+- With an app bar that is shown in this class and by its condition, the items
+  go inside it — into the trailing zone, before the actions, icon and label
+  side by side. Without one, the bar is a bar of its own, edge to edge.
+- `widePlacement: 'bottom'` on the bar keeps it at the bottom on every width.
+- When the items do not fit, the labels of **all** of them are hidden together
+  (they stay the accessible name of the button), then the title shrinks to
+  nothing, and what still does not fit is clipped at the end of the bar.
+- The view depends on the width alone — on the natural width of the **text** of
+  the title and of the labels — so the same width gives the same view whether
+  the bar was being narrowed or widened.
+- The bottom zone of a wide screen is the pinned block only; the safe inset is
+  added only while that zone exists.
+
+**A modal sheet.** A modal screen without `modalPlacement` (or with `bottom`)
+is a sheet on `compact` and a **window in the middle** on `medium` and
+`expanded`.
+
+- The window is at most 560 wide and at most 85 % of the height of the area
+  (or the area without margins — the lesser). The body scrolls while the header
+  of the layer stays.
+- The class of the **content** of the layer is taken from its own box, so a 560
+  window is always `compact` even over an `expanded` page.
+- `modalPlacement: 'center'` is a window on every width.
+- Closing, focus and `inert` under the layer are the same as for a sheet.
+
+#### The lock against a flickering class
+
+This is what the renderer does when the width of the root depends on its own
+content (see "Give the root a width" above).
+
+- **How a loop is recognised.** Four changes of the class within half a
+  second. There are three classes, so the fourth change in a row always returns
+  to a class that was already shown, whether the loop has two classes or three;
+  a loop makes one change per repaint, and a person does not cross a class
+  boundary four times in half a second on purpose.
+- **What the lock does.** The class becomes the **narrowest** of the classes of
+  the loop and stops changing.
+- **When the lock is lifted.** Under the lock the class is constant, so the
+  layout is, so the width is. A width that **changes** under the lock (by more
+  than half a pixel) was changed by the host — a window, a column — and not by
+  the content: the lock is lifted and the class is taken from the new width. If
+  the loop starts again it is locked again; every lift is paid for by a real
+  change of the width, so this cannot run forever.
+- **Jitter at a boundary.** Dragging the edge of a window back and forth over
+  600 or 1024 looks like a loop of two classes and is locked like one. It is
+  told apart by the width under the lock, which is not the width the "loop"
+  showed for that class. Such a lock is lifted by the next change of the width
+  like any other, and if the width never changes again, by itself after one
+  second (the class is then taken from the measured width; a real loop is
+  locked a second time, and then for good). So a window that comes to rest at
+  900 is `medium`, never `compact`.
 
 ## Data
 
@@ -536,16 +747,18 @@ Dates are bound as ISO strings and formatted by the renderer
 (`Intl.DateTimeFormat`, the shown language, the device's time zone unless
 `timeZone` is given).
 
-### Sentences, numbers and plurals
+### Sentences, numbers, money and plurals
 
-Since schema 9.4 a text can be a **template** — one translatable sentence with
-named places, `"{days} {unit} left · {price}"` — and a binding can say how its
-value is written. All of it is document data; you only pass `data` as before:
+A text can be a **template** — one translatable sentence with named places,
+`"{days} {unit} left · {price}"` — and a binding can say how its value is
+written. All of it is document data; you only pass `data` as before:
 
 | In the document | On the screen | |
 |---|---|---|
 | `format: 'number'` | `1,850` / `1 850` | Group and decimal separators of the shown language, grouping always on, up to three fraction digits. |
 | `format: 'currency'`, `currency: 'JOD'` | `120 JOD`, `1,850.50 USD` | The amount, a no-break space, the ISO 4217 code — the same order in every language. A whole amount has no fraction; otherwise the digits of the currency. |
+| …with `currencyDisplay: 'symbol'`, `currencyPosition: 'before'`, `sign: 'always'` | «+42 000,50 ₴» | See [Money](#money) below. |
+| `format: 'date'` with `dateParts` | day and month; weekday, day and month; day, month and year | `dayMonth`, `weekdayDayMonth`, `dayMonthYear` choose which parts of the date are written. |
 | `format: 'daysUntil'` | `4` | Whole days until the bound moment, rounded **up**, never below zero: `max(0, ceil((moment − now) / 24 h))`. No time zone is involved. |
 | a `plural` value | `day` / `days`, `день` / `дні` / `днів` | The form whose CLDR category matches the number (`Intl.PluralRules`). The language is the one the shown forms are written in — the translation's if the forms are translated, the document's own otherwise — never the device's. |
 
@@ -555,8 +768,26 @@ has no data shows that value's own fallback and the rest of the sentence stays
 (`— / 5 steps`); a place the document does not declare is drawn literally,
 braces included — a typo is visible, not silent.
 
-What the renderer expects from your `data` — the contract's rules, the same
-in every reader:
+#### Money
+
+Without the three fields below a currency is written with its code after the
+amount. Each field is optional and changes one thing:
+
+| Field of the binding | What it does |
+|---|---|
+| `currencyDisplay: 'symbol'` | The sign of the currency instead of its code (`₴`, `$`, `€`…), from a closed table of twelve codes. A code the table does not have stays a code, in the same place. |
+| `currencyPosition: 'before'` | The currency before the amount, in every language. |
+| `sign: 'always'` | A plus for a positive number. The minus is U+2212; zero has no sign. |
+
+- In text shown right to left the composed form is wrapped in the isolation
+  marks U+2066 … U+2069, so the sign, the amount and the currency keep their
+  order.
+- `Text.spans[place].parts` (`fraction`, `currency`) gives the decimal part and
+  the currency a style of their own — small cents next to a large amount.
+
+#### What the renderer expects from your data
+
+These are the contract's rules, the same in every reader.
 
 - **Numbers as numbers.** The string `"1850"` is not a number: it is shown as
   it is and takes the plural form `other`. Do not format values yourself.
@@ -571,6 +802,10 @@ in every reader:
 - **Image addresses in data.** The renderer asks `resolveImageUrl` first; with
   no answer from you only `https:` (up to 2048 characters) is drawn. Your
   answer is final up to 512 KB per address.
+- **Icon names in data.** A node can take the **name** of its icon from data
+  (`iconPath`). Only a name of the embedded set is drawn; anything else is an
+  empty box of the same size. Mirroring in a right-to-left screen follows the
+  resolved name.
 - **An empty string is "no value".** `""` shows the fallback of the binding,
   under any format; a string of spaces, `0` and `false` are values. Inside a
   list row an empty field still belongs to the row — it shows the fallback,
@@ -589,8 +824,8 @@ in every reader:
 **`now` is the renderer's clock.** `daysUntil` is counted when the screen is
 rendered, from `now` — by default the clock of whoever renders. The screen
 does not tick: re-render it (new `now`, new data) when you want a fresh number.
-Pass `now` explicitly in three cases: server rendering (below), tests, and
-previews of sample data.
+Pass `now` explicitly in three cases: server rendering
+([below](#server-rendering-and-nextjs)), tests, and previews of sample data.
 
 ### One screen, many records
 
@@ -626,7 +861,7 @@ export function Catalog({ layout, shared, items, onRedeem }: { layout: UiDocumen
 }
 ```
 
-The rules, in full (schema 9.2.0 — the same in the mobile renderer):
+The rules, in full (the same in the mobile renderer):
 
 | The action is pressed… | `navigate` opens the screen… | `source.record` |
 |---|---|---|
@@ -634,7 +869,7 @@ The rules, in full (schema 9.2.0 — the same in the mobile renderer):
 | outside a list, the target is a **page** | **without** a record — "Back to catalog" from a details screen is a clean catalog | the record its screen was opened with, if any |
 | outside a list, the target is a **modal** sheet | with the record of the screen beneath — "Redeem *{item.name}*?" is about the same record | the same |
 
-Since 9.8 an action can say it explicitly: `navigate` with **`carryRecord: true`**
+An action can also say it explicitly: `navigate` with **`carryRecord: true`**
 opens a **page** from a screen button with the record of its own screen — "Choose
 delivery" on the details of a reward is about the same reward. Only exactly `true`
 counts; a plain `navigate` keeps the rule above.
@@ -699,51 +934,67 @@ export function Survey({ layout, initial }: { layout: UiDocument; initial: DataS
 
 ### Write actions and choice
 
-`setValue` and `toggleValue` are actions of the catalog that **the reader
-performs**; a button, an icon button, a list row with an action or a pressable
-card can carry them. A press does three things in this order: the analytics
-event of the action (`onTrack`, once, also when nothing is written), then the
-write — into the session of the reader and to `onWrite(path, value)` with a
-typed value (a string, a flag or a number) — and nothing more. `onAction` is
-**not** called for them, valid or not.
+`setValue` and `toggleValue` are actions of the catalog that **the renderer
+performs**; a button, an icon button, a list row with an action or a
+[pressable card](#pressable-cards) can carry them. `setValue` puts a literal
+(a string, a flag or a number, by `valueType`) under a path of the data
+dictionary; `toggleValue` flips the flag under it.
 
-- The write goes through the same gate as an input field: `writablePaths`, the
-  form of the path, no `__proto__` / `constructor` / `prototype` segments. A path
-  the gate refuses is written nowhere and is reported as `ignored-input`.
-- The path and the value are literals of the document. A binding next to them
-  (`paramBindings`) is never read, so data cannot choose where the document
-  writes.
-- The current value is read with the data of the node (the record of the list
-  row, the session, your `data`): pressing an option that is already chosen
-  writes nothing, and a `toggleValue` writes the negation of what is shown.
-- A node with `setValue` and a value is an **option**: `role="radio"` with
-  `aria-checked`, chosen when its value lies under its path. Options that are
-  children of one parent and write the same path are one group; each says its
-  place (`aria-posinset` / `aria-setsize`). A node with `toggleValue` is a
-  **toggle**: `aria-pressed`. A `setValue` without a value ("clear") and an
-  invalid action are plain buttons. The reader draws no look of «chosen» of its
-  own — put it into the `styleWhen` of the node.
-- Every option is a tab stop; there is no arrow-key navigation between them.
+A press does two things, in this order, and nothing more:
+
+1. the analytics event of the action (`onTrack`, once, also when nothing is
+   written);
+2. the write — into the session of the renderer and to `onWrite(path, value)`
+   with a typed value.
+
+`onAction` is **not** called for them, valid or not.
+
+- **The same gate as an input field.** `writablePaths`, the form of the path,
+  no `__proto__` / `constructor` / `prototype` segments. A path the gate
+  refuses is written nowhere and is reported as `ignored-input`; so is an
+  invalid action.
+- **The path and the value are literals of the document.** A binding next to
+  them (`paramBindings`) is never read, so data cannot choose where the
+  document writes.
+- **The same value is not written twice.** The current value is read with the
+  data of the node (the record of the list row, the session, your `data`):
+  pressing an option that is already chosen writes nothing, and a
+  `toggleValue` writes the negation of what is shown.
+
+How such a node is announced:
+
+| The node carries | It is | Semantics |
+|---|---|---|
+| `setValue` with a value | an **option** | `role="radio"` with `aria-checked`, chosen when its value lies under its path. Options that are children of one parent and write the same path are one group; each says its place (`aria-posinset` / `aria-setsize`). |
+| `toggleValue` | a **toggle** | `aria-pressed` |
+| `setValue` without a value ("clear"), or an invalid action | a plain button | — |
+
+The state is recomputed from the data on every change. The renderer draws no
+look of «chosen» of its own — put it into the `styleWhen` of the node. Every
+option is a tab stop; there is no arrow-key navigation between them.
 
 ## Forms
 
 A document can ask the person for things: `TextField` (one line or several, with
 a label, a placeholder, a helper and an error), `Switch` and `Checkbox`. The
 value of each is a **data path** — the same flat map you already give as `data` —
-and every change the person makes is written there at once:
+and every change the person makes is written there at once.
 
-- the renderer keeps what was written for the lifetime of the flow (same
+- **The renderer keeps what was written** for the lifetime of the flow (same
   `documentId` and `entry`), so `visibleIf` conditions and bound texts of the
-  screen update on every keystroke even if you do nothing with `onWrite`;
-- `onWrite(path, value)` is called at the same moment: a **string** from a text
-  field (on every change; a cleared field writes `""`; an IME composition is
-  written when it ends), a **number** from a number field (below), a **boolean**
-  from a switch and a checkbox, the chosen option (a string) from a
-  `ChoiceGroup` with a bound value — a choice is written like a field, so the
-  conditions and the buttons of the screen see it at once;
-- if you put a value under the same path into `data`, it wins over what the
+  screen update on every keystroke even if you do nothing with `onWrite`.
+- **`onWrite(path, value)` is called at the same moment**, with a value typed
+  by the widget — see the table below.
+- **A value you put into `data` under the same path wins** over what the
   person typed: that is how you normalise input or clear a field. A value of
   another type under the path (a number under a text field) is an empty field.
+
+| Widget | `onWrite` receives |
+|---|---|
+| `TextField` | a **string**, on every change; a cleared field writes `""`; an IME composition is written when it ends |
+| `TextField` with `valueType: 'number'` | a **number**, or `""` when the text is not a number — see [below](#required-fields-a-disabled-button-a-number-field) |
+| `Switch`, `Checkbox` | a **boolean** |
+| `ChoiceGroup` with a bound value | the chosen option, a **string** — a choice is written like a field, so the conditions and the buttons of the screen see it at once |
 
 <!-- example: forms.tsx#forms -->
 ```tsx
@@ -804,42 +1055,69 @@ export function ProfileForm({ layout, initial, trusted }: { layout: UiDocument; 
   to `visualViewport`, and the focused field keeps clear of a stuck bottom zone
   through the scroll margin of the body.
 
+**What a document can add to the box of a text field** — nothing here reaches
+your handlers:
+
+- the look of the box itself: `fieldRadius`, `fieldBackground`,
+  `fieldBorderColor`, `fieldBorderWidth`, and `fieldHeight` (not read by a
+  multi-line field);
+- a mark at the start and at the end of the box (`prefix` / `suffix`): up to
+  eight code points of text or an icon. It is never the value and is never
+  written; a press on it focuses the field;
+- a character counter (`counter`): in code points, only with `maxLength`; read
+  with the field, not announced on every key.
+
 ### Required fields, a disabled button, a number field
 
-Schema 9.14 adds what a short survey needs. **The renderer decides everything
-here from the document and from what the person typed; there are no new props
-and no callbacks.**
+This is what a short survey needs. **The renderer decides everything here from
+the document and from what the person typed; there are no props and no
+callbacks for it.**
 
-- **`required`** on a `TextField`, a `Checkbox` or a `ChoiceGroup` (only the
-  literal `true`): an asterisk after the label (colour `danger`, hidden from
-  screen readers) and `aria-required`. The renderer shows **no text of its own**
-  ("fill in this field") and never puts a field into the error state because it
-  is empty — the error stays the string you put into `data`.
-- **A form is the screen.** A field counts as *filled* by the **value under its
-  path**, read through the layers (what the person typed, then `data`): a text
-  you can hear, a number, `true`, a non-empty choice. A field hidden by
-  `visibleIf` or disabled by `disabledIf` is not counted; a field in a tab that
-  is not open is. A list drawn from data (`Repeater`) is not counted.
-- **`requiresFilled`** and **`disabledIf`** on a `Button` or an `IconButton`: the
-  button is disabled while the form of its screen is not filled, or while the
-  condition holds. A disabled button is drawn at half opacity, keeps its place
-  and **stays in the tab order** (`aria-disabled="true"`, not the `disabled`
-  attribute); touch, Enter and Space do nothing — no `onAction`, no `onTrack`,
-  no navigation. It comes alive **the moment the form is filled**, with the
-  first letter, without waiting for your `data`.
-- **A number field** — `TextField` with `valueType: 'number'`: a numeric
-  keyboard (`inputmode="decimal"`), one line, left to right. The typed text is
-  read by the contract's own rule (a minus, digits — Latin, Arabic-Indic or
-  Persian, one separator `.` `,` or `٫`, at most 15 digits; no groups, no
-  exponent), not by `Number()`. `onWrite` receives a **number**; a text that is
-  not a number, or a cleared field, writes **`""`** (never `null`), and the field
-  keeps what was typed. A number in `data` is shown as plain ASCII digits with a
-  dot; a string under the path of a number field is an empty field.
-  Once the user leaves the field, a non-empty text that is not a number puts it
-  into the error state (the same look as a non-empty `error` from your data, and
-  `aria-invalid="true"`); while it is focused, or once the text is a number or
-  empty, there is no such state. The renderer adds no text: the `helper` of the
-  field says what to type.
+**`required`** on a `TextField`, a `Checkbox` or a `ChoiceGroup` (only the
+literal `true`):
+
+- an asterisk after the label (colour `danger`, hidden from screen readers)
+  and `aria-required`;
+- **no text of the renderer's own** ("fill in this field"), and a field is
+  never put into the error state because it is empty — the error stays the
+  string you put into `data`.
+
+**A form is the screen.** A field counts as *filled* by the **value under its
+path**, read through the layers (what the person typed, then `data`): a text
+you can hear, a number, `true`, a non-empty choice.
+
+- Not counted: a field hidden by `visibleIf` or disabled by `disabledIf`, and a
+  list drawn from data (`Repeater`).
+- Counted: a field in a tab that is not open.
+
+**`requiresFilled`** and **`disabledIf`** on a `Button` or an `IconButton`: the
+button is disabled while the form of its screen is not filled, or while the
+condition holds.
+
+- A disabled button is drawn at half opacity, keeps its place and **stays in
+  the tab order** (`aria-disabled="true"`, not the `disabled` attribute).
+- Touch, Enter and Space do nothing — no `onAction`, no `onTrack`, no
+  navigation.
+- It comes alive **the moment the form is filled**, with the first letter,
+  without waiting for your `data`.
+
+**A number field** — `TextField` with `valueType: 'number'`: a numeric keyboard
+(`inputmode="decimal"`), one line, left to right.
+
+- **What counts as a number.** The typed text is read by the contract's own
+  rule, not by `Number()`: a minus, digits — Latin, Arabic-Indic or Persian —
+  one separator `.` `,` or `٫`, at most 15 digits; no groups, no exponent.
+- **What is written.** `onWrite` receives a **number**; a text that is not a
+  number, or a cleared field, writes **`""`** (never `null`), and the field
+  keeps what was typed.
+- **What is shown from data.** A number in `data` is shown as plain ASCII
+  digits with a dot; a string under the path of a number field is an empty
+  field.
+- **The error state.** Once the user leaves the field, a non-empty text that is
+  not a number puts it into the error state (the same look as a non-empty
+  `error` from your data, and `aria-invalid="true"`). While it is focused, or
+  once the text is a number or empty, there is no such state. The renderer adds
+  no text: the `helper` of the field says what to type.
 
 <!-- example: forms.tsx#survey -->
 ```tsx
@@ -972,6 +1250,11 @@ your own shadow root, the declaration still belongs to the document.
 
 ## Languages and right-to-left
 
+Pass the **user's locale as the platform gives it** — `navigator.language`, the
+`Accept-Language` winner, `ar_EG` from a mobile bridge. Translations live **in
+the document** (`localization`), where the manager edits them in the builder,
+and the renderer finds the right one itself.
+
 <!-- example: theme-and-fonts.tsx#locale -->
 ```tsx
 export const arabic = (
@@ -988,26 +1271,42 @@ export const arabic = (
 export const forced = <HotlayoutScreen document={layout} locale="en" dir="rtl" />
 ```
 
-- Translations live **in the document** (`localization`); the manager edits
-  them in the builder. Pass the **user's locale as the platform gives it** —
-  `navigator.language`, the `Accept-Language` winner, `ar_EG` from a mobile
-  bridge — and the renderer finds the translation itself:
-  - `_` equals `-` and case does not matter: `ar_EG`, `ar-eg`, `AR-EG` are one tag;
-  - subtags are dropped from the end until a language of the document matches
-    (RFC 4647 Lookup): `ar-EG` → `ar`; `zh-Hant-TW` → `zh-Hant` → `zh`;
-  - it never goes the other way: `locale="ar"` does **not** pick a document's
-    `ar-EG`, and `pt-BR` does not pick `pt-PT`. Guessing a region would show
-    people the wrong text silently — the builder warns the manager about a
-    regional translation without its base language instead;
-  - no match → the document's own language.
+**How the translation is found** — the contract's rule, the same in the mobile
+renderer:
 
-  This is the contract's rule (schema 9.1.0), the same in the mobile renderer.
-- The answer is one per document: a string that has no translation in the
-  chosen language falls back to the document's own text, not to a third
-  language.
-- Known limit: `zh-TW` falls to `zh` (usually Simplified) although Taiwan
-  writes Traditional — the rule drops subtags and does not consult script
-  data. Give the document a `zh-TW` translation if you serve Taiwan.
+1. `_` equals `-` and case does not matter: `ar_EG`, `ar-eg`, `AR-EG` are one
+   tag.
+2. Subtags are dropped from the end until a language of the document matches
+   (RFC 4647 Lookup): `ar-EG` → `ar`; `zh-Hant-TW` → `zh-Hant` → `zh`.
+3. It never goes the other way: `locale="ar"` does **not** pick a document's
+   `ar-EG`, and `pt-BR` does not pick `pt-PT`. Guessing a region would show
+   people the wrong text silently — the builder warns the manager about a
+   regional translation without its base language instead.
+4. No match → the document's own language.
+
+The answer is one per document: a string that has no translation in the chosen
+language falls back to the document's own text, not to a third language.
+
+Known limit: `zh-TW` falls to `zh` (usually Simplified) although Taiwan writes
+Traditional — the rule drops subtags and does not consult script data. Give the
+document a `zh-TW` translation if you serve Taiwan.
+
+**What follows from the answer:**
+
+- **Dates** are formatted with the **requested locale** when a translation was
+  found (`ar-EG` gives Egyptian formats next to Arabic text) and with the
+  document's own language when it was not — never Arabic digits next to
+  English text.
+- **Direction** follows the language that is actually **shown**, not the one
+  that was asked for: no Arabic in the document → left to right. It is a
+  property of the script and comes from CLDR (`Intl.Locale`), not from a list
+  in this package. It is set as `dir` on the screen's root only — your page is
+  not touched.
+- **Layout is logical throughout** (`start` / `end`): rows, paddings, corner
+  radii and the back arrow flip; icons the contract marks as directional are
+  mirrored; the tab strip's arrow keys swap.
+- **Values from your data are not translated** — the backend already answered
+  in the user's language.
 
 When your own chrome has to speak the same language as the screen, ask the
 same function the component uses:
@@ -1023,21 +1322,6 @@ export function backLabelFor(document: UiDocument, deviceLocale: string): string
 }
 // backLabelFor(layout, 'ar-EG') → 'رجوع' when the document has `ar`; 'Back' when it only has `ar-SA` or no Arabic at all
 ```
-
-- Dates are formatted with the **requested locale** when a translation was
-  found (`ar-EG` gives Egyptian formats next to Arabic text) and with the
-  document's own language when it was not — never Arabic digits next to
-  English text.
-- Direction follows the language that is actually **shown**, not the one that
-  was asked for: no Arabic in the document → left to right.
-- Direction is a property of the script and comes from CLDR (`Intl.Locale`),
-  not from a list in this package. It is set as `dir` on the screen's root
-  only — your page is not touched.
-- Layout is logical throughout (`start` / `end`): rows, paddings, corner radii
-  and the back arrow flip; icons the contract marks as directional are
-  mirrored; the tab strip's arrow keys swap.
-- Values from your data are not translated — the backend already answered in
-  the user's language.
 
 ## Server rendering and Next.js
 
@@ -1086,27 +1370,29 @@ export function Rewards({ layout, theme }: { layout: UiDocument; theme: ThemeCon
 }
 ```
 
-**Set `timeZone` whenever a screen with dates is rendered on a server.** A
-server usually runs in UTC and the browser does not; the same moment formatted
-twice gives two texts ("Oct 31" and "Nov 1"), and React reports a hydration
-mismatch. With `timeZone` both sides write the same text. Pick the zone that
-is true for the user (their profile, your market) — or omit the prop and
-render date-bound screens on the client only.
+Four things to set or know when you render on a server:
 
-**Set `now` for the same reason** when the document counts days
-(`daysUntil`): the server and the browser render at different moments, and a
-deadline that crosses a 24-hour boundary in between gives "4 days left" in the
-markup and "3 days left" after hydration. In a Server Component read the clock
-once and pass it down — the number travels to the browser with the props, as
-in the first example above.
+- **Set `timeZone` whenever a screen with dates is rendered on a server.** A
+  server usually runs in UTC and the browser does not; the same moment
+  formatted twice gives two texts ("Oct 31" and "Nov 1"), and React reports a
+  hydration mismatch. With `timeZone` both sides write the same text. Pick the
+  zone that is true for the user (their profile, your market) — or omit the
+  prop and render date-bound screens on the client only.
+- **Set `now` for the same reason** when the document counts days
+  (`daysUntil`): the server and the browser render at different moments, and a
+  deadline that crosses a 24-hour boundary in between gives "4 days left" in
+  the markup and "3 days left" after hydration. In a Server Component read the
+  clock once and pass it down — the number travels to the browser with the
+  props, as in the first example above.
+- **Reports (`onReport`) fire in an effect**, i.e. in the browser. On the
+  server use `checkDocumentVersion` and `resolveTheme(theme).reports` if you
+  want to log fallbacks there.
+- **A screen that throws while rendering on the server does not fail the
+  response**: the markup carries the neutral notice (`renderError`) in its
+  place, and the browser reports `render-error` after hydration.
 
-Reports (`onReport`) fire in an effect, i.e. in the browser. On the server use
-`checkDocumentVersion` and `resolveTheme(theme).reports` if you want to log
-fallbacks there.
-
-A screen that throws while rendering on the server does not fail the response:
-the markup carries the neutral notice (`renderError`) in its place, and the
-browser reports `render-error` after hydration.
+The width class on the server is `compact` unless you say otherwise — see
+[Adaptive layout by width](#adaptive-layout-by-width).
 
 ## Styles and isolation
 
@@ -1124,16 +1410,17 @@ The renderer lives in the regular DOM of your page.
 - **Nothing is drawn outside the root.** The root clips its content
   (`overflow: clip; contain: layout paint`). If the screen should scroll inside
   a fixed-height box, give the root `style={{ overflow: 'auto' }}` yourself.
-- **The limit: `!important`.** A host rule marked `!important` still wins over
-  the reset *and* over inline styles — `button { border-radius: 0 !important }`
-  squares every button of the screen. Only Shadow DOM stops that, and it was
-  not chosen because it breaks server rendering with hydration and hides the
-  screen from your tests and tooling. If your CSS has global `!important`
-  rules, either scope them away (`:not([data-hotlayout] *)`) or render
-  `HotlayoutScreen` into your own shadow root.
 - **Inherited properties you set on purpose.** `font-family`, `color`,
   `line-height` and the rest are restated on the root, so a `body` font does
   not reach the screen. That is intended: the screen's typeface is the theme's.
+
+**The limit: `!important`.** A host rule marked `!important` still wins over
+the reset *and* over inline styles — `button { border-radius: 0 !important }`
+squares every button of the screen. Only Shadow DOM stops that, and it was not
+chosen because it breaks server rendering with hydration and hides the screen
+from your tests and tooling. If your CSS has global `!important` rules, either
+scope them away (`:not([data-hotlayout] *)`) or render `HotlayoutScreen` into
+your own shadow root.
 
 ### Strict Content-Security-Policy
 
@@ -1169,22 +1456,25 @@ publish them can change what your users see. The builder validates both on
 publish, but **the renderer does not rely on that**: every value is parsed
 again at the point where it becomes CSS, an address or a key.
 
-**What the package guarantees for an untrusted document and theme:**
+### What the package guarantees
+
+For an untrusted document and theme:
 
 1. **A value never becomes CSS it was not meant to be.** Each value is parsed
-   by an allow-list of its form before it reaches a style: a colour is
-   `#rrggbb` / `#rrggbbaa` and nothing else (not `red`, not `var(…)`, not
-   `url(…)`); a number is a finite number clamped to the range of the schema
-   (padding, radius, font size and weight, opacity, sizes, shadow offset / blur
-   / spread, gradient stops, grid columns 2…4, `limit`, `maxLines`, `weight`); a
-   token, role or asset name matches the token pattern, so nothing outside
-   `[a-z0-9-]` gets into a CSS variable name; a font family is a name made of
-   letters, digits, spaces and `. _ ' & + -`; an alignment, `fit` or direction
-   is one of the listed values. A value that does not parse behaves as the
-   contract's compatibility policy says for an unknown one (the property is not
-   applied, or the field default is used) and is reported. This holds for
-   server rendering too, where a `;` in a style value would otherwise start a
-   new declaration.
+   by an allow-list of its form before it reaches a style:
+
+   | Value | Accepted form |
+   |---|---|
+   | a colour | `#rrggbb` / `#rrggbbaa` and nothing else — not `red`, not `var(…)`, not `url(…)` |
+   | a number | a finite number clamped to the range of the schema: padding, radius, font size and weight, opacity, sizes, shadow offset / blur / spread, gradient stops, grid columns 2…4, `limit`, `maxLines`, `weight` |
+   | a token, role or asset name | the token pattern, so nothing outside `[a-z0-9-]` gets into a CSS variable name |
+   | a font family | a name made of letters, digits, spaces and `. _ ' & + -` |
+   | an alignment, `fit` or direction | one of the listed values |
+
+   A value that does not parse behaves as the contract's compatibility policy
+   says for an unknown one (the property is not applied, or the field default
+   is used) and is reported. This holds for server rendering too, where a `;`
+   in a style value would otherwise start a new declaration.
 2. **Shadows and gradients are assembled from checked parts**, so a "colour"
    cannot add a layer or an address. `url(…)` is produced only for images the
    document may legitimately name, and a theme cannot name an address at all.
@@ -1194,21 +1484,25 @@ again at the point where it becomes CSS, an address or a key.
    your page or take a click meant for your own controls, and a descendant
    cannot become `position: fixed` relative to the window.
 4. **A malformed document or theme does not take your application down.**
-   Whatever does not have the promised shape (a node that is not an object,
-   `children` that is not a list, `null` where an object is expected) is
-   ignored and reported; a theme with holes is completed from the built-in
-   theme of the same brightness. If a screen still throws, the error is caught
-   *inside* the renderer — in the browser and during server rendering — and
-   replaced by a neutral notice (`renderError`), with a `render-error` report.
-   The notice stays until `document.documentId` or `entry` changes (the same
-   document would throw again); remount the component with `key` to retry.
-5. **What reaches your handlers is checked.** `onWrite` is never called with a
-   path that has a `__proto__` / `constructor` / `prototype` segment, and only
-   for `writablePaths` when you give them; action `params` are own keys with
-   string values. `source.record` is a fresh frozen map with the record's own
-   keys of the data-path form only (no `__proto__`, `constructor` or
-   `prototype` segment); its values are the ones you passed in `collections` —
-   the document cannot name or change them, only choose which list is shown.
+   - Whatever does not have the promised shape (a node that is not an object,
+     `children` that is not a list, `null` where an object is expected) is
+     ignored and reported.
+   - A theme with holes is completed from the built-in theme of the same
+     brightness.
+   - If a screen still throws, the error is caught *inside* the renderer — in
+     the browser and during server rendering — and replaced by a neutral
+     notice (`renderError`), with a `render-error` report. The notice stays
+     until `document.documentId` or `entry` changes (the same document would
+     throw again); remount the component with `key` to retry.
+5. **What reaches your handlers is checked.**
+   - `onWrite` is never called with a path that has a `__proto__` /
+     `constructor` / `prototype` segment, and only for `writablePaths` when you
+     give them.
+   - Action `params` are own keys with string values.
+   - `source.record` is a fresh frozen map with the record's own keys of the
+     data-path form only (no `__proto__`, `constructor` or `prototype`
+     segment). Its values are the ones you passed in `collections` — the
+     document cannot name or change them, only choose which list is shown.
 6. **No lookups through the prototype chain.** Data paths, binding formats and
    every table keyed by a string from the document are read as own keys.
 7. **The stylesheet matches nothing of yours.** Its selectors are scoped to the
@@ -1248,7 +1542,7 @@ your `data` and `collections` **are** — the document chooses which path an
 image is bound to. If your own data carries `data:` images or site-relative
 addresses (`/img/42.png`), allow exactly those in `resolveImageUrl`.
 
-**What the package does NOT guarantee:**
+### What the package does not guarantee
 
 - **`!important` rules of your own page** still reach inside the screen — see
   [Styles and isolation](#styles-and-isolation).
@@ -1264,7 +1558,9 @@ addresses (`/img/42.png`), allow exactly those in `resolveImageUrl`.
   depth of the tree, but does not limit the size of the document itself; the
   builder publishes documents up to 1 MB.
 
-**Recommended Content-Security-Policy** for the page that hosts the screen:
+### Recommended Content-Security-Policy
+
+For the page that hosts the screen:
 
 ```text
 img-src 'self' https://cdn.example.com;   /* exactly the image hosts you allow */
@@ -1287,8 +1583,9 @@ Built in; nothing to configure except `labels`.
 | **Tabs** | WAI-ARIA Tabs with automatic activation: one tab stop per strip, `←` `→` (swapped in RTL), `Home`, `End`; `tab` ↔ `tabpanel` are linked. |
 | **Modal screens** | WAI-ARIA Dialog: focus moves into the sheet and returns to what opened it, `Tab` cycles inside, `Esc` closes, the screen underneath is `inert`. |
 | **Screen changes** | After the user navigates, focus moves to the new screen, so the next `Tab` starts there rather than at the top of your page. The first screen never takes focus. |
-| **Names** | Images use the `alt` from the document — a string or a string of the document (a binding, a template), translated like any text (no `alt`, or an empty one → decorative, hidden from assistive technology). Icons likewise. The back arrow is named by `labels.back` (default `"Back"`) — translate it. |
+| **Names** | Images use the `alt` from the document — a plain string or a string of the document (a binding, a template), translated like any text (no `alt`, or an empty one → decorative, hidden from assistive technology). Icons likewise. The back arrow is named by `labels.back` (default `"Back"`) — translate it. |
 | **Icon buttons** | An `IconButton` has no visible text; its accessible name is the `label` of the node, after translation and data binding (`aria-label`). A document that left the label empty still gets a working button, named by its icon in words (`chevron-left` → "chevron left"). An icon next to the label of a `Button` or a `Badge` is decorative and hidden from assistive technology; a badge with an icon is text, not a control. |
+| **Pressable cards** | A container with an action is `role="button"`, a tab stop before the controls inside it; its name is the `label` first, then the text of the content. |
 | **Text fields** | A real `<input>` / `<textarea>` with a visible `<label for>` as its name; the helper and the error describe it (`aria-describedby`), an error sets `aria-invalid` and is announced politely. Tab order is document order. |
 | **Switches and checkboxes** | A `<button>` with `role="switch"` / `role="checkbox"` and `aria-checked`, named by its label; the whole row is the target; `Space` toggles (`Enter` too for a switch). |
 | **Options and toggles** | A node with `setValue` is `role="radio"` with `aria-checked` and, among the options of one parent that write the same path, `aria-posinset` / `aria-setsize`; a node with `toggleValue` is a button with `aria-pressed`. Each is a tab stop; `Enter` and `Space` press. |
@@ -1302,32 +1599,9 @@ not say.
 
 ## Versions
 
-| Package | Document schema | Theme contract | React |
-|---|---|---|---|
-| 0.18.x | 9.19.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.17.x | 9.19.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.16.x | 9.18.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.15.x | 9.18.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.14.x | 9.17.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.13.x | 9.14.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.12.x | 9.13.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.9.x | 9.8.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.8.x | 9.7.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.7.x | 9.5.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.6.x | 9.4.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.5.x | 9.3.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.4.x | 9.2.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.3.x | 9.1.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.2.x | 9.1.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-| 0.1.x | 9.0.x (any 9.x is drawn) | 4.0.x (any 4.x is drawn) | 18, 19 |
-
-**Icons.** The package embeds icon set 1.0.0 (`READER_ICON_SET_VERSION`):
-332 names, drawings from Lucide (ISC) and ten of our own, licence texts in
-`THIRD-PARTY-NOTICES.md`. An icon name is document data, so the reader cannot
-know which names it will meet and carries all of them: about 60 KB of compiled
-JavaScript (18 KB gzipped) in its own module, `icon-set.js`. A name outside the
-set draws an empty box of the same size. The set version is independent of the
-schema version: a redrawn icon is a patch of the set.
+This version reads layout documents of schema **9.19.x** and themes of theme
+contract **4.0.x**, and embeds icon set 1.0.0. Any 9.x document and any 4.x
+theme is drawn; React 18 and 19 are supported by every release.
 
 The rule is the contract's (`x-compatibility` in `screen-schema.json`): the
 **major must match**; a minor only adds optional things; a patch changes
@@ -1341,7 +1615,7 @@ checkDocumentVersion('10.0.0') // { kind: 'incompatible', reason: 'major 10 is n
 console.log(`this build reads schema ${READER_SCHEMA_VERSION}`)
 ```
 
-What the user sees:
+### What the user sees
 
 - **Same major, newer minor** — the screen is drawn. Widgets this build does
   not know draw their children, unknown tokens and fields are skipped;
@@ -1381,6 +1655,109 @@ version of a screen instead of the refusal, as in the next section.
 
 When the builder moves to a new schema major, update this package in your app
 **before** screens are republished from the new builder.
+
+### Which package reads which schema
+
+| Package | Document schema |
+|---|---|
+| 0.17.x, 0.18.x | 9.19.x |
+| 0.15.x, 0.16.x | 9.18.x |
+| 0.14.x | 9.17.x |
+| 0.13.x | 9.14.x |
+| 0.12.x | 9.13.x |
+| 0.11.x | 9.12.x |
+| 0.10.x | 9.11.x |
+| 0.9.x | 9.8.x |
+| 0.8.x | 9.7.x |
+| 0.7.x | 9.5.x |
+| 0.6.x | 9.4.x |
+| 0.5.x | 9.3.x |
+| 0.4.x | 9.2.x |
+| 0.2.x, 0.3.x | 9.1.x |
+| 0.1.x | 9.0.x |
+
+Every row: theme contract 4.0.x, React 18 and 19. 0.17 performs half of the
+9.19 additions and 0.18 all of them — the details are in the
+[changelog](CHANGELOG.md).
+
+### What each schema minor added
+
+Every addition is an optional field: a document without it is drawn as before.
+The table says where a host can read more — a section of this page when there
+is something for the host to do, the [changelog](CHANGELOG.md) entry of the
+package version otherwise.
+
+| Schema | What a document can say | Read more |
+|---|---|---|
+| 9.1 | The device locale picks the translation | [Languages](#languages-and-right-to-left) |
+| 9.2 | A list row carries its record to the screen it opens | [One screen, many records](#one-screen-many-records) |
+| 9.3 | Icons from the embedded set | [Icons](#icons) |
+| 9.4 | Template sentences, `number` / `currency` / `daysUntil`, plurals | [Sentences, numbers, money and plurals](#sentences-numbers-money-and-plurals) |
+| 9.5 | An icon in a button and a badge, button sizes, `IconButton` | [Accessibility](#accessibility); changelog 0.7.0 |
+| 9.6 | A text made of styled parts (`Text.spans`) | changelog 0.8.0 |
+| 9.7 | Thickness, track, gradient and size of a progress bar and ring | changelog 0.8.0 |
+| 9.8 | The action catalog, the analytics event of a press, the screen-shown event, `carryRecord` | [Actions and navigation](#actions-and-navigation) |
+| 9.9 | An own image proportion, app bar actions, a modal window in the middle, the status bar request, the three zones of a screen | [Scrolling and the app bar](#scrolling-and-the-app-bar); changelog 0.10.0 |
+| 9.10 | An overlay layer of a stack (`layer`) and a pulled child (`pull`) | changelog 0.10.0 |
+| 9.11 | A carousel (`carousel` on a scrolling row and on a data list), a stepped progress bar (`segments`) | changelog 0.10.0 |
+| 9.12 | The bottom zone: `NavBar` / `NavItem`, `pin: 'bottom'`, `navigate.section` | [The bottom zone](#the-bottom-zone-navigation-bar-and-a-pinned-block) |
+| 9.13 | `TextField`, `Switch`, `Checkbox` | [Forms](#forms) |
+| 9.14 | `required`, `requiresFilled` / `disabledIf` on a button, a number field | [Required fields…](#required-fields-a-disabled-button-a-number-field) |
+| 9.15 | Alignment on both axes: `Column.justify`, `Container.align` / `justify`, `Screen.align` / `justify` | [below](#layout-and-text-additions-of-915917) |
+| 9.16 | A node in the leading zone of an app bar, `titleAlign`, `glyphSize` | [Scrolling and the app bar](#scrolling-and-the-app-bar); [below](#layout-and-text-additions-of-915917) |
+| 9.17 | Text emphasis, list items (`Text.marker`), the own style of a ring label | [below](#layout-and-text-additions-of-915917) |
+| 9.18 | Width classes: `showOn`, `styleOn`, `propsOn`, `Screen.contentMaxWidth`; the navigation bar and modal sheets on a wide place | [Adaptive layout by width](#adaptive-layout-by-width) |
+| 9.19 | Free composition (a container inside its own type, a tree of up to eight levels — drawn as any other tree) and pressable containers | [Pressable cards](#pressable-cards) |
+| | Money: the sign of a currency, its place, the sign of the number, styled parts | [Money](#money) |
+| | The body under the app bar (`bodyTop`), the top safe inset | [Safe areas](#safe-areas) |
+| | Write actions `setValue` / `toggleValue` and choice from own nodes | [Write actions and choice](#write-actions-and-choice) |
+| | Parts of a list row and of a text field | [below](#parts-of-a-list-row-919); [Forms](#forms) |
+| | `alt` as a string of the document, an icon name from data, date parts, `unset` in a width layer | [Accessibility](#accessibility); [Data](#data); [Adaptive layout](#adaptive-layout-by-width) |
+
+#### Layout and text additions of 9.15–9.17
+
+None of these asks anything of the host; they are listed so that you know what
+you are looking at.
+
+- **Alignment (9.15).** `justify` is the main axis; `align` of a row container
+  is the vertical axis. Free space on the main axis comes only from a named
+  `style.height`, `style.minHeight` or a stretched layer — a column of the
+  height of its content has none, and that is not an error. `align` of a
+  column container and of a screen is the rule of the column.
+- **`glyphSize` (9.16).** An integer 8…128: the side of the drawing of an
+  `Icon` and an `IconButton`, clamped by the named box and not multiplied by
+  the system font scale.
+- **Text emphasis (9.17).** `style.fontStyle` and `style.textDecoration` of a
+  text are inherited field by field and read by `Text` only. A part of a text
+  can name `weight`, `fontStyle` and `textDecoration`; the line is drawn by
+  each run itself.
+- **List items (9.17).** `Text.marker` (`bullet` / `number`) draws a column of
+  the font size of the text with a hanging indent; the number counts the
+  visible items of a group of neighbours.
+- **The label of a ring (9.17).** `labelTypography` / `labelColor`. The label
+  never scales with the ring, never inherits and never sizes it.
+
+#### Parts of a list row (9.19)
+
+- the style and the states of the trailing text: `trailing.style`,
+  `trailing.styleWhen`;
+- a one-line caption under it: `caption`, `captionStyle`, `captionStyleWhen`;
+- the colour and the tinted tile of the leading icon: `leading.color`,
+  `leading.tile`;
+- `titleMaxLines` / `subtitleMaxLines`.
+
+### Icons
+
+The package embeds icon set 1.0.0 (`READER_ICON_SET_VERSION`): 332 names,
+drawings from Lucide (ISC) and ten of our own, licence texts in
+`THIRD-PARTY-NOTICES.md`.
+
+- An icon name is document data, so the renderer cannot know which names it
+  will meet and carries all of them: about 60 KB of compiled JavaScript (18 KB
+  gzipped) in its own module, `icon-set.js`.
+- A name outside the set draws an empty box of the same size.
+- The set version is independent of the schema version: a redrawn icon is a
+  patch of the set.
 
 ## Updating a screen without a release
 
@@ -1440,12 +1817,24 @@ export function LiveRewards({ url, theme }: { url: string; theme: ThemeContract 
 
 ## Limitations
 
+**What the package does not do**
+
 - **No schema validation.** The builder validates on publish, and the renderer
   parses every value it turns into CSS or hands to you
   ([Security model](#security-model)) — but it does not tell you that a
   document is *invalid*. If you accept documents from elsewhere, validate them
   with `screen-schema.json` and any JSON Schema validator at your boundary.
 - **No data fetching, no cache.** `data` and `collections` are yours.
+- **No animation.** The contract says *what* to show; screens appear without
+  transitions, and motion is up to the host.
+- **No scroll management.** The renderer neither scrolls your page on a screen
+  change nor restores positions on "back".
+- **Fonts and real asset files are not shipped** — see [Fonts](#fonts) and the
+  `assets` prop. The icon set is the contract's, and the whole of it is
+  embedded (see [Icons](#icons)).
+
+**Data and formats**
+
 - **Navigation params are not screen data.** `action.params` are handed to
   `onNavigate` / `onAction`, not read by bindings. A screen gets its record
   from the list row that opened it — see
@@ -1462,32 +1851,30 @@ export function LiveRewards({ url, theme }: { url: string; theme: ThemeContract 
 - **Arabic digits depend on the locale you pass.** Digits and separators come
   from the platform's CLDR data: `ar-EG` writes Arabic-Indic digits, plain `ar`
   writes Latin ones in current browsers.
-- **Carousel state is the reader's.** Which card is open is not in the
+
+**State and interaction**
+
+- **Carousel state is the renderer's.** Which card is open is not in the
   document and is not reported to the host; it is kept while the screen is in
-  the stack. No animated scrolling is ever started by the reader.
-- **No animation.** The contract says *what* to show; screens appear without
-  transitions, and motion is up to the host.
+  the stack. No animated scrolling is ever started by the renderer.
+- **Local UI state is not persisted.** The open tab, expanded accordions and
+  unbound choices reset when the screen is left.
+- **Choice groups and options built from own nodes have no arrow-key
+  navigation**; each option is a tab stop. A radio group has no accessible
+  name of its own (the contract has no field for one).
+
+**Look and placement**
+
 - **Modal screens are bottom sheets or windows** (`modalPlacement`) of content
   height, inside the root element — not a browser-level `<dialog>`, and not
   full-viewport unless the root is (with `scroll="page"` they live in the part of
   the root visible in the window). A layer has no built-in look: its
   background, radius and shadow are the `style` of the screen root.
-- **No scroll management.** The renderer neither scrolls your page on a screen
-  change nor restores positions on "back".
-- **Local UI state is not persisted.** The open tab, expanded accordions and
-  unbound choices reset when the screen is left.
 - **Buttons are as big as the contract says, not bigger.** A small button is
   28 px high and a small icon button 28 × 28 under the built-in theme. The
   renderer adds no minimum size; the *touch target* is an invisible 48 px area
   around the button that does not take part in layout — leave room around
   small buttons you place next to your own controls.
-- **Choice groups and options built from own nodes have no arrow-key
-  navigation**; each option is a tab stop.
-  A radio group has no accessible name of its own (the contract has no field
-  for one).
-- **Fonts and real asset files are not shipped** — see [Fonts](#fonts) and the
-  `assets` prop. The icon set is the contract's, and the whole of it is
-  embedded (see [Versions](#versions)).
 - **Host `!important` rules get through** — see
   [Styles and isolation](#styles-and-isolation).
 - **Browsers:** current evergreen browsers (CSS logical properties, `:is()`,
