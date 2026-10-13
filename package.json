@@ -1,6 +1,6 @@
 {
   "name": "@hotlayout/react",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "React renderer for HotLayout server-driven UI documents",
   "license": "Apache-2.0",
   "author": "The HotLayout Authors",

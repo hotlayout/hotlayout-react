@@ -16,6 +16,12 @@ and themes a release reads is stated in every entry.
 
 - Internal: source files split by widget family (`render/`), by concern of the screen stack (`screen/`) and by rule group (`style-box`, `style-roles`, `layout-rules`, `input-number`, `inputs-layout`, `wide-nav`, `wide-modal`); no behaviour change, the public entry is the same.
 
+## [0.18.1] - 2026-10-13
+
+Documentation only: the README opens with what the package is, how to install it and the quick start; what each schema minor added is a table under Versions. No code changes.
+
+**Reads:** the same as 0.18.0 — layout documents of schema **9.19.x** and themes of theme contract **4.0.x**, icon set 1.0.0.
+
 ## [0.18.0] - 2026-10-13
 
 The first version published to npm: `npm install @hotlayout/react`.
