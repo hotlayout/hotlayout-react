@@ -171,7 +171,7 @@ come from the contract.
 | `onTrack` | `(event, source) => void` | The analytics event of a press, once per press and **before** anything else — see [Analytics](#analytics-what-was-pressed-what-was-shown). |
 | `onNavigate` | `(event) => boolean \| undefined` | Called **before** the renderer changes screens. Return `false` to cancel and navigate yourself — see [Driving navigation with your router](#driving-navigation-with-your-router). |
 | `onScreenChange` | `(screen) => void` | The screen-shown event: once per show of a screen, the first one included — see [Screen shown](#screen-shown). |
-| `onReport` | `(report) => void` | Fallbacks and refusals — see [Reports](#reports). Without a handler they go to `console.warn`: no fallback is silent. |
+| `onReport` | `(report) => void` | What the renderer refused, ignored or replaced — see [Reports](#reports) for the list, and for what is *not* reported. Without a handler the reports go to `console.warn`. |
 | **Trust and failures** | | |
 | `resolveImageUrl` | `(url, context) => string \| null` | Your decision about every image address named by the document or by bound data. Default: absolute `https:` only. See [Images](#images-https-only-unless-you-say-otherwise). |
 | `renderIncompatible` | `(verdict, version) => ReactNode` | What to show instead of a document of an incompatible major. Default: a short `role="alert"` message. See [Versions](#versions). |
@@ -208,12 +208,27 @@ renderer already handled; the report is for your logs.
 | `ignored-input` | A part of the document, of the bound data or of a request to the host did not have the shape the contract promises and was ignored (`where`, `reason`). The rest of the screen is drawn. |
 | `render-error` | A screen threw while rendering and was replaced by the neutral notice. Your application is not affected. |
 
+**What is reported, and what is not.** A report means the renderer met
+something that should not be there. A screen that simply has nothing to show
+yet is not that, and stays silent:
+
+| Reported | Not reported |
+|---|---|
+| A document, a theme, an `entry` or a `themeId` that could not be used as given (the rows above `ignored-input`). | A bound value that is missing, `null` or an empty string: the binding's `fallback` is drawn. |
+| An image address the policy refused — `http:`, `data:`, `blob:`, a relative address, a script address, or `null` from `resolveImageUrl`: `ignored-input` with `where: 'image address “…”'`. | An image with no address at all (no value in the data, an empty address): the placeholder is drawn. |
+| A part of the document or of the bound data that does not have the promised shape: `ignored-input`. | An asset token you gave no URL for in `assets`: the placeholder is drawn. |
+| A write to a path outside `writablePaths`: `ignored-input`. | An image whose allowed address failed to load in the browser: the placeholder is drawn. |
+| A screen that threw: `render-error`. | |
+
+Reports are delivered in the browser (in an effect, once each), never during
+server rendering.
+
 ### Other exports
 
 | Export | |
 |---|---|
 | `checkDocumentVersion(version)` | The contract's version rule as a plain function — see [Versions](#versions). |
-| `loadDocument(url, options?)`, `loadTheme(url, options?)` | Fetch a published file — see [Updating a screen without a release](#updating-a-screen-without-a-release). Errors are `HotlayoutLoadError` with `url` and `status`. |
+| `loadDocument(url, options?)`, `loadTheme(url, options?)` | Fetch a published file — see [Updating a screen without a release](#updating-a-screen-without-a-release). A file of the wrong kind (a theme where a document is expected, an HTML page, an unrelated object) is an error too. Errors are `HotlayoutLoadError` with `url` and `status`. |
 | `runStandardAction(action, handlers)` | The optional helper that performs `openUrl`, `deeplink` and `close` — only those that passed the check, only with the handlers and app-link schemes you give it. Returns `true` when it did. See [Actions and navigation](#actions-and-navigation). |
 | `openInNewTab(url)` | A ready `openUrl` handler: `window.open(url, '_blank', 'noopener,noreferrer')`. The renderer never calls it; you pass it to `runStandardAction`. |
 | `paramFormProblem(form, value)`, `ACTION_CATALOG` | The contract's check of an action parameter and the catalog of named actions — plain data and a plain function, no React, usable on the server. |
@@ -1326,8 +1341,18 @@ export function backLabelFor(document: UiDocument, deviceLocale: string): string
 ## Server rendering and Next.js
 
 `renderToString` and streaming work: nothing touches `window` or `document`,
-the stylesheet and the theme variables are part of the markup, and the first
-screen is fully styled before hydration.
+and the stylesheet and the theme variables are part of the markup.
+
+**The screen is in the first part of the response.** The component puts no
+`Suspense` boundary around the screen, so a streaming renderer
+(`renderToPipeableStream`, `renderToReadableStream`, the Next.js App Router)
+has nothing of the screen to send later: the first screen arrives as ordinary,
+fully styled HTML, with no placeholder in its place and no script that swaps
+it in. A reader with JavaScript off and a crawler see the screen; with
+JavaScript on it becomes interactive when it hydrates. The same holds for a
+page Next.js prerenders at build time. (If you wrap the component in a
+`Suspense` boundary of your own, React may send your fallback first — that is
+how streaming treats any large boundary.)
 
 **Next.js App Router: no wrapper needed.** The package marks its component as
 a Client Component itself (`"use client"` inside the build), so you can put
@@ -1388,8 +1413,12 @@ Four things to set or know when you render on a server:
   server use `checkDocumentVersion` and `resolveTheme(theme).reports` if you
   want to log fallbacks there.
 - **A screen that throws while rendering on the server does not fail the
-  response**: the markup carries the neutral notice (`renderError`) in its
-  place, and the browser reports `render-error` after hydration.
+  response**: the status stays 200, the rest of your page is rendered, and the
+  markup carries the neutral notice (`renderError`) in place of the screen.
+  The browser hydrates that markup as it is and reports `render-error`. What
+  was drawn before the part that threw is in the markup but not displayed (the
+  package stylesheet hides it with `:has()`; a browser without `:has()` shows
+  it above the notice until hydration).
 
 The width class on the server is `compact` unless you say otherwise — see
 [Adaptive layout by width](#adaptive-layout-by-width).
@@ -1812,6 +1841,16 @@ export function LiveRewards({ url, theme }: { url: string; theme: ThemeContract 
 - **CORS.** In a browser the bucket must allow your origin for `GET`. If
   `curl` gets 200 for a URL and the browser gets *Failed to fetch*, that is
   CORS — the error message of `HotlayoutLoadError` says so.
+- **The loaders check the kind of the file, not its content.** `loadDocument`
+  rejects with `HotlayoutLoadError` when the answer is not JSON (a server that
+  gives an HTML page with status 200 for an unknown path is the usual case —
+  the message names the content type), not a JSON object, or an object without
+  `schemaVersion` and `screens`; `loadTheme` does the same for
+  `themeContractVersion` and `themes`. A theme at the document's address, or
+  the other way round, is named as such in the message. Nothing else is
+  validated: versions and shapes are the renderer's business. Handle the
+  rejection — a loader that only stores the result leaves "Loading…" on the
+  screen forever when the address is wrong.
 - The loaders are optional conveniences. Any way of getting the JSON works:
   your own API, a server component, a bundled file as the offline fallback.
 

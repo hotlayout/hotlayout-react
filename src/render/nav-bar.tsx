@@ -20,6 +20,7 @@ import { nodeShown } from './siblings'
 import { swallowAutoRepeat, useDocumentAction, usePress } from './use-press'
 import { usePartColor, usePartText, useText } from './use-text'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /**
  * THE BOTTOM NAVIGATION BAR (schema 9.12.0, `x-style.layout.navBar`): a row of items in equal
@@ -34,7 +35,7 @@ import type { WidgetProps } from './widget-props'
  * background, which extends to the physical bottom. The navigation landmark is `<nav>`, not
  * `tablist`.
  */
-export function NavBarView({ node, css: ownCss, mark }: WidgetProps): ReactNode {
+export const NavBarView = screenPart(function NavBarView({ node, css: ownCss, mark }: WidgetProps): ReactNode {
   const scope = useData()
   const safe = useContext(SafeBottomContext)
   const widthClass = useContext(WidthClassContext)
@@ -106,7 +107,7 @@ export function NavBarView({ node, css: ownCss, mark }: WidgetProps): ReactNode 
       {safe === ZERO_INSET ? null : <div aria-hidden="true" data-hl-safe-inset="" style={{ flex: 'none', blockSize: safe }} />}
     </nav>
   )
-}
+})
 
 /**
  * A NAVIGATION ITEM (schema 9.12.0): the icon ABOVE the label, centred on both axes; `sm`
@@ -121,7 +122,7 @@ export function NavBarView({ node, css: ownCss, mark }: WidgetProps): ReactNode 
  * active. An empty label takes its name from the icon name, as an icon button does. An item outside
  * a bar (a broken document) is the same node.
  */
-export function NavItemView({ node, props, css, text, mark }: WidgetProps): ReactNode {
+export const NavItemView = screenPart(function NavItemView({ node, props, css, text, mark }: WidgetProps): ReactNode {
   const place = useContext(NavPlaceContext)
   const mode = useContext(NavModeContext)
   const screenPlace = useContext(PlaceContext)
@@ -193,4 +194,4 @@ export function NavItemView({ node, props, css, text, mark }: WidgetProps): Reac
       </span>
     </button>
   )
-}
+})

@@ -33,6 +33,7 @@ import { asCss, mathToken } from './prop-tokens'
 import { useText } from './use-text'
 import type { WidgetProps } from './widget-props'
 import { useData, useTheme } from './contexts'
+import { screenPart } from './screen-part'
 
 /** The mark of a text field in the markup: "next" uses it to find the next field of the screen. */
 const TEXT_INPUT_ATTRIBUTE = 'data-hl-input'
@@ -297,7 +298,7 @@ function useFieldTexts(props: Readonly<Record<string, unknown>>): { readonly lab
   return { label, placeholder, helper, error }
 }
 
-export function TextFieldView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const TextFieldView = screenPart(function TextFieldView({ node, props, css, mark }: WidgetProps): ReactNode {
   const theme = useTheme()
   const scope = useData()
   const autofill = useContext(AutofillContext)
@@ -379,14 +380,14 @@ export function TextFieldView({ node, props, css, mark }: WidgetProps): ReactNod
       </div>
     </div>
   )
-}
+})
 
 /**
  * The row under the box: the note (or the error) from the start and the counter at the end. The live region of the
  * note is always there: the announcement of a text inserted together with the region is skipped by some screen readers.
  * The counter is not in it — it is read with the field, not announced on every key.
  */
-function NoteRow({ noteId, text, isError, counter, counterId }: { readonly noteId: string; readonly text: string | undefined; readonly isError: boolean; readonly counter: string | undefined; readonly counterId: string }): ReactNode {
+const NoteRow = screenPart(function NoteRow({ noteId, text, isError, counter, counterId }: { readonly noteId: string; readonly text: string | undefined; readonly isError: boolean; readonly counter: string | undefined; readonly counterId: string }): ReactNode {
   const theme = useTheme()
   const layout = INPUTS_LAYOUT.textField
   const note =
@@ -425,7 +426,7 @@ function NoteRow({ noteId, text, isError, counter, counterId }: { readonly noteI
       </span>
     </div>
   )
-}
+})
 
 /* ─────────────── the marks ─────────────── */
 
@@ -449,7 +450,7 @@ function useAffix(value: unknown, field: string): Affix | undefined {
 }
 
 /** A mark inside the box: it never shrinks, one line, quiet colour. It is not part of the value and never written. */
-function AffixView({ affix }: { readonly affix: Affix | undefined }): ReactNode {
+const AffixView = screenPart(function AffixView({ affix }: { readonly affix: Affix | undefined }): ReactNode {
   if (affix === undefined) return null
   if (affix.kind === 'icon') {
     return (
@@ -463,4 +464,4 @@ function AffixView({ affix }: { readonly affix: Affix | undefined }): ReactNode 
       {affix.text}
     </span>
   )
-}
+})

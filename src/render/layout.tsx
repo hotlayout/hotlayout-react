@@ -13,8 +13,9 @@ import { NodeView } from './node-view'
 import { usePropColor, useSpacing, useSpacingMath } from './prop-tokens'
 import { Children, numbered, numberedSiblings } from './siblings'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
-export function ColumnView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const ColumnView = screenPart(function ColumnView({ node, props, css, mark }: WidgetProps): ReactNode {
   const gap = useSpacing(props.gap, 'sm')
   const main = justifyLayout(mainJustifyOf(node), 'block', useSpacingMath(props.gap, 'sm'))
   return (
@@ -27,9 +28,9 @@ export function ColumnView({ node, props, css, mark }: WidgetProps): ReactNode {
       <Children node={node} />
     </div>
   )
-}
+})
 
-export function RowView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const RowView = screenPart(function RowView({ node, props, css, mark }: WidgetProps): ReactNode {
   const numberScope = useData()
   const gap = useSpacing(props.gap, 'sm')
   const gapMath = useSpacingMath(props.gap, 'sm')
@@ -95,7 +96,7 @@ export function RowView({ node, props, css, mark }: WidgetProps): ReactNode {
       </ScrollRowContext.Provider>
     </div>
   )
-}
+})
 
 /**
  * Since schema 9.0.0 `Container` is the layout of its children and nothing else.
@@ -106,7 +107,7 @@ export function RowView({ node, props, css, mark }: WidgetProps): ReactNode {
  * screen; it must not be painted in here, because that would be a hidden reader default, and a
  * card without `style` would look different in each reader.
  */
-export function ContainerView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const ContainerView = screenPart(function ContainerView({ node, props, css, mark }: WidgetProps): ReactNode {
   const gap = useSpacing(props.gap, 'none')
   const isRow = props.direction === 'row'
   const main = justifyLayout(mainJustifyOf(node), isRow ? 'inline' : 'block', useSpacingMath(props.gap, 'none'))
@@ -144,12 +145,12 @@ export function ContainerView({ node, props, css, mark }: WidgetProps): ReactNod
       <Children node={node} />
     </div>
   )
-}
+})
 
 /** The minimum length of a vertical line and a vertical spacer when nobody gave them a height. */
 const VERTICAL_DIVIDER_MIN_LENGTH = 'lg'
 
-export function SpacerView({ props, css, mark }: WidgetProps): ReactNode {
+export const SpacerView = screenPart(function SpacerView({ props, css, mark }: WidgetProps): ReactNode {
   /*
    * The axis matters: a horizontal `Spacer` in a column pushes nothing apart. The validator rejects
    * such a pair (`axis_mismatch`), but the reader must behave predictably on a document not built by
@@ -165,7 +166,7 @@ export function SpacerView({ props, css, mark }: WidgetProps): ReactNode {
    */
   const minBlockSize = isVertical ? productVar('spacing', VERTICAL_DIVIDER_MIN_LENGTH) : undefined
   return <div {...mark} style={{ inlineSize: isVertical ? size : undefined, blockSize: isVertical ? undefined : size, minBlockSize, flexShrink: 0, ...css }} />
-}
+})
 
 /**
  * The divider: the line colour and the spacing around it are PARTS of the widget, hence in `props`.
@@ -176,7 +177,7 @@ export function SpacerView({ props, css, mark }: WidgetProps): ReactNode {
  * the axis would have to be done by hand.
  */
 
-export function DividerView({ props, css, mark }: WidgetProps): ReactNode {
+export const DividerView = screenPart(function DividerView({ props, css, mark }: WidgetProps): ReactNode {
   const isVertical = props.orientation === 'vertical'
   const line = usePropColor(props.color, 'border')
   const spacing = useSpacing(props.spacing, 'sm')
@@ -199,4 +200,4 @@ export function DividerView({ props, css, mark }: WidgetProps): ReactNode {
       />
     </div>
   )
-}
+})

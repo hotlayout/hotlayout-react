@@ -50,6 +50,9 @@ export const FIELD_CLASS = 'hl-field'
 /** The smallest side of a touch target is 48 logical pixels. */
 export const MIN_TOUCH_TARGET = 48
 
+/** Marks the element that holds the notice of a screen whose first render pass failed (`screen/first-pass.tsx`). */
+export const FAILED_PASS_ATTRIBUTE = 'data-hl-failed'
+
 const SCOPE = `[${ROOT_ATTRIBUTE}]:not(#hl-none)`
 
 /** The empty spacer pseudo-element and the margin that cancels the host's gap (the variable is written by `justifyLayout`). */
@@ -99,6 +102,13 @@ export const HOTLAYOUT_CSS = [
    */
   `${SCOPE} .${FIELD_CLASS}{text-align:-webkit-match-parent;text-align:match-parent}`,
   `${SCOPE} .${FIELD_CLASS}::placeholder{color:var(--product-color-muted);opacity:1}`,
+  /*
+   * A SCREEN WHOSE FIRST PASS FAILED shows its notice alone. What was drawn before the part that
+   * threw is already in the server markup and cannot be taken back, so it is hidden: the notice is
+   * the last child of the layer and its siblings are not displayed. `!important`, because the look
+   * of every node is inline.
+   */
+  `${SCOPE} :has(> [${FAILED_PASS_ATTRIBUTE}]) > :not([${FAILED_PASS_ATTRIBUTE}]){display:none!important}`,
   /*
    * FOCUS DOES NOT HIDE BEHIND A STUCK APP BAR. When the host page scrolls the block and the app
    * bar zone sits at the top of the viewport, the browser, scrolling to a focused element, would

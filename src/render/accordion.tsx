@@ -12,6 +12,7 @@ import { useSpacing } from './prop-tokens'
 import { Children } from './siblings'
 import { usePartColor, usePartText, useText } from './use-text'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /**
  * The expandable block. Built-in look: the title is a `titleS` line and an `md` chevron `sm` apart,
@@ -23,7 +24,7 @@ import type { WidgetProps } from './widget-props'
  * chevron of an expanded block points down (in RTL also down: the glyph is already mirrored, so the
  * quarter turn goes the other way).
  */
-export function AccordionView({ node, props, css, text, mark }: WidgetProps): ReactNode {
+export const AccordionView = screenPart(function AccordionView({ node, props, css, text, mark }: WidgetProps): ReactNode {
   const title = useText(props.title, 'title')
   const titleCss = usePartText('Accordion', 'title', text, 'titleS', 'onSurface')
   const chevronCss = usePartColor('Accordion', 'chevron', text, 'muted')
@@ -58,4 +59,4 @@ export function AccordionView({ node, props, css, text, mark }: WidgetProps): Re
       ) : null}
     </div>
   )
-}
+})

@@ -14,6 +14,7 @@ import { useData, useTheme } from './contexts'
 import { COLUMN } from './flex-words'
 import { mathToken } from './prop-tokens'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 function progressOf(props: Readonly<Record<string, unknown>>, scope: DataScope): { value: number; max: number; ratio: number } {
   const value = readBindableNumber(props.value, scope) ?? 0
@@ -44,7 +45,7 @@ const PROGRESS_LABEL = { typography: 'caption', gap: 'xs' } as const
  * while the colour of a part lives in `props`. A label IS present by default, unlike the ring: `caption`
  * in the `muted` colour, an `xs` gap away, pushed to the end of the row.
  */
-export function ProgressBarView({ props, css, mark }: WidgetProps): ReactNode {
+export const ProgressBarView = screenPart(function ProgressBarView({ props, css, mark }: WidgetProps): ReactNode {
   const theme = useTheme()
   const direction = useContext(DirectionContext)
   const progress = progressOf(props, useData())
@@ -175,7 +176,7 @@ export function ProgressBarView({ props, css, mark }: WidgetProps): ReactNode {
       )}
     </div>
   )
-}
+})
 
 /**
  * The ring is the same scale bent into an arc (schema 9.7.0).
@@ -195,7 +196,7 @@ export function ProgressBarView({ props, css, mark }: WidgetProps): ReactNode {
  * The centre label is OFF by default (`labelFormat: 'none'`): the centre of the ring belongs to the
  * DOCUMENT through `Stack`. The ring size does not affect the label.
  */
-export function CircularProgressView({ props, css, own, dropped, mark }: WidgetProps): ReactNode {
+export const CircularProgressView = screenPart(function CircularProgressView({ props, css, own, dropped, mark }: WidgetProps): ReactNode {
   const theme = useTheme()
   const scope = useData()
   const progress = progressOf(props, scope)
@@ -270,4 +271,4 @@ export function CircularProgressView({ props, css, own, dropped, mark }: WidgetP
       </div>
     </div>
   )
-}
+})

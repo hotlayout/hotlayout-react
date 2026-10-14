@@ -14,6 +14,7 @@ import { useTheme } from './contexts'
 import { useIconName } from './icon-name'
 import { asCss } from './prop-tokens'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /**
  * THE ICON GLYPH: a mask over a fill in the text colour.
@@ -31,7 +32,7 @@ import type { WidgetProps } from './widget-props'
  * A token the reader does not know (an icon from a newer minor) leaves an EMPTY box of the same
  * size: the layout does not jump and no invented symbol appears.
  */
-export function Glyph({ name, size }: { readonly name: unknown; readonly size?: number | undefined }): ReactNode {
+export const Glyph = screenPart(function Glyph({ name, size }: { readonly name: unknown; readonly size?: number | undefined }): ReactNode {
   const direction = useContext(DirectionContext)
   const mask = iconMask(name)
   /*
@@ -70,7 +71,7 @@ export function Glyph({ name, size }: { readonly name: unknown; readonly size?: 
       }}
     />
   )
-}
+})
 
 /** The glyph box: a centred flex, with the size token as its font. */
 export function glyphBox(size: unknown): CSSProperties {
@@ -88,7 +89,7 @@ export function glyphBox(size: unknown): CSSProperties {
  * line and leave a gap below it, making an `md` box 29 tall instead of 24. The icon box height is
  * the token line height, with nothing added.
  */
-export function IconView({ props, css, text, mark }: WidgetProps): ReactNode {
+export const IconView = screenPart(function IconView({ props, css, text, mark }: WidgetProps): ReactNode {
   const theme = useTheme()
   // The description is a string or a document string (schema 9.19.0); the icon name comes from the document or from the data via `iconPath`.
   const alt = useAltText(props.alt)
@@ -107,4 +108,4 @@ export function IconView({ props, css, text, mark }: WidgetProps): ReactNode {
       <Glyph name={name} size={glyphSize} />
     </span>
   )
-}
+})

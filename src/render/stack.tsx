@@ -1,13 +1,25 @@
 /** The stack (`Stack`): layers in one cell, overlays with a place of their own. */
 import { useContext } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
+import type { UiNode } from '../types'
 import { readerLayerOf } from '../layer-placement'
 import { FillIgnoredContext, LayerContext, StackLayerContext, WidthClassContext, useData } from './contexts'
 import { NodeView } from './node-view'
 import { PressLabel } from './press-host'
 import { numbered, numberedSiblings } from './siblings'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
+
+/**
+ * An image without a named width takes the width its parent gives it (`image.width`): the intrinsic
+ * size of the file is never read. Left to the alignment of the stack, its cell would shrink to the
+ * natural width of the file, so such a cell takes the whole stack width. A named width is drawn by
+ * the image itself, and the cell then keeps the alignment of the stack.
+ */
+function pictureCell(child: UiNode): CSSProperties {
+  return child.type === 'Image' && child.style?.width === undefined ? { justifySelf: 'stretch' } : {}
+}
 
 /**
  * The stack: layers at one point, the FIRST in the list is the lowest.
@@ -15,7 +27,7 @@ import type { WidgetProps } from './widget-props'
  * The DOM order equals the document order, so no separate `z-index` is needed and none should be
  * added: it would diverge from Flutter, where the order also decides everything.
  */
-export function StackView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const StackView = screenPart(function StackView({ node, props, css, mark }: WidgetProps): ReactNode {
   const align = (value: unknown): string => (value === 'start' || value === 'end' ? value : 'center')
   // When all layers are stretched, `fill` is ignored (`allLayersFilled: 'ignore-fill'`).
   const children = node.children ?? []
@@ -74,7 +86,7 @@ export function StackView({ node, props, css, mark }: WidgetProps): ReactNode {
         }
         return (
           // All layers share one cell; a stretched one (`fill`) leaves the flow by itself.
-          <div key={child.id} style={{ gridArea: '1 / 1', display: 'grid', minInlineSize: 0, maxInlineSize: '100%' }}>
+          <div key={child.id} style={{ gridArea: '1 / 1', display: 'grid', minInlineSize: 0, maxInlineSize: '100%', ...pictureCell(child) }}>
             <FillIgnoredContext.Provider value={allFilled}>
               <StackLayerContext.Provider value>
                 {numbered(numbers, child, <NodeView node={child} />)}
@@ -85,4 +97,4 @@ export function StackView({ node, props, css, mark }: WidgetProps): ReactNode {
       })}
     </div>
   )
-}
+})

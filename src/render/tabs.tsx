@@ -16,6 +16,7 @@ import { mathToken } from './prop-tokens'
 import { Children, nodeShown } from './siblings'
 import { usePartText, useText } from './use-text'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /** The gap between the children of a tab panel: built in, the same in every reader. */
 const TAB_PANEL_GAP = 'md'
@@ -41,7 +42,7 @@ function tabIds(group: string, tabId: string): { readonly title: string; readonl
 /** The tab strip a panel stands in: the panel learns its `id` and `aria-labelledby` from it. */
 const TabGroupContext = createContext<string | undefined>(undefined)
 
-export function TabPanelView({ node, css, mark }: WidgetProps): ReactNode {
+export const TabPanelView = screenPart(function TabPanelView({ node, css, mark }: WidgetProps): ReactNode {
   const group = useContext(TabGroupContext)
   const ids = group === undefined ? undefined : tabIds(group, node.id)
   // A `Tab` outside `Tabs` (a broken document) is just a column: there is no panel role without a strip.
@@ -51,9 +52,9 @@ export function TabPanelView({ node, css, mark }: WidgetProps): ReactNode {
       <Children node={node} />
     </div>
   )
-}
+})
 
-export function TabsView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const TabsView = screenPart(function TabsView({ node, props, css, mark }: WidgetProps): ReactNode {
   const group = useId()
   const direction = useContext(DirectionContext)
   const tabs = node.children ?? []
@@ -111,7 +112,7 @@ export function TabsView({ node, props, css, mark }: WidgetProps): ReactNode {
       <TabGroupContext.Provider value={group}>{active === undefined ? null : <NodeView node={active} />}</TabGroupContext.Provider>
     </div>
   )
-}
+})
 
 /**
  * The open tab: `initialTab` counts ALL tabs of the document (hidden ones included).
@@ -132,7 +133,7 @@ export function openTabOf(tabs: readonly UiNode[], visible: readonly UiNode[], i
  */
 type TabIds = ReturnType<typeof tabIds>
 
-function TabTitle({ node, ids, isActive, onOpen }: { node: UiNode; ids: TabIds; isActive: boolean; onOpen: () => void }): ReactNode {
+const TabTitle = screenPart(function TabTitle({ node, ids, isActive, onOpen }: { node: UiNode; ids: TabIds; isActive: boolean; onOpen: () => void }): ReactNode {
   const theme = useTheme()
   const scope = useData()
   const text = inheritTextStyle(useContext(TextContext), resolveNodeStyle(node, scope, theme), theme)
@@ -141,9 +142,9 @@ function TabTitle({ node, ids, isActive, onOpen }: { node: UiNode; ids: TabIds; 
       <TabTitleText node={node} ids={ids} isActive={isActive} text={text} onOpen={onOpen} />
     </NodePlace>
   )
-}
+})
 
-function TabTitleText({ node, ids, isActive, text, onOpen }: { node: UiNode; ids: TabIds; isActive: boolean; text: TextStyleContext; onOpen: () => void }): ReactNode {
+const TabTitleText = screenPart(function TabTitleText({ node, ids, isActive, text, onOpen }: { node: UiNode; ids: TabIds; isActive: boolean; text: TextStyleContext; onOpen: () => void }): ReactNode {
   const title = useText(node.props.title, 'title')
   const activeCss = usePartText('Tab', 'activeTitle', text, TABS.typography, 'primary')
   const inactiveCss = usePartText('Tab', 'inactiveTitle', text, TABS.typography, 'muted')
@@ -174,4 +175,4 @@ function TabTitleText({ node, ids, isActive, text, onOpen }: { node: UiNode; ids
       {title}
     </button>
   )
-}
+})

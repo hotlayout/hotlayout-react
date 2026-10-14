@@ -38,6 +38,7 @@ import { usePartColor, usePartText, useText } from './use-text'
 import type { WidgetProps } from './widget-props'
 import { useWriteSemantics } from './choice'
 import { useData, useTheme } from './contexts'
+import { screenPart } from './screen-part'
 
 /** The limit of lines as CSS: the rest is cut with an ellipsis at the end of the last line, by the direction of the text. */
 function lineClamp(limit: unknown): CSSProperties {
@@ -45,7 +46,7 @@ function lineClamp(limit: unknown): CSSProperties {
   return lines === undefined ? {} : { display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
 }
 
-export function ListTileView({ node, props, css, text, mark, choice }: WidgetProps): ReactNode {
+export const ListTileView = screenPart(function ListTileView({ node, props, css, text, mark, choice }: WidgetProps): ReactNode {
   const title = useText(props.title, 'title')
   const subtitle = useText(props.subtitle, 'subtitle')
   const gap = useSpacing('sm', 'sm')
@@ -99,7 +100,7 @@ export function ListTileView({ node, props, css, text, mark, choice }: WidgetPro
       <TrailingSlot slot={trailing} text={text} />
     </div>
   )
-}
+})
 
 /** The mini image of a row: a SQUARE of two measures `xl`, radius `sm`. */
 const LIST_TILE_IMAGE = { sideUnit: 'xl', radius: 'sm' } as const
@@ -114,7 +115,7 @@ const RADIO = { side: 'lg', ring: 2 } as const
  * clipped by it, and the system font scale grows the glyph, not the tile. A photo reads no colour, nor does the
  * circle of a choice.
  */
-function LeadingSlot({ slot, text }: { slot: unknown; text: TextStyleContext }): ReactNode {
+const LeadingSlot = screenPart(function LeadingSlot({ slot, text }: { slot: unknown; text: TextStyleContext }): ReactNode {
   const theme = useTheme()
   const glyphCss = usePartColor('ListTile', 'leadingIcon', text, 'primary')
   if (!isRecord(slot) || slot.kind === 'none') return null
@@ -159,7 +160,7 @@ function LeadingSlot({ slot, text }: { slot: unknown; text: TextStyleContext }):
   // The mini image is a SQUARE of two measures `xl`, radius `sm`.
   const side = `calc(2 * ${mathToken(LIST_TILE_IMAGE.sideUnit, theme)})`
   return <ImageView props={{ source: value.source }} css={{ flex: 'none', inlineSize: side, blockSize: side, overflow: 'hidden', borderRadius: productVar('radius', LIST_TILE_IMAGE.radius) }} />
-}
+})
 
 /** The look of a part over its base: the keys of the style (and the state) the theme knows lay over it; the others are skipped. */
 function laidOver(base: CSSProperties, own: { readonly color?: unknown; readonly typography?: unknown } | undefined, theme: ReturnType<typeof useTheme>): CSSProperties {
@@ -169,7 +170,7 @@ function laidOver(base: CSSProperties, own: { readonly color?: unknown; readonly
   return { ...base, ...(typography === undefined ? {} : typographyToCss(typography)), ...(color === undefined ? {} : { color }) }
 }
 
-function TrailingSlot({ slot, text }: { slot: { kind?: string; text?: unknown; icon?: unknown; optionValue?: unknown } | undefined; text: TextStyleContext }): ReactNode {
+const TrailingSlot = screenPart(function TrailingSlot({ slot, text }: { slot: { kind?: string; text?: unknown; icon?: unknown; optionValue?: unknown } | undefined; text: TextStyleContext }): ReactNode {
   const theme = useTheme()
   const scope = useData()
   const label = useText(slot?.text, 'trailing.text')
@@ -239,4 +240,4 @@ function TrailingSlot({ slot, text }: { slot: { kind?: string; text?: unknown; i
       </span>
     </span>
   )
-}
+})

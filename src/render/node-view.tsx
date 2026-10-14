@@ -23,6 +23,7 @@ import { NodePlace } from './node-place'
 import { asCss } from './prop-tokens'
 import { Children, nodeShown } from './siblings'
 import { WidgetView } from './widget-view'
+import { screenPart } from './screen-part'
 
 export interface NodeViewProps {
   readonly node: UiNode
@@ -45,7 +46,7 @@ function useNodePlacement(): NodePlacement {
   return { fillIgnored, tightSlot, isStackLayer, inScrollRow, inLeadingZone, columnAlign, inWeightedRow, layer, pullAxis, carouselCard, direction }
 }
 
-export function NodeView({ node }: NodeViewProps): ReactNode {
+export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): ReactNode {
   const scope = useData()
   const theme = useTheme()
   const parentText = useContext(TextContext)
@@ -175,6 +176,6 @@ export function NodeView({ node }: NodeViewProps): ReactNode {
       {placed}
     </div>
   )
-}
+})
 
 const NO_SIBLINGS: readonly UiNode[] = []

@@ -23,6 +23,7 @@ import { NodeView } from './node-view'
 import { useSpacing, useSpacingMath } from './prop-tokens'
 import { nodeShown, numberedSiblings, SiblingViews, numbered } from './siblings'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 
 /**
@@ -176,7 +177,7 @@ function screenBodyCss(frame: ScreenFrame, modal: boolean, overlap: string | und
  * the bottom padding of a scrolling element differently. The root background and the zone
  * backgrounds run edge to edge.
  */
-export function ScreenRootView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const ScreenRootView = screenPart(function ScreenRootView({ node, props, css, mark }: WidgetProps): ReactNode {
   const anatomy = useContext(AnatomyContext)
   const theme = useTheme()
   const gap = useSpacing(props.gap, 'sm')
@@ -210,7 +211,7 @@ export function ScreenRootView({ node, props, css, mark }: WidgetProps): ReactNo
       <ScreenBottomZone zones={zones} frame={frame} contentMax={contentMax} sides={sides} padding={padding} backdrop={backdrop} stickyOffset={anatomy.stickyBottomOffset} />
     </div>
   )
-}
+})
 
 /** No backdrop: the zone is transparent and the root background itself is under it. */
 const NO_BACKDROP: CSSProperties = {}
@@ -239,7 +240,7 @@ interface ScreenZoneProps {
  * is zero and the zone is transparent, with the root background itself under it. The background is
  * not copied onto the zone ITSELF: a screen gradient would be squeezed into its 72 px.
  */
-function ScreenTopZone({ zones, frame, contentMax, sides, padding, backdrop, stickyOffset }: ScreenZoneProps): ReactNode {
+const ScreenTopZone = screenPart(function ScreenTopZone({ zones, frame, contentMax, sides, padding, backdrop, stickyOffset }: ScreenZoneProps): ReactNode {
   const { bar, ownNav, barNav } = zones
   if (!frame.hasTop) {
     // No app bar: the inset goes above the body area. A body that starts at the screen top does not lie under it, so there is no inset above it (`bodyAtScreenTop`).
@@ -289,7 +290,7 @@ function ScreenTopZone({ zones, frame, contentMax, sides, padding, backdrop, sti
       {content}
     </div>
   )
-}
+})
 
 /**
  * THE BOTTOM ZONE (schema 9.12.0): the pinned block above the navigation bar. It does not shrink; in
@@ -301,7 +302,7 @@ function ScreenTopZone({ zones, frame, contentMax, sides, padding, backdrop, sti
  * transparent space under the bottom root padding (`safeArea.pinnedOnly`). The backdrop mirrors
  * the app bar backdrop, anchored to the BOTTOM of the root.
  */
-function ScreenBottomZone({ zones, frame, contentMax, sides, padding, backdrop, stickyOffset }: ScreenZoneProps): ReactNode {
+const ScreenBottomZone = screenPart(function ScreenBottomZone({ zones, frame, contentMax, sides, padding, backdrop, stickyOffset }: ScreenZoneProps): ReactNode {
   const theme = useTheme()
   const { pinned, bottomNav, numbers } = zones
   if (!frame.hasBottom) return null
@@ -330,7 +331,7 @@ function ScreenBottomZone({ zones, frame, contentMax, sides, padding, backdrop, 
       )}
     </div>
   )
-}
+})
 
 /**
  * THE CONTENT COLUMN of the body and the pinned block (schema 9.18.0). The wrapper is ALWAYS there,
@@ -339,13 +340,13 @@ function ScreenBottomZone({ zones, frame, contentMax, sides, padding, backdrop, 
  * outer box. The app bar and the navigation bar limit their own content: `ContentMaxContext` gives
  * them the number. The `data-hl-content` mark is a hook for host tests, like the zone marks.
  */
-function ContentColumn({ max, attrs, style, children }: { readonly max: number | undefined; readonly attrs?: Readonly<Record<string, string>>; readonly style?: CSSProperties; readonly children: ReactNode }): ReactNode {
+const ContentColumn = screenPart(function ContentColumn({ max, attrs, style, children }: { readonly max: number | undefined; readonly attrs?: Readonly<Record<string, string>>; readonly style?: CSSProperties; readonly children: ReactNode }): ReactNode {
   return (
     <div {...attrs} data-hl-content="" style={{ ...COLUMN, ...style, ...(max === undefined ? {} : contentColumn(max)) }}>
       {children}
     </div>
   )
-}
+})
 
 /**
  * FOCUS ON A NAVIGATION ITEM MOVES WITH THE BAR. A bottom bar and items in the app bar are
@@ -404,17 +405,17 @@ export function contentColumn(max: number): CSSProperties {
  * A node of the bottom zone. Its `pull` is not read (`pinned.pull`), and its width is that of a child
  * of the root column: `ColumnParentContext` stays inherited from the root.
  */
-function ZoneNode({ node }: { readonly node: UiNode }): ReactNode {
+const ZoneNode = screenPart(function ZoneNode({ node }: { readonly node: UiNode }): ReactNode {
   return (
     <PullAxisContext.Provider value={undefined}>
       <NodeView node={node} />
     </PullAxisContext.Provider>
   )
-}
+})
 
-function NodeChildren({ nodes, numbers }: { nodes: readonly UiNode[]; numbers?: ReadonlyMap<string, ListNumber> | undefined }): ReactNode {
+const NodeChildren = screenPart(function NodeChildren({ nodes, numbers }: { nodes: readonly UiNode[]; numbers?: ReadonlyMap<string, ListNumber> | undefined }): ReactNode {
   return <SiblingViews nodes={nodes} numbers={numbers} />
-}
+})
 
 interface RootPadding {
   readonly blockStart: string | undefined

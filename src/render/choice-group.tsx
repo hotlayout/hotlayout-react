@@ -12,6 +12,7 @@ import { useSpacing } from './prop-tokens'
 import { Children } from './siblings'
 import { asBindable } from './use-text'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /**
  * The choice group is the only node of the contract with state of ITS OWN.
@@ -28,7 +29,7 @@ import type { WidgetProps } from './widget-props'
  * The document outranks the finger: if `value` changed (new data under the binding), the previous
  * choice is no longer about it and is reset.
  */
-export function ChoiceGroupView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const ChoiceGroupView = screenPart(function ChoiceGroupView({ node, props, css, mark }: WidgetProps): ReactNode {
   const gap = useSpacing(props.gap, 'none')
   const scope = useData()
   const write = useContext(InputWriteContext)
@@ -57,4 +58,4 @@ export function ChoiceGroupView({ node, props, css, mark }: WidgetProps): ReactN
       </ChoiceContext.Provider>
     </div>
   )
-}
+})

@@ -16,6 +16,7 @@ import { NodeView } from './node-view'
 import { useSpacing } from './prop-tokens'
 import { nodeShown } from './siblings'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 const NO_FIELDS: DataScope = {}
 
@@ -29,7 +30,7 @@ const NO_FIELDS: DataScope = {}
  *  - `columns` lays the instances out as a GRID, with the same formula as `Grid`. Together with
  *    `direction: 'row'` it is invalid: those are two statements about the same axis.
  */
-export function RepeaterView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const RepeaterView = screenPart(function RepeaterView({ node, props, css, mark }: WidgetProps): ReactNode {
   const collections = useContext(CollectionsContext)
   const outer = useData()
   const outerRecord = useContext(RecordContext).record
@@ -135,4 +136,4 @@ export function RepeaterView({ node, props, css, mark }: WidgetProps): ReactNode
       })}
     </div>
   )
-}
+})

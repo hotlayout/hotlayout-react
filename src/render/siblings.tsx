@@ -12,6 +12,7 @@ import { ListNumberContext, WidthClassContext, useData } from './contexts'
 import type { ListNumber } from './contexts'
 import { NodeView } from './node-view'
 import { PressLabel } from './press-host'
+import { screenPart } from './screen-part'
 
 /** Whether a node is visible: the class is in `showOn` AND `visibleIf` holds on this data. ONE place for every "is it visible" question. */
 export function nodeShown(node: UiNode, widthClass: WidthClass, scope: DataScope): boolean {
@@ -51,7 +52,7 @@ export function numberedSiblings(nodes: readonly UiNode[], scope: DataScope, wid
 }
 
 /** The children of one parent: each numbered item gets its number. `numbers` is passed when the group was already counted over ALL the children (the screen root). */
-export function SiblingViews({ nodes, numbers: given }: { readonly nodes: readonly UiNode[]; readonly numbers?: ReadonlyMap<string, ListNumber> | undefined }): ReactNode {
+export const SiblingViews = screenPart(function SiblingViews({ nodes, numbers: given }: { readonly nodes: readonly UiNode[]; readonly numbers?: ReadonlyMap<string, ListNumber> | undefined }): ReactNode {
   const scope = useData()
   const widthClass = useContext(WidthClassContext)
   const numbers = given ?? numberedSiblings(nodes, scope, widthClass)
@@ -63,7 +64,7 @@ export function SiblingViews({ nodes, numbers: given }: { readonly nodes: readon
       </ListNumberContext.Provider>
     )
   })
-}
+})
 
 /**
  * The same for parents that draw their children THEMSELVES (stack layers, cards of a carousel row):
@@ -76,11 +77,11 @@ export function numbered(numbers: ReadonlyMap<string, ListNumber> | undefined, c
   return item === undefined ? view : <ListNumberContext.Provider value={item}>{view}</ListNumberContext.Provider>
 }
 
-export function Children({ node }: { node: UiNode }): ReactNode {
+export const Children = screenPart(function Children({ node }: { node: UiNode }): ReactNode {
   return (
     <>
       <PressLabel node={node} />
       <SiblingViews nodes={node.children ?? []} />
     </>
   )
-}
+})

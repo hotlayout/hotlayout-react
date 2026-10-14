@@ -10,6 +10,7 @@ import { isRecord, lookup, safeIdent } from '../sanitize'
 import { useAltText } from './alt-text'
 import { ImageContext, useData } from './contexts'
 import type { NodeMark, WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /**
  * An image: an address from the document, an address from the data, or an asset token.
@@ -22,7 +23,7 @@ import type { NodeMark, WidgetProps } from './widget-props'
  * the file (`assets`). A token without an address is drawn as a placeholder, a block rather than an
  * `<img>` with a broken address: the broken-image icon would read as a network failure.
  */
-export function ImageView({ props, css, mark }: Pick<WidgetProps, 'props' | 'css'> & { readonly mark?: NodeMark }): ReactNode {
+export const ImageView = screenPart(function ImageView({ props, css, mark }: Pick<WidgetProps, 'props' | 'css'> & { readonly mark?: NodeMark }): ReactNode {
   const scope = useData()
   const assets = useContext(AssetContext)
   const images = useContext(ImageContext)
@@ -95,4 +96,4 @@ export function ImageView({ props, css, mark }: Pick<WidgetProps, 'props' | 'css
       style={{ ...frame, backgroundImage: placeholder, backgroundSize: fit, backgroundPosition: 'center', backgroundRepeat: 'no-repeat', ...css }}
     />
   )
-}
+})

@@ -19,6 +19,7 @@ import { asCss, inlineMarginOf } from './prop-tokens'
 import { disabledPressLook, pressHandlers, useDocumentAction, usePress, usePressDisabled } from './use-press'
 import { useText } from './use-text'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /**
  * A button is a widget with a ROLE.
@@ -39,7 +40,7 @@ import type { WidgetProps } from './widget-props'
  * neighbours changes. So that the pseudo-element is not clipped, the `overflow: hidden` of a named
  * box moves from the button to the LABEL: there is nothing else to clip anyway.
  */
-export function ButtonView({ node, props, css, own, mark, choice }: WidgetProps): ReactNode {
+export const ButtonView = screenPart(function ButtonView({ node, props, css, own, mark, choice }: WidgetProps): ReactNode {
   const theme = useTheme()
   const scope = useData()
   const label = useText(props.label, 'label')
@@ -93,7 +94,7 @@ export function ButtonView({ node, props, css, own, mark, choice }: WidgetProps)
       </BesideText>
     </button>
   )
-}
+})
 
 /** The gap between the icon box and the text: `iconBesideText.gap`. With a single child (no icon) it has no effect. */
 export const BESIDE_GAP: CSSProperties = { gap: productVar('spacing', ICON_BESIDE_TEXT.gap) }
@@ -114,7 +115,7 @@ export const BESIDE_GAP: CSSProperties = { gap: productVar('spacing', ICON_BESID
  * An empty text does not remove the gap (`emptyTextBesideIcon`): the text is always a separate
  * element, not a bare string.
  */
-function BesideText({ icon, position, children }: { readonly icon: unknown; readonly position: unknown; readonly children: ReactNode }): ReactNode {
+const BesideText = screenPart(function BesideText({ icon, position, children }: { readonly icon: unknown; readonly position: unknown; readonly children: ReactNode }): ReactNode {
   if (!hasIconBesideText(icon)) return children
   const glyph = (
     <span key="icon" aria-hidden="true" data-hl-beside="icon" style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -122,7 +123,7 @@ function BesideText({ icon, position, children }: { readonly icon: unknown; read
     </span>
   )
   return iconBesideTextOrder(icon, position).map((part) => (part === 'icon' ? glyph : <Fragment key="text">{children}</Fragment>))
-}
+})
 
 /**
  * The icon button (schema 9.5.0) is a round button without visible text. The theme role is the same
@@ -138,7 +139,7 @@ function BesideText({ icon, position, children }: { readonly icon: unknown; read
  * Without a name the button is still drawn and works, and the name of the icon, in words, becomes
  * its name (`iconButtonWithoutLabel`).
  */
-export function IconButtonView({ node, props, css, own, mark, choice }: WidgetProps): ReactNode {
+export const IconButtonView = screenPart(function IconButtonView({ node, props, css, own, mark, choice }: WidgetProps): ReactNode {
   const theme = useTheme()
   const scope = useData()
   const label = useText(props.label, 'label')
@@ -184,14 +185,14 @@ export function IconButtonView({ node, props, css, own, mark, choice }: WidgetPr
       )}
     </button>
   )
-}
+})
 
 /**
  * The badge is the second widget with a ROLE: it names a TONE (`success`), not a colour, and the
  * theme says which tokens stand behind it. That is why re-branding touches no document. The node's
  * own `style` works the same as on a button.
  */
-export function BadgeView({ node, props, css, own, mark }: WidgetProps): ReactNode {
+export const BadgeView = screenPart(function BadgeView({ node, props, css, own, mark }: WidgetProps): ReactNode {
   const theme = useTheme()
   const scope = useData()
   const label = useText(props.label, 'label')
@@ -223,4 +224,4 @@ export function BadgeView({ node, props, css, own, mark }: WidgetProps): ReactNo
       )}
     </span>
   )
-}
+})

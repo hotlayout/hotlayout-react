@@ -19,6 +19,7 @@ import { RequiredMark, disabledLook, useInputDisabled, useInputPath } from './in
 import { asCss } from './prop-tokens'
 import { useText } from './use-text'
 import type { NodeMark, WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /**
  * The state of a switch and a checkbox: what to show and what to do on a press. When the layer
@@ -43,7 +44,7 @@ function useToggle(value: unknown, disabledIf: unknown, nodeId: string): { reado
 }
 
 /** A control row: a real button with a role and a state, named by its label; the WHOLE row strip is pressable. */
-function ToggleRow({
+const ToggleRow = screenPart(function ToggleRow({
   role,
   required,
   view,
@@ -93,11 +94,11 @@ function ToggleRow({
       </button>
     </div>
   )
-}
+})
 
 const TOGGLE_LABEL: CSSProperties = { flex: '1 1 auto', minInlineSize: 0, overflowWrap: 'anywhere' }
 
-export function SwitchView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const SwitchView = screenPart(function SwitchView({ node, props, css, mark }: WidgetProps): ReactNode {
   const layout = INPUTS_LAYOUT.switch
   const label = useText(props.label, 'label')
   const view = useToggle(props.value, props.disabledIf, node.id)
@@ -131,9 +132,9 @@ export function SwitchView({ node, props, css, mark }: WidgetProps): ReactNode {
       </span>
     </ToggleRow>
   )
-}
+})
 
-export function CheckboxView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const CheckboxView = screenPart(function CheckboxView({ node, props, css, mark }: WidgetProps): ReactNode {
   const layout = INPUTS_LAYOUT.checkbox
   const label = useText(props.label, 'label')
   const view = useToggle(props.value, props.disabledIf, node.id)
@@ -169,4 +170,4 @@ export function CheckboxView({ node, props, css, mark }: WidgetProps): ReactNode
       </span>
     </ToggleRow>
   )
-}
+})

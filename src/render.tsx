@@ -51,6 +51,7 @@ import type { Theme } from './theme'
 import type { LocalizationSection, UiNode } from './types'
 import { nodeInWidthClass, widthClassWord } from './width-class'
 import type { WidthClass } from './width-class'
+import { screenPart } from './render/screen-part'
 
 export { CarouselMemoryContext, DEFAULT_ANATOMY, MAX_COLLECTION_ITEMS, WidthClassContext, useData, type CarouselMemory, type ScreenAnatomy } from './render/contexts'
 export { safeRecordOf, writablePathOf } from './render/host-boundary'
@@ -150,7 +151,7 @@ function withoutRootShowOn(root: UiNode): UiNode {
 }
 
 /** One screen with data: no stack, no theme on the root and no wrapper element of its own. */
-export function ScreenView({
+export const ScreenView = screenPart(function ScreenView({
   screenId,
   root,
   theme,
@@ -276,6 +277,6 @@ export function ScreenView({
       </CollectionsContext.Provider>
     </ThemeContext.Provider>
   )
-}
+})
 
 const NO_COLLECTIONS: Readonly<Record<string, readonly Readonly<Record<string, unknown>>[]>> = {}

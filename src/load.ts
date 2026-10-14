@@ -23,7 +23,7 @@ export interface LoadOptions {
   readonly bypassCache?: boolean | undefined
 }
 
-/** Thrown when a published file could not be loaded or is not a JSON object. */
+/** Thrown when a published file could not be loaded, is not a JSON object, or is not the kind of file that was asked for. */
 export class HotlayoutLoadError extends Error {
   /** HTTP status, when the server answered at all. */
   readonly status: number | undefined
@@ -45,7 +45,7 @@ function withCacheBypass(url: string): string {
   return `${base}${base.includes('?') ? '&' : '?'}${stamp}${fragment}`
 }
 
-async function loadJson(url: string, what: string, options: LoadOptions): Promise<Readonly<Record<string, unknown>>> {
+async function loadJson(url: string, what: string, options: LoadOptions): Promise<{ readonly file: JsonFile; readonly status: number }> {
   const request = options.fetch ?? globalThis.fetch
   let response: Response
   try {
@@ -68,28 +68,55 @@ async function loadJson(url: string, what: string, options: LoadOptions): Promis
   try {
     parsed = await response.json()
   } catch {
-    throw new HotlayoutLoadError(`The ${what} at ${url} is not JSON.`, url, response.status)
+    // A 200 that is not JSON is most often the HTML page a server gives for an address it does not know.
+    const type = contentTypeOf(response)
+    throw new HotlayoutLoadError(`The ${what} at ${url} is not JSON: the server answered ${String(response.status)}${type === '' ? '' : ` with ${type}`}. Check the address.`, url, response.status)
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new HotlayoutLoadError(`The ${what} at ${url} is not a JSON object.`, url, response.status)
   }
-  return parsed as Readonly<Record<string, unknown>>
+  return { file: parsed as JsonFile, status: response.status }
 }
 
+/** The content type the server named, short enough for a message; a test double may have no headers at all. */
+function contentTypeOf(response: Response): string {
+  const headers = response.headers as Headers | undefined
+  return (headers?.get('content-type') ?? '').slice(0, 80)
+}
+
+type JsonFile = Readonly<Record<string, unknown>>
+
+/** The fields without which a file is not a layout document at all. */
+const looksLikeDocument = (file: JsonFile): boolean => typeof file.schemaVersion === 'string' && Array.isArray(file.screens)
+
+/** The fields without which a file is not a theme contract at all. */
+const looksLikeTheme = (file: JsonFile): boolean => typeof file.themeContractVersion === 'string' && typeof file.themes === 'object' && file.themes !== null && !Array.isArray(file.themes)
+
 /**
- * Fetches a published layout document. The result is NOT validated: pass it to
- * `checkDocumentVersion` or straight to `HotlayoutScreen`, which refuses a
- * document of an incompatible schema major on its own.
+ * Fetches a published layout document. Only its KIND is checked: the file has a
+ * `schemaVersion` and a list of `screens`, so a theme or an unrelated JSON file
+ * at the address is an error here and not an empty screen later. The content is
+ * NOT validated: pass the result to `checkDocumentVersion` or straight to
+ * `HotlayoutScreen`, which refuses a document of an incompatible schema major
+ * on its own.
  */
 export async function loadDocument(url: string, options: LoadOptions = {}): Promise<UiDocument> {
-  return (await loadJson(url, 'layout document', options)) as unknown as UiDocument
+  const { file, status } = await loadJson(url, 'layout document', options)
+  if (looksLikeDocument(file)) return file as unknown as UiDocument
+  if (looksLikeTheme(file)) throw new HotlayoutLoadError(`The file at ${url} is a theme, not a layout document: the two addresses may be swapped.`, url, status)
+  throw new HotlayoutLoadError(`The file at ${url} is not a layout document: it has no \`schemaVersion\` or no list of \`screens\`.`, url, status)
 }
 
 /**
- * Fetches a published theme contract (`theme/published.json`). An unreadable
- * theme is not an error for the renderer — it falls back to the built-in one —
- * so you may also choose to swallow a `HotlayoutLoadError` here.
+ * Fetches a published theme contract (`theme/published.json`). Only its KIND is
+ * checked, as for a document: the file has a `themeContractVersion` and
+ * `themes`. An unreadable theme is not an error for the renderer — it falls
+ * back to the built-in one — so you may also choose to swallow a
+ * `HotlayoutLoadError` here.
  */
 export async function loadTheme(url: string, options: LoadOptions = {}): Promise<ThemeContract> {
-  return (await loadJson(url, 'theme', options)) as unknown as ThemeContract
+  const { file, status } = await loadJson(url, 'theme', options)
+  if (looksLikeTheme(file)) return file as unknown as ThemeContract
+  if (looksLikeDocument(file)) throw new HotlayoutLoadError(`The file at ${url} is a layout document, not a theme: the two addresses may be swapped.`, url, status)
+  throw new HotlayoutLoadError(`The file at ${url} is not a theme: it has no \`themeContractVersion\` or no \`themes\`.`, url, status)
 }

@@ -8,6 +8,7 @@ import { INPUTS_LAYOUT } from '../inputs-layout'
 import { inputPathOf } from '../input-rules'
 import { productVar } from '../theme'
 import { IssueContext, useData } from './contexts'
+import { screenPart } from './screen-part'
 
 /**
  * An input field: its value is a data PATH of the data contract. It is read through the layers
@@ -39,11 +40,11 @@ export function disabledLook(disabled: boolean): CSSProperties {
  * readers and not part of the accessible name; the field never shows a "fill this in" text
  * (`requiredMessage`).
  */
-export function RequiredMark(): ReactNode {
+export const RequiredMark = screenPart(function RequiredMark(): ReactNode {
   const mark = FORM_RULES.required.mark
   return (
     <span aria-hidden="true" data-hl-required="" style={{ marginInlineStart: productVar('spacing', mark.gap), color: productVar('color', mark.color) }}>
       {REQUIRED_MARK}
     </span>
   )
-}
+})

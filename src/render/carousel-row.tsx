@@ -14,6 +14,7 @@ import { CAROUSEL_CARD_VAR, CarouselCardContext, CarouselMemoryContext, Instance
 import { PressLabel } from './press-host'
 import { splitRootPadding } from './screen-root'
 import type { NodeMark } from './widget-props'
+import { screenPart } from './screen-part'
 
 /** One carousel card: the node (for its flags) and what to draw. A node hidden by a condition draws nothing itself, so it has no list wrapper. */
 interface CarouselCard {
@@ -57,7 +58,7 @@ function cardsOf(scroller: HTMLElement): readonly HTMLElement[] {
  * Right-to-left writing mirrors by itself (flex, `scroll-padding-inline-start`); `scrollLeft` is
  * negative there, so its absolute value is used.
  */
-export function CarouselRow({
+export const CarouselRow = screenPart(function CarouselRow({
   node,
   mark,
   css,
@@ -194,4 +195,4 @@ export function CarouselRow({
       )}
     </div>
   )
-}
+})

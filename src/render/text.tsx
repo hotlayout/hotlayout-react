@@ -10,13 +10,14 @@ import { asCss } from './prop-tokens'
 import { richParagraph, withoutTypography } from './rich-paragraph'
 import { useTextParts } from './use-text'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /**
  * A text. The colour and font do NOT come from `props` (they are no longer there) but from the
  * foreground: the node's own `style` or that of the nearest ancestor that named one; if nobody named
  * one, `onSurface` and `bodyM` from the theme core.
  */
-export function TextView({ props, css, text, mark }: WidgetProps): ReactNode {
+export const TextView = screenPart(function TextView({ props, css, text, mark }: WidgetProps): ReactNode {
   const theme = useTheme()
   const place = useContext(PlaceContext)
   const item = useContext(ListNumberContext)
@@ -89,7 +90,7 @@ export function TextView({ props, css, text, mark }: WidgetProps): ReactNode {
       <span style={{ ...paragraph, flex: '1 1 auto', minInlineSize: 0 }}>{body}</span>
     </span>
   )
-}
+})
 
 /** The schema `AlignToken`, which are also logical `text-align` values. */
 const TEXT_ALIGNS = ['start', 'center', 'end'] as const

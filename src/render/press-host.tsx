@@ -35,6 +35,7 @@ import { useDocumentAction, usePress } from './use-press'
 import { useText } from './use-text'
 import type { WidgetProps } from './widget-props'
 import { useWriteSemantics } from './choice'
+import { screenPart } from './screen-part'
 
 /** The attributes a pressable container adds to its root element. */
 export type PressAttributes = Pick<HTMLAttributes<HTMLElement>, 'role' | 'tabIndex' | 'className' | 'onClick' | 'onKeyDown'> & { readonly 'data-hl-press'?: string }
@@ -169,7 +170,7 @@ const VISUALLY_HIDDEN: CSSProperties = { position: 'absolute', inlineSize: 1, bl
  * The label of a pressable container: the first child, hidden. It goes before the content, so
  * the name of the card is the label first and then the text of what is inside.
  */
-export function PressLabel({ node }: { readonly node: UiNode }): ReactNode {
+export const PressLabel = screenPart(function PressLabel({ node }: { readonly node: UiNode }): ReactNode {
   const label = useText(isRecord(node.props) ? node.props.label : undefined, 'label')
   const live = pressActionOf(node, actionOf(isRecord(node.props) ? node.props.action : undefined)) !== undefined
   const shown = shownTextOf(label)
@@ -178,4 +179,4 @@ export function PressLabel({ node }: { readonly node: UiNode }): ReactNode {
       {shown}
     </span>
   ) : null
-}
+})

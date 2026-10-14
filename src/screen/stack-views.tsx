@@ -1,5 +1,4 @@
 /** What the root of the package draws: the notice for an incompatible document and one layer of the screen stack. */
-import { Suspense } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 
 import { BACK_ACTION_TYPE } from '../actions'
@@ -15,6 +14,7 @@ import type { VersionVerdict } from '../version'
 import { modalContentWidthClass, modalShapeInClass } from '../wide-modal'
 import type { WidthClass } from '../width-class'
 import { rootIdOf } from './flow'
+import { FirstPassGuard } from './first-pass'
 import type { Flow, ShownFrame } from './flow'
 import { ModalLayer, PageLayer } from './layers'
 import type { ReportBox } from './reports'
@@ -93,28 +93,30 @@ export function stackLayer(env: LayerEnv, { screen, record }: ShownFrame, offset
    * Error boundary around the screen. Defensive reading (`shape.ts`, `sanitize.ts`) should stop a
    * screen from throwing; this boundary covers whatever it missed. Without it, a render exception
    * unmounts the host application's WHOLE tree, so one bad node in storage would blank the host's
-   * page. `ScreenBoundary` catches in the browser; on the server there are no error boundaries and
-   * the exception is stopped by `Suspense`: its fallback (the same notice) goes into the markup
-   * instead of a 500 for the whole page.
+   * page. `ScreenBoundary` catches in the browser. On the server there are no error boundaries, so
+   * the first pass guards itself (`FirstPassGuard`): the same notice goes into the markup instead of
+   * a 500 for the whole page. `Suspense` would stop a server exception too, but a streaming renderer
+   * sends the fallback of a large boundary first and its content later, so a healthy screen would
+   * reach the reader as the notice.
    */
   const notice = (message: string): ReactNode => (renderError === undefined ? <div role="alert">{UNAVAILABLE}</div> : renderError({ screenId: screen.screenId, message }))
   const guarded = (
-    <Suspense fallback={notice('the screen could not be rendered on the server')}>
-      <ScreenBoundary
-        screenId={screen.screenId}
-        // A different document or entry is a new attempt. NOT "a different object": a host that
-        // parses JSON during render hands over a new object every time, and the same document
-        // would throw again on every render.
-        resetKey={flowKey}
-        notice={notice}
-        onError={(message) => {
-          // The boundary catches in the commit phase, when the report box has already been drained, so deliver at once, but still only once.
-          if (issues.note({ kind: 'render-error', screenId: screen.screenId, message })) for (const report of issues.drain()) deliver(report)
-        }}
-      >
+    <ScreenBoundary
+      screenId={screen.screenId}
+      // A different document or entry is a new attempt. NOT "a different object": a host that
+      // parses JSON during render hands over a new object every time, and the same document
+      // would throw again on every render.
+      resetKey={flowKey}
+      notice={notice}
+      onError={(message) => {
+        // The boundary catches in the commit phase, when the report box has already been drained, so deliver at once, but still only once.
+        if (issues.note({ kind: 'render-error', screenId: screen.screenId, message })) for (const report of issues.drain()) deliver(report)
+      }}
+    >
+      <FirstPassGuard notice={notice}>
         <CarouselMemoryContext.Provider value={memoryFor(`${String(index + 1)}-${screen.screenId}${sectionSuffix}`)}>{view}</CarouselMemoryContext.Provider>
-      </ScreenBoundary>
-    </Suspense>
+      </FirstPassGuard>
+    </ScreenBoundary>
   )
   const key = `${String(index + 1)}-${screen.screenId}${sectionSuffix}`
   if (!isModal) {

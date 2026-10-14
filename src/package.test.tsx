@@ -1032,7 +1032,7 @@ describe('loaders, separate from the renderer', () => {
     const calls: [string, RequestInit | undefined][] = []
     const fetch = ((url: string, init?: RequestInit) => {
       calls.push([url, init])
-      return Promise.resolve(answer({ schemaVersion: READER_SCHEMA_VERSION }))
+      return Promise.resolve(answer({ schemaVersion: READER_SCHEMA_VERSION, screens: [] }))
     }) as typeof globalThis.fetch
     const document = await loadDocument('https://cdn.example/published.json', { fetch })
     expect(document.schemaVersion).toBe(READER_SCHEMA_VERSION)

@@ -8,6 +8,7 @@ import { TightSlotContext } from './contexts'
 import { useSpacing } from './prop-tokens'
 import { Children } from './siblings'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /**
  * The grid columns are EQUAL shares of the width whatever the cells hold.
@@ -41,7 +42,7 @@ export function columnsOf(props: Readonly<Record<string, unknown>>): number | un
  * stretch the cells, so it aligns them to the top. The grid default `stretch` would show cards of
  * equal height, which the phone will not have.
  */
-export function GridView({ node, props, css, mark }: WidgetProps): ReactNode {
+export const GridView = screenPart(function GridView({ node, props, css, mark }: WidgetProps): ReactNode {
   const gap = useSpacing(props.gap, 'sm')
   const columns = columnsOf(props) ?? 2
   return (
@@ -51,4 +52,4 @@ export function GridView({ node, props, css, mark }: WidgetProps): ReactNode {
       </TightSlotContext.Provider>
     </div>
   )
-}
+})

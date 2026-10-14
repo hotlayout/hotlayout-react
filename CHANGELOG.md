@@ -16,6 +16,25 @@ and themes a release reads is stated in every entry.
 
 - Internal: source files split by widget family (`render/`), by concern of the screen stack (`screen/`) and by rule group (`style-box`, `style-roles`, `layout-rules`, `input-number`, `inputs-layout`, `wide-nav`, `wide-modal`); no behaviour change, the public entry is the same.
 
+## [0.18.2] - 2026-10-13
+
+**Reads:** the same as 0.18.0 — layout documents of schema **9.19.x** and themes of theme contract **4.0.x**, icon set 1.0.0.
+
+### Fixed
+
+- **An image in a stack was narrower than the stack.** A layer of a `Stack` is aligned by the stack (`alignHorizontal`), so its cell shrank to the natural width of the image file; with a named height (for example from `styleOn`) the image then stopped at the width of the file on a wider screen. The width of an image is given by its parent and the size of the file is never read, so an `Image` layer without its own `style.width` now takes the whole stack width. A named width still follows the alignment of the stack.
+- **A streaming server renderer sent a placeholder instead of the screen.** In the HTML of the Next.js App Router (`next dev`, `next build`, statically prerendered pages) and of `renderToPipeableStream` / `renderToReadableStream`, the screen came behind a `Suspense` boundary: the first part of the response held `This screen is not available right now.` with `role="alert"`, and the screen itself followed as a hidden segment that a script moved into place. With JavaScript off, and to a crawler, the page showed only the notice; with JavaScript on, the notice was in the DOM before the screen. The component no longer puts a `Suspense` boundary around the screen: the first screen is in the first part of the response as ordinary HTML, and nothing is swapped in. `renderToString` was not affected.
+
+### Changed
+
+- **A screen that throws while rendering on the server** still does not fail the response (status 200, the rest of the page is rendered, the notice or `renderError` is in the markup), but it is now contained without `Suspense`. Three things you may notice: `renderError` receives the message of the exception on the server too (it used to receive a fixed text there); the notice in the server markup sits in a `<div data-hl-failed>`; and what was drawn before the failing part is in the markup, hidden by a new rule of the package stylesheet. If you ship `@hotlayout/react/styles.css` yourself, update your copy.
+- **`loadDocument` and `loadTheme` check the kind of the file.** A JSON object without `schemaVersion` and `screens` is no longer returned as a document, and one without `themeContractVersion` and `themes` is no longer returned as a theme: both reject with `HotlayoutLoadError`. A theme at the document's address (or the other way round) is named as such in the message. A response that is not JSON now says what the server answered — the status and the content type — which is how a single-page application's HTML fallback for an unknown path looks. The content is still not validated.
+
+### Documentation
+
+- "Server rendering and Next.js" states what is in the first part of the response and what a reader without JavaScript sees.
+- "Reports" lists what is reported and what is not. An image address the policy refused is reported (`ignored-input`); an image with no address, an asset token without a URL and an image that failed to load draw the placeholder without a report — the earlier wording, "no fallback is silent", promised more than that.
+
 ## [0.18.1] - 2026-10-13
 
 Documentation only: the README opens with what the package is, how to install it and the quick start; what each schema minor added is a table under Versions. No code changes.

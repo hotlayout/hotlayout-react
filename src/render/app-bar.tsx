@@ -25,6 +25,7 @@ import { nodeShown } from './siblings'
 import { swallowAutoRepeat, usePress } from './use-press'
 import { usePartColor, usePartText, useText } from './use-text'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /** The side of the square for the "back" arrow: a step of the spacing scale (`appBar.backSide`). */
 const APP_BAR_SIDE = 'xl'
@@ -186,7 +187,7 @@ function trailingZone({ look, who, navView, navBar }: { readonly look: BarLook; 
  * colour named on the app bar does not apply to it, since an icon button takes its role and its own
  * style.
  */
-export function AppBarView({ node, props, css: ownCss, text, mark }: WidgetProps): ReactNode {
+export const AppBarView = screenPart(function AppBarView({ node, props, css: ownCss, text, mark }: WidgetProps): ReactNode {
   const scope = useData()
   const widthClass = useContext(WidthClassContext)
   const contentMax = useContext(ContentMaxContext)
@@ -247,4 +248,4 @@ export function AppBarView({ node, props, css: ownCss, text, mark }: WidgetProps
       {zones}
     </header>
   )
-}
+})

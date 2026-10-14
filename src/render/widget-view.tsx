@@ -22,6 +22,7 @@ import { TextView } from './text'
 import { TextFieldView } from './text-field'
 import { CheckboxView, SwitchView } from './toggles'
 import type { WidgetProps } from './widget-props'
+import { screenPart } from './screen-part'
 
 /** Containers and layout: the widgets that draw their children. `undefined` — the type is not one of them. */
 function layoutWidget(widget: WidgetProps): ReactNode | undefined {
@@ -130,8 +131,8 @@ function contentWidget(widget: WidgetProps): ReactNode {
   }
 }
 
-export function WidgetView(given: WidgetProps): ReactNode {
+export const WidgetView = screenPart(function WidgetView(given: WidgetProps): ReactNode {
   // A container with an action (schema 9.19.0) is a pressable container: the role, focus and keyboard go on its root element.
   const widget = usePressHost(given)
   return layoutWidget(widget) ?? contentWidget(widget)
-}
+})

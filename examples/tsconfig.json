@@ -17,5 +17,5 @@
     "types": [],
     "paths": { "@hotlayout/react": ["../src/index.ts"] }
   },
-  "include": ["*.ts", "*.tsx"]
+  "include": ["*.ts", "*.tsx", "docs/*.ts", "docs/*.tsx"]
 }
