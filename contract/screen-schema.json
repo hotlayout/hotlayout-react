@@ -99,6 +99,17 @@
             "dark"
           ]
         },
+        "backdropBlur": {
+          "description": "Blur of everything under the modal layer (9.20.0): the screens below with their app bar and navigation bar, in logical pixels — the standard deviation of a Gaussian blur. The scrim lies over the blur. Read only when `presentation` is `modal`. No field — no blur, exactly as before 9.20.0. Rules — «x-backdropBlur».",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 40
+        },
+        "dismissible": {
+          "description": "Only on a modal screen (9.26.0): «false» — the layer waits for an action inside it. No drag down, no tap on the scrim and no Esc close it; the system back stays with the host and «navigate.back» inside the layer works. No field — the layer is dismissed as «x-style.layout.modalLayer.dismiss» and «x-sheetDismiss» say.",
+          "type": "boolean",
+          "const": false
+        },
         "root": {
           "$ref": "#/$defs/ScreenNode"
         }
@@ -239,6 +250,10 @@
           "description": "Line under or through the text (9.17.0), in the colour of the text. Inherited down the tree; read by Text only. «none» cancels an inherited line.",
           "$ref": "#/$defs/TextDecoration"
         },
+        "textGradient": {
+          "description": "Gradient painted on the GLYPHS of the text (9.23.0): a gradient token of the theme or an own gradient of the same form as a gradient «background». It lies over the whole content box of the text, not line by line; a part of the text that names its own colour keeps it. «color» stays the fallback: an older reader and a gradient that does not resolve paint the text with it. Not inherited; read by Text only. Rules — «x-textGradient».",
+          "$ref": "#/$defs/GradientRef"
+        },
         "padding": {
           "$ref": "#/$defs/BoxSpacing"
         },
@@ -254,10 +269,19 @@
         "shadow": {
           "$ref": "#/$defs/ShadowRef"
         },
+        "shadowColor": {
+          "$ref": "#/$defs/ShadowColor"
+        },
         "opacity": {
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "backdropBlur": {
+          "description": "Blur of whatever is painted UNDER the box of this node, clipped by its «radius» (9.20.0) — frosted glass on a card, a navigation bar or a button. Logical pixels, the standard deviation of a Gaussian blur; the node own background lies over the blur, the node and its children are never blurred. Not inherited. No field — no blur. Rules — «x-backdropBlur.style».",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 40
         }
       },
       "additionalProperties": false,
@@ -375,6 +399,67 @@
         "lineThrough"
       ]
     },
+    "GradientRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GradientToken"
+        },
+        {
+          "$ref": "#/$defs/CustomGradient"
+        }
+      ]
+    },
+    "GradientToken": {
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]{0,39}$",
+      "description": "Name of a «gradient» token of the project theme. The schema checks only the shape of the name; whether the theme declares it is a semantic rule checked against the active theme."
+    },
+    "CustomGradient": {
+      "type": "object",
+      "properties": {
+        "angle": {
+          "type": "number",
+          "enum": [
+            0,
+            90,
+            180,
+            270,
+            45,
+            135,
+            225,
+            315
+          ]
+        },
+        "stops": {
+          "minItems": 2,
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "color": {
+                "$ref": "#/$defs/ColorRef"
+              },
+              "position": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "color",
+              "position"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "angle",
+        "stops"
+      ],
+      "additionalProperties": false
+    },
     "BoxSpacing": {
       "anyOf": [
         {
@@ -460,6 +545,13 @@
         },
         "color": {
           "$ref": "#/$defs/ColorRef"
+        },
+        "style": {
+          "description": "Line of the border (9.22.0). «dashed» — dashes of 3 and gaps of 2 border widths along the centre line of the border, following the corner arcs; the count closes the loop evenly. Rules — «x-style.layout.borderDash». No field or an unknown word — solid, exactly as before 9.22.0.",
+          "type": "string",
+          "enum": [
+            "dashed"
+          ]
         }
       },
       "required": [
@@ -530,67 +622,6 @@
           "additionalProperties": false
         }
       ]
-    },
-    "GradientRef": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/GradientToken"
-        },
-        {
-          "$ref": "#/$defs/CustomGradient"
-        }
-      ]
-    },
-    "GradientToken": {
-      "type": "string",
-      "pattern": "^[a-z][a-zA-Z0-9]{0,39}$",
-      "description": "Name of a «gradient» token of the project theme. The schema checks only the shape of the name; whether the theme declares it is a semantic rule checked against the active theme."
-    },
-    "CustomGradient": {
-      "type": "object",
-      "properties": {
-        "angle": {
-          "type": "number",
-          "enum": [
-            0,
-            90,
-            180,
-            270,
-            45,
-            135,
-            225,
-            315
-          ]
-        },
-        "stops": {
-          "minItems": 2,
-          "maxItems": 8,
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "color": {
-                "$ref": "#/$defs/ColorRef"
-              },
-              "position": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1
-              }
-            },
-            "required": [
-              "color",
-              "position"
-            ],
-            "additionalProperties": false
-          }
-        }
-      },
-      "required": [
-        "angle",
-        "stops"
-      ],
-      "additionalProperties": false
     },
     "ImageSource": {
       "oneOf": [
@@ -717,6 +748,13 @@
       ],
       "additionalProperties": false
     },
+    "ShadowColor": {
+      "description": "Colour of the shadow (9.25.0): «background» — every layer of «shadow» (a token or own layers) takes the hue of the own background of this node, keeping the opacity of the layer: a solid background gives its colour, a gradient the stop nearest to its middle. No background, an image background or a colour that does not resolve — the shadow keeps its own colour. Rules — «x-shadowColor». No field — the shadow keeps its own colour, exactly as before 9.25.0.",
+      "type": "string",
+      "enum": [
+        "background"
+      ]
+    },
     "ScreenStyleCase": {
       "type": "object",
       "properties": {
@@ -743,6 +781,12 @@
         },
         {
           "$ref": "#/$defs/OrderVisibilityCondition"
+        },
+        {
+          "$ref": "#/$defs/PathComparisonCondition"
+        },
+        {
+          "$ref": "#/$defs/FilteredEmptinessCondition"
         }
       ]
     },
@@ -832,6 +876,85 @@
       ],
       "additionalProperties": false
     },
+    "PathComparisonCondition": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        "valuePath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The operand is the value under this OTHER data path (9.23.0), read in the same scope as «path»: «reward.category eq ui.rewardsCategory». No value under it (or the empty string) — see «x-listFilter.operandMissing»."
+        }
+      },
+      "required": [
+        "path",
+        "op",
+        "valuePath"
+      ],
+      "additionalProperties": false
+    },
+    "FilteredEmptinessCondition": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "isEmpty",
+            "isNotEmpty"
+          ]
+        },
+        "item": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Prefix of a record of the collection, as «Repeater.item» (9.23.0)."
+        },
+        "where": {
+          "description": "Count only the records for which this condition holds (9.23.0) — the same predicate as «Repeater.where». Rules — «x-listFilter.emptiness».",
+          "$ref": "#/$defs/ListWhereCondition"
+        }
+      },
+      "required": [
+        "path",
+        "op",
+        "item",
+        "where"
+      ],
+      "additionalProperties": false
+    },
+    "ListWhereCondition": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/UnaryVisibilityCondition"
+        },
+        {
+          "$ref": "#/$defs/EqualityVisibilityCondition"
+        },
+        {
+          "$ref": "#/$defs/OrderVisibilityCondition"
+        },
+        {
+          "$ref": "#/$defs/PathComparisonCondition"
+        }
+      ]
+    },
     "ScreenStyleOn": {
       "minProperties": 1,
       "description": "The same as «StyleOn», for the screen root: no «margin» and no sizes.",
@@ -873,12 +996,15 @@
           "typography",
           "fontStyle",
           "textDecoration",
+          "textGradient",
           "padding",
           "radius",
           "border",
           "background",
           "shadow",
-          "opacity"
+          "shadowColor",
+          "opacity",
+          "backdropBlur"
         ]
       },
       "uniqueItems": true
@@ -1092,6 +1218,16 @@
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
         },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
+        },
+        "styleScrolled": {
+          "description": "Style of this app bar while the body is scrolled (9.21.0): «background», «color», «shadow» and «backdropBlur» only — nothing that changes the box. The layer lies LAST, over the state of «styleWhen»; the threshold and when it applies — «x-style.layout.appBarScrolled». No field — the bar does not change on scroll, exactly as before 9.21.0.",
+          "$ref": "#/$defs/ScrolledBarStyle"
+        },
         "children": {
           "maxItems": 3,
           "type": "array",
@@ -1126,6 +1262,13 @@
           "enum": [
             "start",
             "center"
+          ]
+        },
+        "titleShown": {
+          "description": "When the title block is drawn (9.21.0). «scrolled» — only while the body is scrolled («x-style.layout.appBarScrolled»); at rest it is not drawn but keeps its place, so the zones do not jump. No field or an unknown word — always, exactly as before 9.21.0.",
+          "type": "string",
+          "enum": [
+            "scrolled"
           ]
         }
       },
@@ -1185,6 +1328,17 @@
             },
             "dateParts": {
               "$ref": "#/$defs/DateParts"
+            },
+            "unit": {
+              "$ref": "#/$defs/CountdownUnit"
+            },
+            "pad": {
+              "type": "number",
+              "const": 2,
+              "description": "At least this many digits, zeros in front («05»), beside «format: countdownPart» (9.21.0). No field — as many digits as the number has."
+            },
+            "notation": {
+              "$ref": "#/$defs/NumberNotation"
             }
           },
           "required": [
@@ -1234,7 +1388,8 @@
         "time",
         "number",
         "currency",
-        "daysUntil"
+        "daysUntil",
+        "countdownPart"
       ]
     },
     "CurrencyCode": {
@@ -1272,6 +1427,23 @@
       ],
       "description": "Which parts of a date to show, beside «format: date» (9.19.0): «dayMonth» — day and month in full, no year; «weekdayDayMonth» — the day of the week, day and month in full; «dayMonthYear» — day, month in full and year. Order and separators come from CLDR for the formatting locale. Rules — «x-dateParts». No field — year, short month and day, exactly as before 9.19.0. A word the reader does not know — the field is absent."
     },
+    "CountdownUnit": {
+      "type": "string",
+      "enum": [
+        "days",
+        "hours",
+        "minutes",
+        "seconds"
+      ],
+      "description": "Which part of the time left the «countdownPart» format shows (9.21.0): «days» — whole days; «hours» — 0–23; «minutes» — 0–59; «seconds» — 0–59. Required exactly when «format» is «countdownPart». Arithmetic, ticking and the clock — «x-countdown»."
+    },
+    "NumberNotation": {
+      "type": "string",
+      "enum": [
+        "compact"
+      ],
+      "description": "Compact number (9.23.0): «compact» writes 48 200 as «48.2K» (en) or «48,2 тис.» (uk) — one fraction digit, half up, suffixes from a closed table by language. Only with «format: number». Rules — «x-compactNumber». No field — every digit."
+    },
     "TemplateValue": {
       "oneOf": [
         {
@@ -1305,6 +1477,17 @@
             },
             "dateParts": {
               "$ref": "#/$defs/DateParts"
+            },
+            "unit": {
+              "$ref": "#/$defs/CountdownUnit"
+            },
+            "pad": {
+              "type": "number",
+              "const": 2,
+              "description": "At least this many digits, zeros in front («05»), beside «format: countdownPart» (9.21.0). No field — as many digits as the number has."
+            },
+            "notation": {
+              "$ref": "#/$defs/NumberNotation"
             }
           },
           "required": [
@@ -1405,6 +1588,10 @@
           "description": "Line under or through the text (9.17.0), in the colour of the text. Inherited down the tree; read by Text only. «none» cancels an inherited line.",
           "$ref": "#/$defs/TextDecoration"
         },
+        "textGradient": {
+          "description": "Gradient painted on the GLYPHS of the text (9.23.0): a gradient token of the theme or an own gradient of the same form as a gradient «background». It lies over the whole content box of the text, not line by line; a part of the text that names its own colour keeps it. «color» stays the fallback: an older reader and a gradient that does not resolve paint the text with it. Not inherited; read by Text only. Rules — «x-textGradient».",
+          "$ref": "#/$defs/GradientRef"
+        },
         "padding": {
           "$ref": "#/$defs/BoxSpacing"
         },
@@ -1441,10 +1628,19 @@
         "shadow": {
           "$ref": "#/$defs/ShadowRef"
         },
+        "shadowColor": {
+          "$ref": "#/$defs/ShadowColor"
+        },
         "opacity": {
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "backdropBlur": {
+          "description": "Blur of whatever is painted UNDER the box of this node, clipped by its «radius» (9.20.0) — frosted glass on a card, a navigation bar or a button. Logical pixels, the standard deviation of a Gaussian blur; the node own background lies over the blur, the node and its children are never blurred. Not inherited. No field — no blur. Rules — «x-backdropBlur.style».",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 40
         }
       },
       "additionalProperties": false,
@@ -1577,10 +1773,11 @@
       "$ref": "#/$defs/SpacingRef"
     },
     "NodePin": {
-      "description": "Pins this child to the BOTTOM of the screen (9.12.0): it leaves the scrolling body and stands in the bottom zone, always on screen, while the body scrolls above it. Read only on ONE node: the last child of the screen root, not counting the «NavBar»; anywhere else the field is not read and the node is an ordinary child. Rules — «x-style.layout.bottomZone». No field — the child scrolls with the body, exactly as before 9.12.0.",
+      "description": "Pins this child of the screen root to an edge of the screen: it leaves the scrolling body and stands, always on screen, while the body scrolls. «bottom» (9.12.0) — the bottom zone; read only on ONE node: the last child of the root, not counting the «NavBar»; rules — «x-style.layout.bottomZone». «top» (9.24.0) — the top zone, below the app bar; read on the children in a run at the start (right after the «AppBar» zone, or first), not with «bodyTop: screenTop»; rules — «x-style.layout.topZone». Anywhere else the field is not read and the node is an ordinary child. No field — the child scrolls with the body.",
       "type": "string",
       "enum": [
-        "bottom"
+        "bottom",
+        "top"
       ]
     },
     "ShowOn": {
@@ -1643,6 +1840,7 @@
           "typography",
           "fontStyle",
           "textDecoration",
+          "textGradient",
           "padding",
           "margin",
           "width",
@@ -1655,10 +1853,127 @@
           "border",
           "background",
           "shadow",
-          "opacity"
+          "shadowColor",
+          "opacity",
+          "backdropBlur"
         ]
       },
       "uniqueItems": true
+    },
+    "NodeMotion": {
+      "description": "An endless motion of this node that never changes the layout (9.20.0): only a paint transform. «float» — the node drifts along «axis» by up to «amplitude» logical pixels; «pulse» — it breathes in scale and, optionally, opacity. One cycle lasts «duration» ms, the first starts after «delay» ms. The curve is a sine, not a field; the pose at any moment, the clock, «reduce motion», taps and clipping — «x-motion». No field — the node stands still, exactly as before 9.20.0.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "float"
+            },
+            "axis": {
+              "type": "string",
+              "enum": [
+                "vertical",
+                "horizontal",
+                "both"
+              ]
+            },
+            "amplitude": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 48,
+              "description": "Largest shift from rest along each moving axis, in logical pixels."
+            },
+            "duration": {
+              "type": "integer",
+              "minimum": 400,
+              "maximum": 60000,
+              "description": "Length of one cycle, in milliseconds."
+            },
+            "delay": {
+              "description": "Milliseconds the node stands at rest before its first cycle. No field — the cycle starts at once.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000
+            }
+          },
+          "required": [
+            "kind",
+            "axis",
+            "amplitude",
+            "duration"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "pulse"
+            },
+            "scale": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 1.5,
+              "description": "Scale at the peak of the cycle, about the centre of the box; 1 — no change of scale."
+            },
+            "opacity": {
+              "description": "Opacity factor at the peak of the cycle (multiplies the node own opacity). No field — opacity does not change.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "duration": {
+              "type": "integer",
+              "minimum": 400,
+              "maximum": 60000,
+              "description": "Length of one cycle, in milliseconds."
+            },
+            "delay": {
+              "description": "Milliseconds the node stands at rest before its first cycle. No field — the cycle starts at once.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000
+            }
+          },
+          "required": [
+            "kind",
+            "scale",
+            "duration"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "NodePressFeedback": {
+      "description": "Feedback of a pressable node to the finger (9.25.0). The reader gives it by itself — «x-pressFeedback»: a card or a list row scales to 0.97, a button to 0.96, an icon button, a ghost button and a navigation item fade to 0.7. «none» — no feedback on this node. No field — the feedback of the contract.",
+      "type": "string",
+      "enum": [
+        "none"
+      ]
+    },
+    "ScrolledBarStyle": {
+      "type": "object",
+      "properties": {
+        "background": {
+          "$ref": "#/$defs/NodeBackground"
+        },
+        "color": {
+          "$ref": "#/$defs/ColorRef"
+        },
+        "shadow": {
+          "$ref": "#/$defs/ShadowRef"
+        },
+        "backdropBlur": {
+          "description": "Blur of whatever is painted UNDER the box of this node, clipped by its «radius» (9.20.0) — frosted glass on a card, a navigation bar or a button. Logical pixels, the standard deviation of a Gaussian blur; the node own background lies over the blur, the node and its children are never blurred. Not inherited. No field — no blur. Rules — «x-backdropBlur.style».",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 40
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
     },
     "ColumnNode": {
       "type": "object",
@@ -1711,6 +2026,12 @@
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
         },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
+        },
         "propsOn": {
           "$ref": "#/$defs/ColumnPropsOn"
         },
@@ -1755,6 +2076,12 @@
         },
         "label": {
           "$ref": "#/$defs/PressLabel"
+        },
+        "longPress": {
+          "$ref": "#/$defs/LongPressAction"
+        },
+        "longPressLabel": {
+          "$ref": "#/$defs/LongPressLabel"
         }
       },
       "required": [
@@ -1809,6 +2136,18 @@
         },
         "track": {
           "$ref": "#/$defs/ActionTrack"
+        },
+        "haptic": {
+          "description": "Haptic feedback of the press (9.25.0) — a REQUEST to the host, like «track»: the reader never vibrates by itself, it hands the word to the host once per press, before the action and next to the analytics event. «light», «medium», «heavy» — an impact; «selection» — a change of choice; «success», «warning» — an outcome. Rules — «x-haptic». No field — no request.",
+          "type": "string",
+          "enum": [
+            "light",
+            "medium",
+            "heavy",
+            "selection",
+            "success",
+            "warning"
+          ]
         }
       },
       "required": [
@@ -1848,6 +2187,14 @@
     },
     "PressLabel": {
       "description": "Hidden accessible name of a pressable container (9.19.0): read first, before the text of its content. Required when nothing inside the container says anything without data.",
+      "$ref": "#/$defs/BindableString"
+    },
+    "LongPressAction": {
+      "description": "Long press of the node (9.26.0): the same action form and execution path as «action». It fires while the finger is still down, once it has stayed within the touch slop for the threshold of «x-longPress»; the press of «action» then does not happen. Only on a pressable container and on ListTile — never on a button. Requires «longPressLabel». No field — no long press.",
+      "$ref": "#/$defs/ButtonAction"
+    },
+    "LongPressLabel": {
+      "description": "Name of the long press action for assistive technologies (9.26.0): a named custom action of the node, the context menu key and Shift+F10. Required when «longPress» does something. Translatable.",
       "$ref": "#/$defs/BindableString"
     },
     "ColumnPropsOn": {
@@ -1937,6 +2284,12 @@
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
         },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
+        },
         "propsOn": {
           "$ref": "#/$defs/RowPropsOn"
         },
@@ -1994,6 +2347,12 @@
         },
         "label": {
           "$ref": "#/$defs/PressLabel"
+        },
+        "longPress": {
+          "$ref": "#/$defs/LongPressAction"
+        },
+        "longPressLabel": {
+          "$ref": "#/$defs/LongPressLabel"
         }
       },
       "required": [
@@ -2132,6 +2491,12 @@
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
         },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
+        },
         "propsOn": {
           "$ref": "#/$defs/ContainerPropsOn"
         },
@@ -2181,6 +2546,12 @@
         },
         "label": {
           "$ref": "#/$defs/PressLabel"
+        },
+        "longPress": {
+          "$ref": "#/$defs/LongPressAction"
+        },
+        "longPressLabel": {
+          "$ref": "#/$defs/LongPressLabel"
         }
       },
       "required": [
@@ -2284,6 +2655,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         },
         "propsOn": {
           "$ref": "#/$defs/GridPropsOn"
@@ -2404,6 +2781,12 @@
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
         },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
+        },
         "children": {
           "maxItems": 5,
           "type": "array",
@@ -2437,6 +2820,12 @@
         },
         "label": {
           "$ref": "#/$defs/PressLabel"
+        },
+        "longPress": {
+          "$ref": "#/$defs/LongPressAction"
+        },
+        "longPressLabel": {
+          "$ref": "#/$defs/LongPressLabel"
         }
       },
       "required": [
@@ -2495,6 +2884,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         },
         "children": {
           "maxItems": 5,
@@ -2578,6 +2973,12 @@
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
         },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
+        },
         "children": {
           "maxItems": 15,
           "type": "array",
@@ -2655,6 +3056,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         },
         "children": {
           "maxItems": 10,
@@ -2738,6 +3145,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         },
         "children": {
           "maxItems": 20,
@@ -2828,6 +3241,17 @@
             },
             "dateParts": {
               "$ref": "#/$defs/DateParts"
+            },
+            "unit": {
+              "$ref": "#/$defs/CountdownUnit"
+            },
+            "pad": {
+              "type": "number",
+              "const": 2,
+              "description": "At least this many digits, zeros in front («05»), beside «format: countdownPart» (9.21.0). No field — as many digits as the number has."
+            },
+            "notation": {
+              "$ref": "#/$defs/NumberNotation"
             }
           },
           "required": [
@@ -2890,11 +3314,17 @@
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
         },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
+        },
         "propsOn": {
           "$ref": "#/$defs/RepeaterPropsOn"
         },
         "children": {
-          "maxItems": 1,
+          "maxItems": 2,
           "type": "array",
           "items": {
             "$ref": "#/$defs/ChildNode"
@@ -2942,6 +3372,15 @@
         "carousel": {
           "description": "Turns the sideways scroll into a carousel: the scroll snaps to the cards and dots show the position. Rules — «x-style.layout.carousel». A reader older than 9.11.0 skips the field and shows the plain row.",
           "$ref": "#/$defs/Carousel"
+        },
+        "where": {
+          "description": "Draw only the records for which this condition holds (9.23.0), judged in the scope of THAT record over the outer scope. A record that does not pass does not exist for the layout: the grid packs, the carousel counts stops and dots of the cards drawn, numbers count the records drawn; «limit» takes the first records that passed. A comparison by «valuePath» with no value under it holds for every record («All»). No field — every record. Rules — «x-listFilter».",
+          "$ref": "#/$defs/ListWhereCondition"
+        },
+        "groupBy": {
+          "description": "Group the drawn records (9.26.0): records that follow one another with the same value under this path of the RECORD (for example «activity.day») form one group, and the SECOND child of the Repeater — the group header — is drawn before each group in the scope of its FIRST record. The order is the order of the data; groups are formed after «where» and «limit». Only a list in a column: with «columns» or a row direction the field is not published. No field — no groups, and the Repeater has one child. Rules — «x-repeaterGroup».",
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -3036,6 +3475,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -3121,6 +3566,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -3203,6 +3654,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -3251,6 +3708,16 @@
         "marker": {
           "description": "List item marker before the text (9.17.0): «bullet» — «•» in the font of the text, «number» — the number of the item among consecutive numbered siblings and a dot, «none» or no field — plain text. The text hangs: its second line starts under the first line of the text, not under the marker («x-style.layout.listMarker»).",
           "$ref": "#/$defs/TextMarker"
+        },
+        "animateChanges": {
+          "description": "When the DATA change the value of this node while it is shown, the reader leads from the old value to the new one (9.21.0): a number of a text with a numeric format counts through the values between, a scale grows. Duration, curve, steps and when there is no transition — «x-valueTransition». No field — the value changes at once, exactly as before 9.21.0.",
+          "type": "boolean",
+          "const": true
+        },
+        "animateIn": {
+          "description": "When the node is SHOWN, its value grows from zero to its own (9.24.0): a number of a text with a numeric format counts up from 0 with the same curve, duration and steps as «animateChanges»; a ProgressBar or CircularProgress fills from empty. Shown — the first show of the screen, a screen shown again («back»), a node that appears (condition, width class, a new record). Rules — «x-valueAppear». No field — the value is there at once, exactly as before 9.24.0.",
+          "type": "boolean",
+          "const": true
         }
       },
       "required": [
@@ -3393,6 +3860,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -3532,6 +4005,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -3970,6 +4449,12 @@
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
         },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
+        },
         "zone": {
           "$ref": "#/$defs/NodeZone"
         }
@@ -4027,6 +4512,13 @@
         "disabledIf": {
           "description": "Disabled while the condition holds; with «requiresFilled» — when either holds («x-style.layout.form.button»). No field — not disabled.",
           "$ref": "#/$defs/VisibilityCondition"
+        },
+        "confirm": {
+          "description": "How the press is confirmed (9.22.0). «swipe» — the button is drawn as a track with a thumb at the inline start; the action and its «track» run only when the thumb is dragged to the inline end past the threshold and released; released earlier, it returns. From the keyboard and for assistive technology it is an ordinary button named by its label: Enter and Space act at once. A disabled button does not move. Rules — «x-swipeConfirm». No field or an unknown word — an ordinary press, exactly as before 9.22.0.",
+          "type": "string",
+          "enum": [
+            "swipe"
+          ]
         }
       },
       "required": [
@@ -4111,6 +4603,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         },
         "zone": {
           "$ref": "#/$defs/NodeZone"
@@ -4230,6 +4728,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -4275,6 +4779,12 @@
         },
         "action": {
           "$ref": "#/$defs/ButtonAction"
+        },
+        "longPress": {
+          "$ref": "#/$defs/LongPressAction"
+        },
+        "longPressLabel": {
+          "$ref": "#/$defs/LongPressLabel"
         }
       },
       "required": [
@@ -4544,6 +5054,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -4590,6 +5106,26 @@
         "gradient": {
           "description": "Gradient of the fill, stronger than «color» while it resolves. It runs along the FILLED part: position 0 — the start of the scale, position 1 — the end of the fill («x-style.layout.progress.gradient»); the angle is not read. No field, an unknown token or unordered stops — the fill is the solid «color».",
           "$ref": "#/$defs/GradientRef"
+        },
+        "cap": {
+          "description": "Ends of the scale (9.21.0). «round» — the ends of the ring arc and of the bar track and fill are half-circles of the thickness, kept INSIDE the filled part: geometry — «x-style.layout.progressCap». No field or an unknown word — square ends of the ring arc and the theme «pill» radius of the bar, exactly as before 9.21.0.",
+          "type": "string",
+          "enum": [
+            "round"
+          ]
+        },
+        "animateChanges": {
+          "description": "When the DATA change the value of this node while it is shown, the reader leads from the old value to the new one (9.21.0): a number of a text with a numeric format counts through the values between, a scale grows. Duration, curve, steps and when there is no transition — «x-valueTransition». No field — the value changes at once, exactly as before 9.21.0.",
+          "type": "boolean",
+          "const": true
+        },
+        "animateIn": {
+          "description": "When the node is SHOWN, its value grows from zero to its own (9.24.0): a number of a text with a numeric format counts up from 0 with the same curve, duration and steps as «animateChanges»; a ProgressBar or CircularProgress fills from empty. Shown — the first show of the screen, a screen shown again («back»), a node that appears (condition, width class, a new record). Rules — «x-valueAppear». No field — the value is there at once, exactly as before 9.24.0.",
+          "type": "boolean",
+          "const": true
+        },
+        "glow": {
+          "$ref": "#/$defs/ProgressGlow"
         },
         "segments": {
           "description": "Cuts the scale into this many equal steps with a gap between them. A step is filled WHOLE or not at all: filled = floor(ratio × segments). Geometry, gap, rounding and the gradient — «x-style.layout.progressSegments». No field — the continuous bar.",
@@ -4653,6 +5189,14 @@
         }
       ]
     },
+    "ProgressGlow": {
+      "description": "Glow of the FILLED part of the scale (9.25.0): a blurred copy of the fill under it, in its own colour or gradient — «soft» or «strong», numbers in «x-progressGlow». A bar with steps lights one step: the current one when «currentColor» paints it, otherwise the last step with any fill. It changes no layout and is not clipped by the own box of the node. No field or an unknown word — no glow, exactly as before 9.25.0.",
+      "type": "string",
+      "enum": [
+        "soft",
+        "strong"
+      ]
+    },
     "CircularProgressNode": {
       "type": "object",
       "properties": {
@@ -4703,6 +5247,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -4760,6 +5310,26 @@
         "gradient": {
           "description": "Gradient of the fill, stronger than «color» while it resolves. It runs along the FILLED part: position 0 — the start of the scale, position 1 — the end of the fill («x-style.layout.progress.gradient»); the angle is not read. No field, an unknown token or unordered stops — the fill is the solid «color».",
           "$ref": "#/$defs/GradientRef"
+        },
+        "cap": {
+          "description": "Ends of the scale (9.21.0). «round» — the ends of the ring arc and of the bar track and fill are half-circles of the thickness, kept INSIDE the filled part: geometry — «x-style.layout.progressCap». No field or an unknown word — square ends of the ring arc and the theme «pill» radius of the bar, exactly as before 9.21.0.",
+          "type": "string",
+          "enum": [
+            "round"
+          ]
+        },
+        "animateChanges": {
+          "description": "When the DATA change the value of this node while it is shown, the reader leads from the old value to the new one (9.21.0): a number of a text with a numeric format counts through the values between, a scale grows. Duration, curve, steps and when there is no transition — «x-valueTransition». No field — the value changes at once, exactly as before 9.21.0.",
+          "type": "boolean",
+          "const": true
+        },
+        "animateIn": {
+          "description": "When the node is SHOWN, its value grows from zero to its own (9.24.0): a number of a text with a numeric format counts up from 0 with the same curve, duration and steps as «animateChanges»; a ProgressBar or CircularProgress fills from empty. Shown — the first show of the screen, a screen shown again («back»), a node that appears (condition, width class, a new record). Rules — «x-valueAppear». No field — the value is there at once, exactly as before 9.24.0.",
+          "type": "boolean",
+          "const": true
+        },
+        "glow": {
+          "$ref": "#/$defs/ProgressGlow"
         },
         "labelTypography": {
           "description": "Font style of the label in the center of the ring (9.17.0): a theme token or a token with overrides. No field — «x-style.layout.progress.ring.labelTypography». The label does not scale with the diameter.",
@@ -4828,6 +5398,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -4922,6 +5498,12 @@
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
         },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
+        },
         "children": {
           "maxItems": 5,
           "type": "array",
@@ -4947,6 +5529,11 @@
             "top",
             "bottom"
           ]
+        },
+        "float": {
+          "description": "The bar floats over the body (9.22.0): the body area reaches the bottom of the screen and the content scrolls UNDER the bottom zone; the reader adds the height of the zone at the end of the body content, so the last row scrolls clear of it, and puts the bottom safe inset OUTSIDE the box of the bar. The look of the pill is the style of the node (margin, radius, «backdropBlur», shadow). Read only where the bar stands in the bottom zone; on «medium» and «expanded» with the bar at the top it changes nothing. Rules — «x-style.layout.navFloat». No field — the bar as before 9.22.0.",
+          "type": "boolean",
+          "const": true
         }
       },
       "additionalProperties": false
@@ -5001,6 +5588,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -5025,6 +5618,10 @@
             "type": "none"
           },
           "$ref": "#/$defs/ButtonAction"
+        },
+        "badgeWhen": {
+          "description": "Show a dot on the icon of the item while the condition holds (9.22.0): the same form, check and missing-data rule as «visibleIf». Only a dot, no number; its colour is the core token «accent». The accessible name stays the label. Rules — «x-style.layout.navBadge». No field or a condition the reader does not understand — no dot.",
+          "$ref": "#/$defs/VisibilityCondition"
         }
       },
       "required": [
@@ -5084,6 +5681,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -5305,6 +5908,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -5382,6 +5991,12 @@
         },
         "styleOn": {
           "$ref": "#/$defs/StyleOn"
+        },
+        "motion": {
+          "$ref": "#/$defs/NodeMotion"
+        },
+        "pressFeedback": {
+          "$ref": "#/$defs/NodePressFeedback"
         }
       },
       "required": [
@@ -5473,7 +6088,7 @@
   },
   "$id": "https://hotlayout.com/schema/ui-document.json",
   "title": "UiDocument",
-  "x-schemaVersion": "9.19.0",
+  "x-schemaVersion": "9.27.0",
   "x-compatibility": {
     "policy": {
       "majorMustMatch": true,
@@ -5777,7 +6392,33 @@
       "modalSheetOnWide": "9.18.0",
       "sameTypeNesting": "9.19.0",
       "treeDepthEight": "9.19.0",
-      "pressableContainer": "9.19.0"
+      "pressableContainer": "9.19.0",
+      "nodeMotion": "9.20.0",
+      "backdropBlur": "9.20.0",
+      "valueTransition": "9.21.0",
+      "countdownPart": "9.21.0",
+      "progressCap": "9.21.0",
+      "appBarScrolled": "9.21.0",
+      "navFloat": "9.22.0",
+      "navBadge": "9.22.0",
+      "swipeConfirm": "9.22.0",
+      "borderDash": "9.22.0",
+      "listFilter": "9.23.0",
+      "textGradient": "9.23.0",
+      "compactNumber": "9.23.0",
+      "valueAppear": "9.24.0",
+      "swipeConfirmBusy": "9.24.0",
+      "navBadgeMotion": "9.24.0",
+      "topZone": "9.24.0",
+      "segmentsTransition": "9.25.0",
+      "progressGlow": "9.25.0",
+      "shadowColor": "9.25.0",
+      "pressFeedback": "9.25.0",
+      "haptic": "9.25.0",
+      "longPress": "9.26.0",
+      "repeaterGroup": "9.26.0",
+      "sheetDismiss": "9.26.0",
+      "liveRecord": "9.27.0"
     }
   },
   "x-budget": {
@@ -8298,6 +8939,266 @@
         },
         "cases": "contract/fixtures/media-chrome/media-chrome-cases.json"
       },
+      "progressCap": {
+        "prop": "cap",
+        "on": [
+          "ProgressBar",
+          "CircularProgress"
+        ],
+        "words": [
+          "round"
+        ],
+        "withoutField": "exactly-as-before-9.21: the ring arc has square ends, the bar ends take the theme «pill» radius clamped to half the shorter side",
+        "refines": [
+          "x-style.layout.progress.ring.cap",
+          "x-style.layout.progress.bar.trackRadius",
+          "x-style.layout.progress.bar.fillRadius",
+          "x-style.layout.progressSegments.radius"
+        ],
+        "ring": {
+          "capAngle": "thetaC = thickness / (diameter - thickness) radians — half the thickness over the middle radius",
+          "ends": "half-circles of the thickness whose centres stand thetaC inside the filled part from each edge",
+          "arc": "square-ended arc between the centres, from thetaC to sweep - thetaC",
+          "dot": "sweep <= 2 * thetaC — a dot of the thickness centred at thetaC",
+          "full": "ratio >= 1 — the whole ring, no ends, no seam",
+          "empty": "ratio <= 0 — nothing over the track",
+          "track": "the whole circle, unchanged",
+          "gradient": "along the filled part as without the field; a dot or an end takes the gradient colour at its centre"
+        },
+        "bar": {
+          "radius": "thickness / 2 for the track, the fill and every step — the theme «pill» is not read",
+          "fill": "ratio > 0 — max(thickness, ratio * track), at most the track; ratio <= 0 — nothing",
+          "start": "the inline start as without the field"
+        },
+        "unknownWord": "field-is-absent",
+        "olderReader": "skips the field — square arc ends, the theme «pill» bar",
+        "cases": "contract/fixtures/progress/progress-cases.json#capCases"
+      },
+      "appBarScrolled": {
+        "prop": "styleScrolled",
+        "titleProp": "titleShown",
+        "on": "the app bar node only — no other node schema has the field",
+        "keys": [
+          "background",
+          "color",
+          "shadow",
+          "backdropBlur"
+        ],
+        "boxKeys": "forbidden by the structure: the threshold is measured by the bar box",
+        "layer": "last — over the base style, the width-class layers and the «styleWhen» state; merged by top-level fields",
+        "threshold": {
+          "formula": "scrolled <=> scrollTop > max(0, barBottom - bodyTop)",
+          "barBottom": "the bottom edge of the app-bar zone from the top of the screen, the top safe inset included",
+          "bodyTop": "the top of the BODY area from the top of the screen; with «bodyTop: screenTop» — 0",
+          "withoutScreenTop": "scrollTop > 0",
+          "strict": true,
+          "scrollTop": "how far the body is scrolled, logical pixels"
+        },
+        "applies": "only to the app bar that is the zone of the screen («screenAppBarOf»), of a page or a modal layer, by the scroll of ITS body",
+        "noZone": "an app bar hidden by a condition or not the first child is no zone — the field is not read",
+        "titleShown": {
+          "scrolled": "the title block is drawn only while scrolled; at rest it keeps its place, invisible",
+          "withoutField": "always"
+        },
+        "children": "no own «scrolled» style for the children of the bar; they inherit «color» as from the bar",
+        "transition": "immediate; a short fade is up to the reader",
+        "editorCanvas": "the bar at rest — the canvas never scrolls",
+        "statusBar": "one «statusBarIcons» request per screen — not changed on scroll",
+        "semantics": "the title stays in the accessibility tree while hidden at rest",
+        "unknownToken": "a field whose token the theme does not know is dropped — the field under it stays",
+        "olderReader": "skips both fields — the bar does not change on scroll and the title is always drawn",
+        "cases": "contract/fixtures/media-chrome/media-chrome-cases.json#scrolledThresholdCases"
+      },
+      "navFloat": {
+        "prop": "float",
+        "on": "NavBar",
+        "value": "literal-true-or-no-field",
+        "refines": [
+          "bottomZone.bodyArea",
+          "bottomZone.bodyClip",
+          "bottomZone.contentUnderBottomZone",
+          "bottomZone.safeArea.navBarBackground",
+          "screen.body.area"
+        ],
+        "applies": "where-the-bar-stands-in-the-bottom-zone",
+        "wideAtTop": "not-read",
+        "hiddenBar": "no-zone-nothing-floats",
+        "inModalLayer": "not-read-the-bar-is-not-drawn",
+        "zone": "the-whole-bottom-zone-floats-the-pinned-block-and-the-bar",
+        "order": "unchanged",
+        "bodyArea": "from-the-top-of-the-body-area-to-the-bottom-of-the-screen",
+        "bodyClip": "bottom-of-the-screen",
+        "contentUnderBottomZone": "scrolls-under-it",
+        "paint": "bottom-zone-over-the-body",
+        "bodyEnd": "body-tail-plus-the-height-of-the-bottom-zone",
+        "bodyTail": "unchanged-root-bottom-padding-or-the-screen-gap-under-a-pinned-block",
+        "barHeight": "margin-box-of-the-bar-node",
+        "safeArea": {
+          "inset": "under-the-margin-box-of-the-bar-outside-it",
+          "barBackground": "within-the-box-of-the-bar",
+          "pinnedOnly": "unchanged"
+        },
+        "press": "the-boxes-of-the-pinned-block-and-of-the-bar-the-rest-of-the-zone-passes-through-to-the-body",
+        "look": "style-of-the-node-no-built-in-pill",
+        "builtInSurface": "unchanged-named-style-background-and-border-replace-it",
+        "justify": "free-space-unchanged-the-added-tail-is-part-of-the-content",
+        "appBarScrolled": "unchanged",
+        "firstScreen": "content-under-the-bottom-zone-is-covered",
+        "withoutOwnHeight": {
+          "bottomZone": "sticks-over-the-content",
+          "stuckBackdrop": "none",
+          "focusMargin": "unchanged-scroll-margin-bottom-equals-the-bottom-zone-height"
+        },
+        "olderReader": "ordinary-bar-the-body-ends-above-it",
+        "cases": "contract/fixtures/bottom-zone/bottom-zone-cases.json"
+      },
+      "navBadge": {
+        "prop": "badgeWhen",
+        "on": "NavItem",
+        "refines": [
+          "navBar.badge"
+        ],
+        "condition": "same-form-check-and-missing-data-rule-as-visibleIf",
+        "shown": "condition-holds",
+        "unknownCondition": "no-dot",
+        "mark": "dot",
+        "count": "none-in-9.22",
+        "color": "accent",
+        "diameter": 8,
+        "place": "centre-on-the-top-inline-end-corner-of-the-glyph",
+        "rightToLeft": "top-left-corner-of-the-glyph",
+        "clip": "not-clipped-by-the-item",
+        "size": "does-not-change-the-item",
+        "activeItem": "drawn-as-well",
+        "hiddenItem": "no-dot",
+        "wide": "the-same-in-every-place-of-the-bar",
+        "accessibleName": "unchanged-the-dot-is-not-announced",
+        "press": "part-of-the-item",
+        "olderReader": "no-dot",
+        "cases": "contract/fixtures/bottom-zone/bottom-zone-cases.json"
+      },
+      "borderDash": {
+        "prop": "style.border.style",
+        "words": [
+          "dashed"
+        ],
+        "dash": 3,
+        "gap": 2,
+        "unit": "border-width",
+        "line": "centre-line-of-the-border-half-a-width-inside-the-outer-edge",
+        "radii": "outer-radii-scaled-down-as-css-does-when-they-do-not-fit-then-minus-half-a-width-not-below-zero",
+        "corners": "dashes-follow-the-arcs",
+        "start": "inline-start-end-of-the-top-straight-edge",
+        "direction": "toward-the-inline-end",
+        "rightToLeft": "mirrored",
+        "first": "dash",
+        "fit": "count-is-the-perimeter-over-dash-plus-gap-rounded-not-below-one-dash-and-gap-stretched-by-the-same-factor",
+        "room": "same-as-a-solid-border",
+        "color": "same-as-a-solid-border",
+        "everywhere": "every-place-that-reads-style-border",
+        "unknownWord": "solid",
+        "olderReader": "solid",
+        "cases": "contract/fixtures/border-dash/border-dash-cases.json"
+      },
+      "navBadgeMotion": {
+        "refines": [
+          "x-style.layout.navBadge.shown"
+        ],
+        "field": "none-the-motion-belongs-to-the-dot",
+        "when": "the-condition-changes-its-answer-while-the-screen-is-shown",
+        "firstShow": "no-motion-the-dot-is-there-or-not",
+        "shownAgain": "no-motion-a-screen-shown-again-is-a-first-show",
+        "appear": {
+          "durationMs": 320,
+          "scale": [
+            0,
+            1.25,
+            1
+          ],
+          "at": [
+            0,
+            0.6,
+            1
+          ],
+          "between": "linear",
+          "origin": "centre-of-the-dot",
+          "opacity": 1
+        },
+        "disappear": {
+          "durationMs": 200,
+          "opacity": [
+            1,
+            0
+          ],
+          "between": "linear",
+          "scale": 1
+        },
+        "interrupted": "a-new-change-starts-its-own-motion-from-its-start",
+        "reducedMotion": "no-motion-the-dot-appears-and-disappears-at-once",
+        "layout": "the-dot-does-not-change-the-item-during-the-motion",
+        "accessibleName": "unchanged",
+        "editorCanvas": "no-motion",
+        "olderReader": "no-motion",
+        "cases": "contract/fixtures/bottom-zone/bottom-zone-cases.json"
+      },
+      "topZone": {
+        "field": "pin",
+        "word": "top",
+        "refines": [
+          "x-style.layout.screen.appBar",
+          "x-style.layout.screen.body.area",
+          "x-style.layout.bottomZone.pinned.elsewhere"
+        ],
+        "is": "children-of-the-screen-root-in-a-run-at-the-start-right-after-the-app-bar-zone-or-first-whose-pin-is-top",
+        "counts": "document-order-not-visibility",
+        "run": "the-first-child-without-the-word-ends-the-run-the-word-is-not-read-after-it",
+        "atMost": "no-limit",
+        "hidden": "no-room",
+        "never": [
+          "AppBar",
+          "NavBar"
+        ],
+        "withBodyAtScreenTop": "not-read-the-nodes-are-children-of-the-body",
+        "order": [
+          "safeInset",
+          "appBar",
+          "pinned"
+        ],
+        "position": "top-of-the-screen-fixed",
+        "scrolls": "never",
+        "place": {
+          "withAppBar": "below-the-app-bar-the-screen-gap-between",
+          "withoutAppBar": "first-node-below-the-safe-inset-and-the-root-top-padding",
+          "between": "screen-gap",
+          "pullOfTheFirst": "not-read",
+          "pullOfTheOthers": "as-in-the-screen-column",
+          "width": "as-a-child-of-the-screen-column-root-side-padding",
+          "contentMaxWidth": "the-same-column-as-the-body"
+        },
+        "safeInset": {
+          "withAppBar": "inside-the-app-bar-box-as-before",
+          "withoutAppBar": "reader-adds-the-platform-inset-above-the-zone-outside-the-node-boxes"
+        },
+        "background": "none-unless-the-node-names-one-the-screen-background-shows-through",
+        "body": {
+          "area": "from-the-bottom-edge-of-the-top-zone-to-the-top-edge-of-the-bottom-zone",
+          "lead": "screen-gap-inside-the-scroll",
+          "rootTopPadding": "goes-to-the-top-zone",
+          "clip": "bottom-edge-of-the-top-zone",
+          "pulledFirstChild": "lifts-the-body-area-onto-the-top-zone-as-onto-the-app-bar"
+        },
+        "firstScreen": "nodes-of-the-zone-are-never-below-the-fold",
+        "inModalLayer": "drawn-at-the-top-of-the-layer-below-its-app-bar",
+        "wide": {
+          "ownNavBar": "below-the-own-bar-of-the-navigation",
+          "sameInEveryWidthClass": true
+        },
+        "appBarScrolled": "the-threshold-reads-the-scroll-of-the-body-as-before",
+        "withoutOwnHeight": "sticks-together-with-the-app-bar-zone-by-the-same-host-switch",
+        "press": "nodes-of-the-zone-take-their-own-presses",
+        "olderReader": "reads-the-word-as-no-field-the-nodes-scroll-with-the-body",
+        "cases": "contract/fixtures/top-zone/top-zone-cases.json"
+      },
       "partStyle": {
         "keys": [
           "color",
@@ -8991,7 +9892,8 @@
     "countableFormats": [
       "number",
       "currency",
-      "daysUntil"
+      "daysUntil",
+      "countdownPart"
     ],
     "pluralNumber": {
       "absolute": true,
@@ -9381,6 +10283,924 @@
       "absent": "x-compatibility.policy.missingConditionValue"
     },
     "cases": "contract/fixtures/inputs/input-cases.json"
+  },
+  "x-motion": {
+    "prop": "motion",
+    "on": "every node except the root «Screen»",
+    "kinds": [
+      "float",
+      "pulse"
+    ],
+    "clock": "milliseconds since the node appeared on the shown screen; a node that appears again starts from zero",
+    "phase": "theta = 2 * pi * ((t - delay) mod duration) / duration; while t < delay the node stands at rest",
+    "curve": "sine — not a field",
+    "float": {
+      "axes": [
+        "vertical",
+        "horizontal",
+        "both"
+      ],
+      "x": {
+        "vertical": "0",
+        "horizontal": "amplitude * sin(theta)",
+        "both": "amplitude * sin(theta)"
+      },
+      "y": {
+        "vertical": "-amplitude * sin(theta)",
+        "horizontal": "0",
+        "both": "-amplitude * sin(2 * theta)"
+      },
+      "xTowards": "end-of-line — mirrored in right-to-left",
+      "yTowards": "down — the vertical drift goes up first"
+    },
+    "pulse": {
+      "progress": "p = (1 - cos(theta)) / 2",
+      "scale": "1 + (scale - 1) * p, about the centre of the box",
+      "opacity": "1 + (opacity - 1) * p; no «opacity» — 1"
+    },
+    "rest": {
+      "x": 0,
+      "y": 0,
+      "scale": 1,
+      "opacity": 1
+    },
+    "reducedMotion": "rest — the node stands where it stands without the field",
+    "layout": "unchanged: the box at rest sizes the parent, siblings do not move",
+    "order": "after the node own place («layer» offset and rotation): the shift goes along the screen axes, the scale about the centre of the box",
+    "opacity": "multiplies the node own opacity («style.opacity»)",
+    "taps": "promised inside the box at rest where the node is also drawn; outside that, readers may differ",
+    "clip": "no new clipping: whoever clipped the node at rest clips it while it moves",
+    "ranges": {
+      "duration": {
+        "min": 400,
+        "max": 60000
+      },
+      "delay": {
+        "min": 1,
+        "max": 60000
+      },
+      "amplitude": {
+        "min": 1,
+        "max": 48
+      },
+      "scale": {
+        "min": 0.5,
+        "max": 1.5
+      },
+      "opacity": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    "olderReader": "skips the field — the node stands at rest",
+    "cases": "contract/fixtures/motion/motion-cases.json"
+  },
+  "x-backdropBlur": {
+    "prop": "backdropBlur",
+    "on": "ScreenEntry",
+    "readWhen": "presentation is modal",
+    "onPage": "ignored by the reader; the editor does not publish it",
+    "radius": {
+      "unit": "logical-pixel",
+      "meaning": "standard deviation of a Gaussian blur",
+      "min": 1,
+      "max": 40
+    },
+    "web": "backdrop-filter: blur(<radius>px)",
+    "flutter": "ImageFilter.blur(sigmaX: radius, sigmaY: radius)",
+    "covers": "exactly the area of the scrim («x-style.layout.modalLayer.scrim.covers»): every layer below, with its app bar and navigation bar",
+    "order": "the blur first, the scrim over it",
+    "ownContent": "the layer itself is never blurred",
+    "reducedTransparency": "not read: the blur is drawn as named",
+    "withoutField": "no blur — only the scrim, exactly as before 9.20.0",
+    "style": {
+      "prop": "style.backdropBlur",
+      "covers": "the box of the node (border box), clipped by its «radius»",
+      "blurs": "whatever is painted under that box: the backgrounds of ancestors, earlier siblings and stack layers, the page under a modal layer",
+      "order": "the blur first, then the node own background (usually a translucent colour) over it, then its content",
+      "ownContent": "the node itself and its children are never blurred",
+      "onRoleWidget": "on «Button», «IconButton» and «Badge» the blur lies on the role surface — where its background and radius are",
+      "inherited": false,
+      "states": "a style field like any other: «styleWhen» and «styleOn» may name or unset it",
+      "withoutField": "no blur — exactly as before 9.20.0"
+    },
+    "olderReader": "skips both fields — only the scrim, and no glass under a node",
+    "cases": "contract/fixtures/motion/motion-cases.json"
+  },
+  "x-valueTransition": {
+    "prop": "animateChanges",
+    "on": [
+      "Text",
+      "ProgressBar",
+      "CircularProgress"
+    ],
+    "value": "literal true or no field; no field — the value changes at once",
+    "durationMs": 700,
+    "curve": {
+      "name": "ease-out-cubic",
+      "formula": "e = 1 - (1 - p)^3, p = min(1, t / durationMs)"
+    },
+    "shown": "v = from + (to - from) * e; at t >= durationMs exactly «to»",
+    "text": {
+      "what": "every number of «content»: a binding (and a binding value of a template) whose value is a number and whose format is absent, «number» or «currency»",
+      "notTransitioned": [
+        "date",
+        "dateTime",
+        "time",
+        "daysUntil",
+        "countdownPart"
+      ],
+      "step": {
+        "bothWhole": "whole numbers",
+        "otherwise": "«currency» — the fraction digits of the currency, «number» and no format — 3",
+        "rounding": "towards «from»: from + trunc(round((to - from) * e * 10^d, precision)) / 10^d",
+        "precision": 6
+      },
+      "formatted": "every value between is written by the same format, plural word and template as the final one"
+    },
+    "scale": {
+      "what": "«value» and «max» of a ProgressBar or CircularProgress, each its own transition",
+      "fill": "the ratio of the shown value and max, no step: the fill and the arc grow",
+      "label": "the numbers of «valueOfMax» — whole when both ends are whole; «percent» — of the shown ratio",
+      "segments": "filled steps follow the shown ratio — a step fills when the value passes it"
+    },
+    "whenNoTransition": {
+      "order": [
+        "noField",
+        "firstShow",
+        "reducedMotion",
+        "localeChanged",
+        "notANumber",
+        "sameValue"
+      ],
+      "firstShow": "first frame of the node, a node that appears (condition, width class, a new record), a screen shown again",
+      "notANumber": "the old or the new value is absent or not a finite number — «no data ↔ data» included",
+      "localeChanged": "the language of the screen changed in the same step",
+      "reducedMotion": "system «reduce motion»"
+    },
+    "interrupted": "a new change during a transition starts from the value shown at that moment, with the full duration",
+    "dataOnly": "only a change of the DATA under a path; a document with another literal is a new document — no transition",
+    "list": "a template instance is tracked by its record; a new record is a first show",
+    "semantics": "the screen reader hears the final value, not the values between",
+    "olderReader": "skips the field — the value changes at once",
+    "cases": "contract/fixtures/value-transition/value-transition-cases.json"
+  },
+  "x-countdown": {
+    "format": "countdownPart",
+    "pathType": "date",
+    "props": {
+      "unit": "unit",
+      "pad": "pad"
+    },
+    "units": [
+      "days",
+      "hours",
+      "minutes",
+      "seconds"
+    ],
+    "arithmetic": {
+      "left": "S = floor(max(0, moment - now) / 1000)",
+      "days": "floor(S / 86400)",
+      "hours": "floor(S / 3600) mod 24",
+      "minutes": "floor(S / 60) mod 60",
+      "seconds": "S mod 60",
+      "rounding": "down — the parts add up to the same duration",
+      "past": "every part is 0",
+      "timeZone": "none"
+    },
+    "written": "as «number» (groups, digits of the formatting locale); «pad: 2» — at least two integer digits, zeros in front",
+    "localeWithoutData": "plain digits, zeros in front with «pad»",
+    "plural": "the part is the number a plural word agrees with",
+    "sentence": "the template composes the parts with its own words — order and words belong to the translation",
+    "now": "the device clock; must be replaceable in tests",
+    "ticking": {
+      "seconds": "a screen with a «seconds» part redraws its countdown nodes every second",
+      "otherwise": "every minute",
+      "scope": "only nodes of the shown screen, only while it is shown",
+      "staleness": "the shown number is never more than one tick behind the clock"
+    },
+    "withoutUnit": "the format does not apply — the value as it is; the editor does not publish it (countdown_unit_required)",
+    "valueNotADate": "x-compatibility.policy.unparsableBoundValue",
+    "fallback": "never formatted",
+    "olderReader": "unknownBindingFormat — the value as it is (the ISO string)",
+    "cases": "contract/fixtures/template/template-cases.json"
+  },
+  "x-swipeConfirm": {
+    "prop": "confirm",
+    "on": [
+      "Button"
+    ],
+    "words": [
+      "swipe"
+    ],
+    "track": {
+      "box": "the-box-of-the-button-surface-and-size-as-usual",
+      "paddingInline": "not-read"
+    },
+    "thumb": {
+      "shape": "circle",
+      "inset": "xs",
+      "diameter": "height-minus-twice-the-border-minus-twice-the-inset",
+      "fill": "background-of-the-role",
+      "fillWithoutRoleBackground": "primary",
+      "ownBackground": "paints-the-track-not-the-thumb",
+      "glyph": "icon-of-the-button-or-chevron-right",
+      "glyphSize": "font-size-of-the-label-style",
+      "glyphColor": "foreground-of-the-role",
+      "glyphColorWithoutRoleBackground": "onPrimary",
+      "mirrored": "by-the-icon-rule",
+      "rest": "at-the-inline-start"
+    },
+    "label": {
+      "area": "between-the-two-places-of-the-thumb",
+      "align": "center",
+      "iconPosition": "not-read-the-icon-is-on-the-thumb"
+    },
+    "naturalWidth": "label-plus-twice-the-thumb-room",
+    "thumbRoom": "border-plus-inset-plus-diameter",
+    "travel": "width-minus-twice-the-border-minus-twice-the-inset-minus-the-diameter",
+    "direction": "from-the-inline-start-to-the-inline-end",
+    "progress": "drag-along-the-inline-axis-divided-by-the-travel-clamped-to-0-1",
+    "threshold": 0.9,
+    "release": {
+      "atOrPastThreshold": "act",
+      "belowThreshold": "return-no-action-no-event"
+    },
+    "afterAction": "thumb-returns-to-the-start",
+    "noTravel": "the-gesture-never-acts-keyboard-still-does",
+    "capture": "once-it-moves-more-along-the-inline-axis-than-across",
+    "cancel": "return-no-action",
+    "pressWithoutDrag": "nothing",
+    "keyboard": "enter-and-space-act-at-once",
+    "assistive": "activate-acts-at-once",
+    "semantics": "button-named-by-the-label",
+    "autoRepeat": "not-a-press",
+    "disabled": "thumb-does-not-move-look-of-a-disabled-button",
+    "trackEvent": "once-before-the-action",
+    "motion": "return-is-at-the-readers-discretion-reduced-motion-jumps",
+    "canvas": "thumb-at-the-start",
+    "olderReader": "ordinary-button-a-tap-acts",
+    "cases": "contract/fixtures/swipe-confirm/swipe-confirm-cases.json"
+  },
+  "x-listFilter": {
+    "valuePath": {
+      "field": "valuePath",
+      "instead": "value",
+      "ops": [
+        "eq",
+        "neq",
+        "gt",
+        "gte",
+        "lt",
+        "lte"
+      ],
+      "readIn": "the-same-scope-as-path",
+      "types": "the-value-types-of-the-two-paths-match-x-conditions.opPathTypes-string-and-date-compare-as-text",
+      "everywhere": [
+        "visibleIf",
+        "styleWhen",
+        "disabledIf",
+        "where",
+        "badgeWhen",
+        "part-styles"
+      ],
+      "collection": "never-a-collection",
+      "operandMissing": {
+        "is": [
+          "absent",
+          "null",
+          "the-empty-string"
+        ],
+        "inWhere": "the-condition-holds-for-every-record",
+        "elsewhere": "the-condition-does-not-hold-eq-and-neq-alike"
+      },
+      "pathMissing": "x-compatibility.policy.missingConditionValue"
+    },
+    "where": {
+      "widget": "Repeater",
+      "prop": "where",
+      "form": "ListWhereCondition — a condition without where",
+      "scope": "the-record-of-the-instance-over-the-outer-scope-x-dataScope.layers",
+      "notPassed": "the-record-does-not-exist-for-the-layout",
+      "order": "the-order-of-the-collection",
+      "limit": "the-first-limit-records-that-passed",
+      "grid": "cells-of-passed-records-only-no-holes",
+      "carousel": "cards-stops-and-dots-of-passed-records",
+      "numbering": "instances-of-passed-records",
+      "carryRecord": "unchanged-the-record-of-the-tapped-instance",
+      "withoutField": "every-record"
+    },
+    "emptiness": {
+      "ops": [
+        "isEmpty",
+        "isNotEmpty"
+      ],
+      "props": {
+        "item": "item",
+        "where": "where"
+      },
+      "pathIs": "a-collection",
+      "counts": "records-that-pass-the-same-predicate-as-Repeater.where",
+      "notAList": "no-records",
+      "limit": "not-applied"
+    },
+    "olderReader": {
+      "where": "the-field-is-skipped-every-record-is-drawn",
+      "filteredEmptiness": "the-whole-collection-is-counted",
+      "valuePath": "a-comparison-without-a-value-publish-when-readers-of-9.23-are-out"
+    },
+    "cases": "contract/fixtures/repeater-filter/repeater-filter-cases.json"
+  },
+  "x-textGradient": {
+    "prop": "style.textGradient",
+    "value": "a-gradient-token-or-an-own-gradient-as-the-gradient-of-background",
+    "readers": [
+      "Text"
+    ],
+    "inherited": false,
+    "paints": "the-glyphs-of-the-text",
+    "box": "the-content-box-of-the-text-inside-padding-one-gradient-for-all-lines",
+    "angle": "as-the-gradient-of-background-x-gradientGeometry",
+    "partWithOwnColor": "keeps-its-colour",
+    "partWithoutColor": "painted-by-the-gradient",
+    "fallback": {
+      "color": "style.color-or-the-inherited-colour",
+      "when": [
+        "older-reader",
+        "unknown-token",
+        "stops-out-of-order"
+      ]
+    },
+    "decoration": "the-fallback-colour",
+    "listMarker": "the-fallback-colour",
+    "states": "styleWhen-and-styleOn-may-name-it-merged-as-every-style-field",
+    "otherWidgets": "not-published-text_gradient_not_read",
+    "cases": "contract/fixtures/rich-text/rich-text-cases.json#textGradientCases"
+  },
+  "x-compactNumber": {
+    "prop": "notation",
+    "words": [
+      "compact"
+    ],
+    "formats": [
+      "number"
+    ],
+    "below": {
+      "magnitude": 1000,
+      "written": "as-format-number-every-digit"
+    },
+    "steps": [
+      {
+        "name": "thousand",
+        "from": 1000
+      },
+      {
+        "name": "million",
+        "from": 1000000
+      },
+      {
+        "name": "billion",
+        "from": 1000000000
+      }
+    ],
+    "beyondTheLastStep": "billions-with-groups",
+    "mantissa": {
+      "is": "magnitude / step",
+      "fractionDigits": {
+        "min": 0,
+        "max": 1
+      },
+      "rounding": "half-up-of-the-magnitude-after-rounding-the-quotient-to-6-digits",
+      "trailingZero": "dropped",
+      "reachesNextStep": "written-with-the-next-step"
+    },
+    "suffixes": {
+      "en": {
+        "gap": "",
+        "thousand": "K",
+        "million": "M",
+        "billion": "B"
+      },
+      "uk": {
+        "gap": " ",
+        "thousand": "тис.",
+        "million": "млн",
+        "billion": "млрд"
+      }
+    },
+    "suffixLanguage": "the-first-subtag-of-the-formatting-locale-other-languages-en",
+    "gapCodePoint": {
+      "uk": "U+00A0",
+      "en": "none"
+    },
+    "decimalSeparatorAndDigits": "of-the-formatting-locale-as-format-number",
+    "grouping": "always-as-format-number",
+    "sign": {
+      "withoutField": "negative-as-format-number",
+      "always": "composed-x-money.signs-the-suffix-follows-the-number"
+    },
+    "plural": "agrees-with-the-full-value-not-the-mantissa",
+    "parts": {
+      "fraction": "the-decimal-separator-and-the-fraction-digit",
+      "suffix": "in-the-style-of-the-place"
+    },
+    "localeWithoutData": "the-format-does-not-apply-the-value-as-it-is",
+    "olderReader": "the-field-is-skipped-every-digit",
+    "cases": "contract/fixtures/template/template-cases.json#compactCases"
+  },
+  "x-valueAppear": {
+    "prop": "animateIn",
+    "on": [
+      "Text",
+      "ProgressBar",
+      "CircularProgress"
+    ],
+    "value": "literal true or no field; no field — the value is there at once",
+    "refines": [
+      "x-valueTransition.whenNoTransition.firstShow"
+    ],
+    "from": 0,
+    "durationMs": 700,
+    "curve": "the curve of x-valueTransition",
+    "step": "the step of x-valueTransition with from = 0: whole when the value is whole, otherwise the digits of the format",
+    "formatted": "every value between is written by the same format, plural word and template as the final one",
+    "text": "the numbers of x-valueTransition.text.what",
+    "scale": {
+      "value": "grows from 0 — a literal value too",
+      "max": "stands at once",
+      "fill": "the ratio of the shown value and max, no step: the fill and the arc grow from empty",
+      "label": "the numbers of «valueOfMax» and «percent» of the shown value, by the step",
+      "segments": "filled steps follow the shown ratio"
+    },
+    "shown": {
+      "is": "the moment the node is drawn on a shown screen",
+      "firstShow": "the first screen of the flow and every screen pushed on top",
+      "back": "a screen shown again by «back» or by a section switch is shown again",
+      "underModalLayer": "a screen under a modal layer stays shown: closing the layer is not a show",
+      "appears": "a node that appears by a condition, a width class or as a new record of a list",
+      "sameScreen": "a change of data on a shown node is not a show"
+    },
+    "stagger": "none — every node starts at the moment it is shown",
+    "whenNoAppear": {
+      "order": [
+        "noField",
+        "reducedMotion",
+        "notANumber",
+        "zero"
+      ],
+      "notANumber": "no data or not a finite number: the fallback is there at once",
+      "zero": "the value is 0: nothing to grow",
+      "reducedMotion": "system «reduce motion»: the final value at once"
+    },
+    "withAnimateChanges": "the appearance runs from 0; a change of data during it or after it leads from the value shown at that moment (x-valueTransition.interrupted)",
+    "withoutAnimateChanges": "a change of data during the appearance shows the new value at once and ends it",
+    "localeChanged": "ends the appearance: the final value at once",
+    "semantics": "the screen reader hears the final value, not the values between",
+    "editorCanvas": "not animated — the document is edited there",
+    "olderReader": "skips the field — the value is there at once",
+    "cases": "contract/fixtures/value-transition/value-transition-cases.json"
+  },
+  "x-swipeConfirmBusy": {
+    "on": [
+      "Button"
+    ],
+    "when": "confirm-is-swipe",
+    "refines": [
+      "x-swipeConfirm.afterAction",
+      "x-swipeConfirm.release.atOrPastThreshold",
+      "x-swipeConfirm.motion"
+    ],
+    "release": {
+      "atOrPastThreshold": "act-at-once-then-the-thumb-glides-to-the-end-and-stays",
+      "belowThreshold": "return-no-action-no-event"
+    },
+    "keyboardAndAssistive": "act-at-once-then-the-same-as-after-a-swipe",
+    "completeMs": 200,
+    "returnMs": 250,
+    "curve": "ease-out-cubic",
+    "afterRelease": {
+      "readerAction": "busy-the-shown-screen-changes-at-once",
+      "hostAction": "busy",
+      "none": "return-at-once",
+      "invalid": "return-at-once"
+    },
+    "busy": {
+      "thumb": "at-the-end",
+      "glyph": "replaced-by-the-indicator",
+      "indicator": "a-ring-of-three-quarters-turning",
+      "indicatorSize": "the-glyph-size",
+      "indicatorColor": "the-glyph-color",
+      "indicatorStroke": "an-eighth-of-the-glyph-size",
+      "turnMs": 800,
+      "label": "stays",
+      "press": "nothing",
+      "gesture": "nothing",
+      "keyboard": "nothing",
+      "semantics": "button-named-by-the-label-busy"
+    },
+    "ends": {
+      "promiseFulfilled": "return",
+      "promiseRejected": "return",
+      "screenChanged": "gone-with-its-screen",
+      "noPromiseTimeoutMs": 8000,
+      "noPromiseTimeout": "return",
+      "promiseTimeout": "none-the-promise-is-held"
+    },
+    "shownAgain": "a-screen-shown-again-has-the-thumb-at-the-start",
+    "reducedMotion": "the-thumb-jumps-the-indicator-stands-still",
+    "disabled": "as-before-the-thumb-does-not-move",
+    "editorPreview": "busy-for-a-moment-then-the-step-of-the-flow",
+    "olderReader": "the-thumb-returns-to-the-start-after-the-action",
+    "cases": "contract/fixtures/swipe-confirm/swipe-confirm-cases.json"
+  },
+  "x-segmentsTransition": {
+    "prop": "segments",
+    "on": [
+      "ProgressBar"
+    ],
+    "refines": [
+      "x-style.layout.progressSegments.partial",
+      "x-valueAppear.scale.segments"
+    ],
+    "atRest": "whole steps: filled = floor(round(ratio * segments, precision)) — the rule of x-style.layout.progressSegments",
+    "during": "while the value of the bar runs a transition (x-valueTransition or x-valueAppear), the filled steps are a number with a fraction",
+    "units": "U(fromRatio) + (U(toRatio) - U(fromRatio)) * e, U(r) = filled steps at rest of the ratio r, e = the curve of x-valueTransition at the moment",
+    "ends": "both ends are pictures at rest: the bar never jumps when the transition ends",
+    "sameStep": "a change inside one step (U equal at both ends) moves nothing",
+    "stepFill": "clamp(units - index, 0, 1) of the step, from its logical start",
+    "partialStep": "a step with 0 < fill < 1 is drawn as its track or current colour with the fill over it, cut at fill * width, radius of the step kept",
+    "current": "the first step whose fill is below 1; none when every step is full",
+    "gradient": "along the drawn fill: position 1 is the end of the fill of the last step with any fill; gaps are cut out",
+    "interrupted": "a transition that starts from a value shown during another one starts from the whole steps of that value",
+    "label": "the label runs by the step of x-valueTransition, as before",
+    "semantics": "the screen reader hears the final value",
+    "reducedMotion": "no transition: whole steps at once",
+    "editorCanvas": "not animated",
+    "olderReader": "whole steps follow the shown ratio during the transition",
+    "cases": "contract/fixtures/progress/progress-cases.json"
+  },
+  "x-progressGlow": {
+    "prop": "glow",
+    "on": [
+      "ProgressBar",
+      "CircularProgress"
+    ],
+    "value": "one word of «strength»; no field or an unknown word — no glow",
+    "strength": {
+      "soft": {
+        "sigma": 4,
+        "opacity": 0.55
+      },
+      "strong": {
+        "sigma": 8,
+        "opacity": 0.9
+      }
+    },
+    "sigma": "standard deviation of a Gaussian blur, logical pixels (CSS blur(sigma px), Flutter MaskFilter.blur(normal, sigma))",
+    "opacity": "multiplies the alpha of the paint of the copy",
+    "paint": "a copy of the fill paint — its colour, or its gradient along the fill — under the shape; no offset, no spread",
+    "bar": "the fill, with its ends (cap); the track does not glow",
+    "ring": "the arc of the fill, with its ends (cap); the track does not glow",
+    "segments": {
+      "glows": "one step",
+      "current": "the current step (the first one not full) when currentColor paints it: the whole step glows in that colour",
+      "front": "otherwise the last step with any fill: the drawn part of its fill glows in the fill paint",
+      "others": "no glow",
+      "nothing": "no step filled and no painted current step — no glow"
+    },
+    "empty": "nothing is filled — no glow",
+    "layout": "none: the glow takes no room and moves nothing",
+    "clip": "not clipped by the track, the step or the box of the node; clipped only by ancestors that clip, as a shadow",
+    "transition": "follows the shown fill frame by frame (x-valueTransition, x-valueAppear, x-segmentsTransition)",
+    "reducedMotion": "not motion: drawn as named",
+    "semantics": "none",
+    "editorCanvas": "drawn: it is the look of the scale",
+    "olderReader": "skips the field — no glow",
+    "cases": "contract/fixtures/progress/progress-cases.json"
+  },
+  "x-shadowColor": {
+    "prop": "style.shadowColor",
+    "words": [
+      "background"
+    ],
+    "value": "one word; no field or an unknown word — the shadow keeps its own colour",
+    "with": "style.shadow — a theme token or own layers; without «shadow» the field does nothing",
+    "background": "the own background of the node after styleWhen and the width class (not inherited, not the role background)",
+    "layer": "every layer: the hue of the background, the opacity of the layer itself; offset, blur and spread unchanged",
+    "solid": "the colour of the background; its own opacity does not count — the layer carries it",
+    "gradient": "the colour of the stop nearest to position 0.5; on a tie the earlier one",
+    "none": "no background, an image background, or a colour that does not resolve — the layer keeps its own colour",
+    "roleWidget": "on a widget with a role it goes with «shadow» to the surface of the role",
+    "scrolled": "not in styleScrolled",
+    "inherited": false,
+    "olderReader": "skips the field — the shadow keeps its own colour",
+    "cases": "contract/fixtures/shadow-color/shadow-color-cases.json"
+  },
+  "x-pressFeedback": {
+    "field": "pressFeedback",
+    "words": [
+      "none"
+    ],
+    "value": "«none» — no feedback on this node; no field — the feedback below",
+    "who": "the node that performs the action of the press (the innermost control under the finger); its pressable ancestors give no feedback",
+    "kinds": {
+      "card": "a pressable container, a list row, an option and any other node that acts on press",
+      "button": "a Button that is not «ghost»",
+      "fade": "an IconButton, a ghost Button and a NavItem"
+    },
+    "pose": {
+      "card": {
+        "scale": 0.97,
+        "opacity": 1
+      },
+      "button": {
+        "scale": 0.96,
+        "opacity": 1
+      },
+      "fade": {
+        "scale": 1,
+        "opacity": 0.7
+      }
+    },
+    "origin": "the centre of the box of the node",
+    "down": {
+      "durationMs": 80,
+      "curve": [
+        0.2,
+        0,
+        0,
+        1
+      ],
+      "when": "the finger or the pointer goes down on the node"
+    },
+    "up": {
+      "durationMs": 160,
+      "curve": [
+        0.34,
+        1.56,
+        0.64,
+        1
+      ],
+      "when": "the finger is lifted, leaves the node or the press is cancelled",
+      "overshoot": "the curve passes 1 once: the node grows a little over its size and settles"
+    },
+    "shortPress": "a press shorter than «down» still reaches the pressed pose before it returns",
+    "keyboard": "no feedback: Enter and Space act at once",
+    "disabled": "no feedback",
+    "swipeConfirm": "no feedback: the gesture has its own",
+    "reducedMotion": "opacity only: every kind fades to 0.7, no scale",
+    "layout": "none: the scale is painting only, neighbours do not move",
+    "composes": "with node motion and the rotation of a layer: the press scale multiplies them",
+    "editorCanvas": "none — the node is selected there",
+    "olderReader": "no feedback",
+    "cases": "contract/fixtures/press-feedback/press-feedback-cases.json"
+  },
+  "x-haptic": {
+    "prop": "haptic",
+    "on": "any action — next to «type», like «track»",
+    "words": [
+      "light",
+      "medium",
+      "heavy",
+      "selection",
+      "success",
+      "warning"
+    ],
+    "meaning": {
+      "light": "a light impact",
+      "medium": "a medium impact",
+      "heavy": "a heavy impact",
+      "selection": "a change of choice",
+      "success": "an outcome: done",
+      "warning": "an outcome: attention"
+    },
+    "request": "handed to the host (onHaptic); the reader never vibrates by itself",
+    "when": "once per press, before the action, with the analytics event of the same press; also when the action is «none» or the host cancels it",
+    "order": [
+      "haptic",
+      "track",
+      "action"
+    ],
+    "notHanded": "a disabled button, a key auto-repeat, a press that did not reach the node, a drag to confirm before it completes",
+    "swipeConfirm": "when the drag completes, with the action",
+    "unknown": "an unknown word is no request",
+    "noDefault": "no field — no request, on every widget and action (a section switch too)",
+    "reducedMotion": "not motion — the host decides with the settings of the user",
+    "handedAction": "the action handed to the host does not carry the field",
+    "editorCanvas": "nothing; the preview writes the request into its run log",
+    "olderReader": "skips the field — no request",
+    "cases": "contract/fixtures/actions/action-cases.json"
+  },
+  "x-longPress": {
+    "props": {
+      "action": "longPress",
+      "label": "longPressLabel"
+    },
+    "on": [
+      "a pressable container: Column, Row, Container, Stack",
+      "ListTile"
+    ],
+    "notOn": "Button and IconButton: a button has one action, and the platform already uses a long press there",
+    "form": "the action of «x-actions»: catalog, track, haptic, carryRecord, paramBindings — one execution path with «action»",
+    "doesSomething": "a type that is not «none», or «none» with «track»; otherwise the field is no long press",
+    "thresholdMs": 450,
+    "touchSlop": 10,
+    "touchSlopUnit": "logical pixels from the point of touch down",
+    "fires": "at the threshold while the finger is still down — not at release",
+    "movedBeyondSlop": "before the threshold — neither the long press nor the press: the finger scrolls or drags",
+    "cancelled": "nothing",
+    "afterFire": "releasing the finger does nothing; «action» is not run",
+    "releasedEarlier": "the press of «action» as before 9.26.0",
+    "withoutLongPress": "a long hold released in place is a press, as before 9.26.0",
+    "order": [
+      "haptic",
+      "track",
+      "action"
+    ],
+    "haptic": "the «haptic» of the long press action, at the moment it fires; no field — no request",
+    "pressFeedback": "the pressed pose of «x-pressFeedback» stays while the finger is down, also after the long press fired",
+    "receiver": "the receiver of the press (x-style.layout.composition.pressable.press.receiver); a control inside without a long press keeps its press, the container gets no long press",
+    "pressable": "a container with a long press and no action is a control: it is focusable and named",
+    "record": "x-dataScope — the record of the instance, as for the press",
+    "accessibility": {
+      "name": "longPressLabel",
+      "required": "when the long press does something",
+      "flutter": "a custom semantics action named by «longPressLabel»",
+      "web": "the name on a hidden element referenced by «aria-describedby»; «aria-keyshortcuts» lists the keys",
+      "keys": [
+        {
+          "key": "ContextMenu"
+        },
+        {
+          "key": "F10",
+          "shift": true
+        }
+      ],
+      "keysAct": "on the focused node, at once — no threshold",
+      "enterAndSpace": "the press of «action»"
+    },
+    "secondaryButton": "not a long press",
+    "writeActions": "not published: the role of a choice or a toggle comes from «action»",
+    "disabled": "a container has no disabled state",
+    "editorCanvas": "nothing — the node is selected there; the preview runs it, a held mouse button too",
+    "olderReader": "skips the fields: no long press, a container with only a long press is not pressable",
+    "cases": "contract/fixtures/long-press/long-press-cases.json"
+  },
+  "x-repeaterGroup": {
+    "widget": "Repeater",
+    "prop": "groupBy",
+    "path": "a path of the record of the collection (the «item» prefix); string, number, boolean or date",
+    "header": {
+      "child": 1,
+      "template": "children[0] — the record, as before 9.26.0",
+      "legal": "only with «groupBy»; «groupBy» only with the header",
+      "scope": "the record of the FIRST record of the group over the outer scope (x-dataScope.layers)",
+      "record": "a press inside the header carries the record of the first record of the group",
+      "hidden": "a header hidden by its condition takes no place; the group is drawn without it",
+      "numbering": "not a list item: numbered items count records only"
+    },
+    "group": "records that follow one another with the same value under the path",
+    "same": {
+      "missing": "absent, null and the empty string are one value",
+      "types": "the same JSON type and equal without conversion: 1 and \"1\" are two groups",
+      "objects": "an object or a list is a group of its own"
+    },
+    "order": "the order of the data — the backend sorts; the same value after another one starts a new group",
+    "after": [
+      "where",
+      "limit"
+    ],
+    "empty": "no records — no groups and no headers",
+    "gap": "the «gap» of the Repeater between every two drawn nodes, headers and records alike",
+    "layout": "a list in a column only: with «columns» (any width class) or «direction: row» the field is not published",
+    "olderReader": "skips the field and draws children[0] only: the records without headers",
+    "editorCanvas": "the header above the first record, editable, like the template",
+    "cases": "contract/fixtures/repeater-group/repeater-group-cases.json"
+  },
+  "x-sheetDismiss": {
+    "layer": "a modal screen shown as a sheet from the bottom (x-style.layout.modalLayer, x-style.layout.wideModal); a centred window has no drag",
+    "grab": "the handle drawn by the document or any point of the sheet",
+    "starts": "the finger moves down past the touch slop of «x-longPress» and more down than sideways",
+    "contentScrolled": "when the body of the sheet is scrolled away from its top, a drag outside the handle scrolls the body; the sheet moves only once the body is at its top",
+    "follows": "the sheet follows the finger down; it never goes above its place",
+    "release": {
+      "dismissShare": 0.3,
+      "of": "the height of the sheet",
+      "flingVelocity": 700,
+      "velocityUnit": "logical pixels per second, down positive",
+      "velocityWindowMs": 100,
+      "order": [
+        "a fling up returns",
+        "a fling down dismisses",
+        "otherwise the share of the height"
+      ]
+    },
+    "returns": {
+      "durationMs": 250,
+      "curve": [
+        0.2,
+        0,
+        0,
+        1
+      ]
+    },
+    "exits": {
+      "durationMs": 200,
+      "curve": [
+        0.4,
+        0,
+        1,
+        1
+      ]
+    },
+    "dismiss": "navigate.back — one step of the stack, the «screen shown» event with reason «back» after the sheet has left",
+    "scrim": "the scrim fades with the share of the sheet that is still visible",
+    "dismissible": {
+      "field": "dismissible",
+      "on": "the screen entry of a modal screen",
+      "value": "«false» — no drag, no tap on the scrim, no Esc",
+      "systemBack": "stays with the host",
+      "actionsInside": "«navigate.back» inside the layer still closes it",
+      "onPage": "not read; the validator rejects it",
+      "withoutField": "dismissed as x-style.layout.modalLayer.dismiss and this block say"
+    },
+    "reducedMotion": "the sheet still follows the finger; the return and the exit are instant",
+    "keyboard": "Esc as x-style.layout.modalLayer.dismiss",
+    "editorCanvas": "nothing; the preview drags with the mouse too",
+    "olderReader": "no drag; «dismissible: false» is not read — the scrim and Esc still dismiss",
+    "cases": "contract/fixtures/sheet-dismiss/sheet-dismiss-cases.json"
+  },
+  "x-liveRecord": {
+    "appliesTo": "every record a frame of the stack holds (x-dataScope): opened from a list row, inherited by a modal layer, carried by «carryRecord»",
+    "field": "none: no document field turns it on, and no document changes its meaning while the data stays the same",
+    "chain": "the record of a frame is the overlay of the records of the Repeater instances it came from, outer first; every instance remembers its collection («Repeater.source»), its entity («Repeater.item») and its fields",
+    "key": {
+      "path": "<item>.id",
+      "field": "id",
+      "types": "a non-empty string or a finite number; any other value or no field — the instance is not live and keeps the fields the screen was opened with",
+      "compare": "the same JSON type and equal without conversion: 7 and \"7\" are two records"
+    },
+    "when": "whenever the reader is given new collections; every frame of the stack, not only the top one",
+    "search": {
+      "order": [
+        "source",
+        "entity"
+      ],
+      "source": "the collection the list read, under «Repeater.source», as the host gives it now: not filtered by «where», not bounded by «limit»",
+      "entity": "then every other collection the document names for the same entity: the «source» of every Repeater with the same «item», screens in document order, depth first, each collection once",
+      "duplicates": "the first record with the key in the order of the collection",
+      "notAList": "a collection that is absent or not a list holds no records"
+    },
+    "found": "the instance takes the found record whole: a field the new record lacks is gone from that instance",
+    "notFound": "the instance keeps the last record it had: it neither empties nor goes back to the record of the navigation",
+    "notAShow": "the stack, the screen-shown event, analytics and the show cause do not change; the screen keeps its scroll, carousels and inputs",
+    "layers": "unchanged: record, session, host, data",
+    "valueTransition": "a bound value that changed animates as any changed value does («animateChanges»)",
+    "handed": "actions on the screen carry the refreshed record to the host",
+    "olderReader": "keeps the record the screen was opened with until the screen leaves the stack",
+    "editorPreview": "the preview refreshes the record when the data scenario or the data dictionary changes",
+    "cases": "contract/fixtures/scope/record-scope-cases.json (liveRecordCases, liveFlowCases)"
+  },
+  "x-longPressOnce": {
+    "refines": [
+      "x-longPress.afterFire",
+      "x-longPress.accessibility.keysAct"
+    ],
+    "keyRepeat": {
+      "rule": "a key held down is one long press: an auto-repeated key event (KeyboardEvent.repeat, Flutter KeyRepeatEvent) does nothing",
+      "same": "x-compatibility.policy.keyAutoRepeat",
+      "keys": "x-longPress.accessibility.keys"
+    },
+    "clickAfterFire": {
+      "rule": "only the click that ends the gesture which fired is swallowed: it comes after the release of the same pointer and within the window",
+      "windowMs": 400,
+      "from": "the release (pointerup) of the gesture that fired",
+      "notSwallowed": [
+        "a click with no release of that gesture before it: a screen reader or the keyboard activated the node",
+        "a click later than the window",
+        "a click after a new pointer down"
+      ],
+      "cancelled": "a cancelled gesture (pointercancel) swallows nothing",
+      "flutter": "the tap and the long press of one gesture already exclude each other in the gesture arena; a semantics tap is always a press"
+    },
+    "olderReader": "may run the long press again on every repeat and may swallow the next activation by a screen reader",
+    "cases": "contract/fixtures/long-press/long-press-cases.json (keyRepeatCases, clickAfterFireCases)"
+  },
+  "x-modalEscape": {
+    "refines": [
+      "x-style.layout.modalLayer.dismiss.escapeKey",
+      "x-sheetDismiss.keyboard",
+      "x-sheetDismiss.dismissible.value"
+    ],
+    "listener": "the top layer of the stack only",
+    "firstKeyDown": "at most one step back: navigate.back of the top modal layer",
+    "autoRepeat": "closes nothing (KeyboardEvent.repeat, Flutter KeyRepeatEvent): a held Esc closes one layer, not the stack",
+    "perKeyDown": "one key down is at most one step back, however many layers there are",
+    "notDismissible": "a layer with «dismissible: false» does not take Esc and does not hand it to the layer below; it stays with the host",
+    "page": "a page on top: Esc is not the reader’s",
+    "same": "x-compatibility.policy.keyAutoRepeat",
+    "olderReader": "a held Esc may close every layer of the stack",
+    "cases": "contract/fixtures/sheet-dismiss/sheet-dismiss-cases.json (escapeCases)"
   },
   "x-generatedFrom": "src/entities/component-schema — generated, do not edit by hand"
 }

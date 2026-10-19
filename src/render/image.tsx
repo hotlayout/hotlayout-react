@@ -76,6 +76,9 @@ export const ImageView = screenPart(function ImageView({ props, css, mark }: Pic
         }}
         src={src}
         alt={alt}
+        referrerPolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
         onError={() => {
           setFailedSrc(src)
         }}

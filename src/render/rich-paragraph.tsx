@@ -13,6 +13,7 @@ import { isRecord } from '../sanitize'
 import type { Css, TextStyleContext } from '../style'
 import { typographyToCss } from '../style'
 import { emphasisCss, emphasisOfContext, isRootEmphasis, runEmphasisOf } from '../text-emphasis'
+import { OWN_COLOUR_FILL } from '../text-gradient'
 import type { TemplateRun } from '../text-template'
 import type { Theme } from '../theme'
 
@@ -65,8 +66,9 @@ export function richParagraph(
   runs: readonly TemplateRun[] | undefined,
   text: TextStyleContext,
   theme: Theme,
-  content: string,
+  shown: { readonly content: string; readonly glyphGradient?: boolean },
 ): { readonly paragraph: CSSProperties | undefined; readonly runs: ReactNode } | undefined {
+  const { content, glyphGradient = false } = shown
   const spans = activeTextSpans(props.content, readTextSpans(props.spans))
   const emphasis = emphasisOfContext(text)
   const base = lineMetricOf(text.typography, theme)
@@ -96,7 +98,7 @@ export function richParagraph(
     const color = colorCss(style.style.color, theme)
     const own = fontOf(style)
     return {
-      ...(color === undefined ? {} : { color }),
+      ...(color === undefined ? {} : glyphGradient ? { color, ...OWN_COLOUR_FILL } : { color }),
       ...(own === undefined ? (strutFont === undefined ? {} : typographyLonghands(text.typography, theme)) : typographyLonghands(own, theme)),
       lineHeight: 0,
     }

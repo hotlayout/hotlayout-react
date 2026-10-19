@@ -8,6 +8,7 @@ import { valueAt } from '../data'
 import { FORM_RULES, pressDisabledOf } from '../form-rules'
 import { preparePress } from '../press'
 import { ActionContext, FormContext, InputWriteContext } from '../runtime'
+import type { PressOutcome } from '../runtime'
 import type { UiNode } from '../types'
 import { isWriteAction } from '../write-action'
 import { pressWriteAction } from './choice'
@@ -30,10 +31,10 @@ export function swallowAutoRepeat(event: KeyboardEvent<HTMLElement>): void {
   if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault()
 }
 
-export function usePress(action: { readonly type: string } | undefined, nodeId: string): (() => void) | undefined {
+export function usePress(action: { readonly type: string } | undefined, nodeId: string): (() => PressOutcome | undefined) | undefined {
   const dispatch = useContext(ActionContext)
   const place = useContext(PlaceContext)
-  const { record, insideListItem } = useContext(RecordContext)
+  const { record, insideListItem, links } = useContext(RecordContext)
   const scope = useData()
   const report = useContext(IssueContext)
   const write = useContext(InputWriteContext)
@@ -44,11 +45,11 @@ export function usePress(action: { readonly type: string } | undefined, nodeId: 
     // A write action (schema 9.19.0): the event first, then the write along the same path as for input fields; it does not go to the host through `onAction`.
     if (isWriteAction(action.type)) {
       pressWriteAction(action, { dispatch, write, scope, source, insideListItem, report })
-      return
+      return undefined
     }
     // Parameters from data are read from the NODE SCOPE at the moment of the press (schema 9.8.0): the same layers as a text binding on this node.
     const press = preparePress(action, (path) => valueAt(scope, path), report, `node “${nodeId}”: action`)
-    dispatch(press.action, source, insideListItem, { track: press.track, carryRecord: press.carryRecord })
+    return dispatch(press.action, source, insideListItem, { haptic: press.haptic, track: press.track, carryRecord: press.carryRecord, links })
   }
 }
 

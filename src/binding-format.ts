@@ -115,10 +115,31 @@ export const CURRENCY_FORMAT = {
 export const DAYS_UNTIL = { dayMilliseconds: 86_400_000, rounding: 'ceil', minimum: 0, shownAs: 'number' } as const
 
 /** Formats under which the value is a NUMBER for plural selection, `x-template.countableFormats`. */
-export const COUNTABLE_FORMATS = ['number', 'currency', 'daysUntil'] as const
+export const COUNTABLE_FORMATS = ['number', 'currency', 'daysUntil', 'countdownPart'] as const
 
 /** Every binding format this reader supports, `$defs.BindingFormat`. */
-export const READER_BINDING_FORMATS = ['date', 'dateTime', 'time', 'number', 'currency', 'daysUntil'] as const
+export const READER_BINDING_FORMATS = ['date', 'dateTime', 'time', 'number', 'currency', 'daysUntil', 'countdownPart'] as const
+
+/**
+ * The `countdownPart` format (9.21.0, `x-countdown`): one part of the time left until a date —
+ * whole days, hours 0–23, minutes 0–59 or seconds 0–59; the parts round DOWN and a past moment
+ * gives zeros. The part is written like `number`; `pad: 2` asks for at least two digits. The part
+ * is computed at render, from the moment the caller gives (`countdown.ts` and the clock of the
+ * screen make it tick).
+ */
+const COUNTDOWN_SECONDS: ReadonlyMap<string, readonly [seconds: number, wrap: number | undefined]> = new Map([
+  ['days', [86_400, undefined]],
+  ['hours', [3_600, 24]],
+  ['minutes', [60, 60]],
+  ['seconds', [1, 60]],
+])
+
+function countdownPart(moment: number, now: number, unit: unknown): number | undefined {
+  const entry = typeof unit === 'string' ? COUNTDOWN_SECONDS.get(unit) : undefined
+  if (entry === undefined) return undefined
+  const whole = Math.floor(Math.floor(Math.max(0, moment - now) / 1000) / entry[0])
+  return entry[1] === undefined ? whole : whole % entry[1]
+}
 
 const CURRENCY_CODE = new RegExp(CURRENCY_FORMAT.codePattern)
 
@@ -151,7 +172,12 @@ function momentOf(value: unknown): number | undefined {
  * or unparsable, the format is not numeric, or "now" was not given. Without a format a number
  * from the data stays itself, so "{count} {unit}" agrees even where separators were not asked for.
  */
-export function numericBoundValue(value: unknown, format: unknown, now: number | undefined): number | undefined {
+export function numericBoundValue(value: unknown, format: unknown, now: number | undefined, unit?: unknown): number | undefined {
+  if (format === 'countdownPart') {
+    const moment = momentOf(value)
+    if (moment === undefined || typeof now !== 'number' || !Number.isFinite(now)) return undefined
+    return countdownPart(moment, now, unit)
+  }
   if (format === 'daysUntil') {
     const moment = momentOf(value)
     if (moment === undefined || typeof now !== 'number' || !Number.isFinite(now)) return undefined
@@ -253,6 +279,9 @@ export interface NumberFormatInput {
   readonly now?: number | undefined
   /** The binding's `dateParts` word (9.19.0): only `date` reads it, other formats ignore it. */
   readonly dateParts?: unknown
+  /** The binding's `unit` and `pad` (9.21.0): only `countdownPart` reads them. */
+  readonly unit?: unknown
+  readonly pad?: unknown
 }
 
 /**
@@ -273,6 +302,14 @@ export function formatBound(value: unknown, format: unknown, locale: string | un
             // (an ISO string in the middle of "... days left" is worse than "1500").
       if (language === null || !hasNumberLocaleData(language)) return format === 'daysUntil' ? String(number) : undefined
       return numberText(number, language, NUMBER_FORMAT.minimumFractionDigits, NUMBER_FORMAT.maximumFractionDigits)
+    }
+    if (format === 'countdownPart') {
+      const part = numericBoundValue(value, format, input.now, input.unit)
+      if (part === undefined) return undefined
+      const digits = input.pad === 2 ? 2 : 1
+      const language = usableLocale(locale, fallbackLocale)
+      if (language === null || !hasNumberLocaleData(language)) return String(part).padStart(digits, '0')
+      return new Intl.NumberFormat(language, { useGrouping: NUMBER_FORMAT.grouping as unknown as boolean, minimumIntegerDigits: digits, maximumFractionDigits: 0 }).format(part)
     }
     if (format === 'currency') {
       const number = numericBoundValue(value, format, input.now)

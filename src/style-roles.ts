@@ -3,6 +3,7 @@ import type { DataScope } from './data'
 import { DEFAULT_IMAGES } from './images'
 import type { ImagePolicy } from './images'
 import { colorCss, shadowCss, typographyCss } from './resolve'
+import { tintedShadowCss } from './shadow-color'
 import { lookup, safeIdent } from './sanitize'
 import { typographyToCss } from './style'
 import type { Css } from './style'
@@ -55,6 +56,11 @@ function replaceFamily(css: Css, family: RegExp, next: Css): void {
   if (Object.keys(next).length === 0) return
   for (const key of Object.keys(css)) if (family.test(key)) Reflect.deleteProperty(css, key)
   Object.assign(css, next)
+}
+
+/** The shadow of the node's own style: in the hue of its own background with `shadowColor` (9.25.0), otherwise as named. */
+function ownShadowCss(own: NodeStyle, theme: Theme): string | undefined {
+  return tintedShadowCss(own, theme) ?? shadowCss(own.shadow, theme)
 }
 
 /** What a surface is resolved against: the theme, the data scope and the image policy of the screen (by default — `DEFAULT_IMAGES`). */
@@ -136,7 +142,8 @@ export function roleSurfaceCss(type: string, props: Readonly<Record<string, unkn
     own.typography === undefined ? {} : typographyToCss(typographyCss(own.typography, theme)),
   )
 
-  const shadow = shadowCss(own.shadow, theme)
+  // `shadowColor: 'background'` (9.25.0): the hue of the node's OWN background, not the role's.
+  const shadow = ownShadowCss(own, theme)
   if (shadow !== undefined) css.boxShadow = shadow
 
   return css

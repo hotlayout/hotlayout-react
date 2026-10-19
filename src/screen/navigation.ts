@@ -4,9 +4,11 @@ import type { Dispatch, SetStateAction } from 'react'
 import { intentOf } from '../actions'
 import type { ActionSource, HotlayoutAction, TrackEvent } from '../actions'
 import { sectionStackOf } from '../bottom-zone'
+import type { HapticWord } from '../haptic'
 import type { HotlayoutReport, NavigationEvent, ScreenInfo } from '../HotlayoutScreen'
 import { recordForOpenedScreen } from '../record-scope'
-import type { ActionHandler, PressExtras } from '../runtime'
+import { promiseOf } from '../swipe-busy'
+import type { ActionHandler, PressExtras, PressOutcome } from '../runtime'
 import type { ScreenEntry } from '../types'
 import { infoOf } from './flow'
 import type { Flow } from './flow'
@@ -17,7 +19,8 @@ export interface NavigationEnv {
   readonly issues: ReportBox
   readonly deliver: (report: HotlayoutReport) => void
   readonly onTrack: ((event: TrackEvent, source: ActionSource) => void) | undefined
-  readonly onAction: ((action: HotlayoutAction, source: ActionSource) => void) | undefined
+  readonly onHaptic: ((kind: HapticWord, source: ActionSource) => void) | undefined
+  readonly onAction: ((action: HotlayoutAction, source: ActionSource) => unknown) | undefined
   readonly onNavigate: ((event: NavigationEvent) => boolean | undefined) | undefined
   readonly screens: readonly ScreenEntry[]
   readonly frames: readonly ScreenEntry[]
@@ -62,7 +65,10 @@ function pushScreen(env: NavigationEnv, topInfo: ScreenInfo, intent: { readonly 
    * screen below it.
    */
   const record = recordForOpenedScreen({ nodeRecord: source.record, insideListItem, presentation: to.presentation, carryRecord: extras?.carryRecord })
-  setFlow({ ...current, stack: [...current.stack, record === undefined ? { screenId: intent.screenId } : { screenId: intent.screenId, record }], moved: true, show: current.show + 1, cause: 'forward' })
+  // The links the record is made of (since 9.27.0) go with it, so the page can follow the data; a frame without a record has none.
+  const links = record === undefined ? undefined : extras?.links
+  const frame = record === undefined ? { screenId: intent.screenId } : { screenId: intent.screenId, record, ...(links === undefined || links.length === 0 ? {} : { links }) }
+  setFlow({ ...current, stack: [...current.stack, frame], moved: true, show: current.show + 1, cause: 'forward' })
 }
 
 function stepBack(env: NavigationEnv, topInfo: ScreenInfo, { safe, source }: Press): void {
@@ -74,11 +80,13 @@ function stepBack(env: NavigationEnv, topInfo: ScreenInfo, { safe, source }: Pre
 }
 
 export function actionHandlerOf(env: NavigationEnv): ActionHandler {
-  const { issues, deliver, onTrack, onAction, screens, frames, topInfo } = env
-  return (safe: HotlayoutAction, source: ActionSource, insideListItem = false, extras?: PressExtras): void => {
+  const { issues, deliver, onTrack, onHaptic, onAction, screens, frames, topInfo } = env
+  return (safe: HotlayoutAction, source: ActionSource, insideListItem = false, extras?: PressExtras): PressOutcome | undefined => {
     // What the reader ignored in an action (a field of the wrong shape) is noticed at press time, not at render time: there may be no render to deliver the report from an effect.
     for (const report of issues.drain()) deliver(report)
-    // The press's analytics event goes FIRST and exactly once: before a transition (even one the host cancels), before a delegated action, and for `none` too.
+    // The haptic request goes before everything else of the press (haptic, track, action) and exactly once, also for `none` and for a transition the host cancels.
+    if (extras?.haptic !== undefined) onHaptic?.(extras.haptic, source)
+    // The press's analytics event goes next and exactly once: before a transition (even one the host cancels), before a delegated action, and for `none` too.
     if (extras?.track !== undefined) onTrack?.(extras.track, source)
     // The action arrives here already CHECKED (`preparePress`): parameters are own identifier keys
     // with string values, no `__proto__` or `constructor`, with data from `paramBindings` and a
@@ -89,15 +97,17 @@ export function actionHandlerOf(env: NavigationEnv): ActionHandler {
       screens.map((screen) => screen.screenId),
       frames.length,
     )
-    if (intent.kind === 'inert') return
+    if (intent.kind === 'inert') return { runner: 'none', answer: undefined }
     if (intent.kind === 'host' || topInfo === undefined) {
-      onAction?.(safe, source)
-      return
+      // The host may return a promise (9.24.0): the button that drags to confirm waits for it. The answer is read, never trusted.
+      const answer = promiseOf(onAction?.(safe, source))
+      return { runner: safe.invalid === undefined ? 'host' : 'invalid', answer }
     }
 
     const press: Press = { safe, source, insideListItem, extras }
     if (intent.kind === 'section') switchSection(env, topInfo, intent, press)
     else if (intent.kind === 'push') pushScreen(env, topInfo, intent, press)
     else stepBack(env, topInfo, press)
+    return { runner: 'reader', answer: undefined }
   }
 }

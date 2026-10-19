@@ -1,6 +1,8 @@
 /** The screen stack of one flow: its frames, the screens of a document the stack relies on, and where a flow starts. */
 import type { DataScope } from '../data'
 import type { ScreenInfo } from '../HotlayoutScreen'
+import { backdropBlurOf } from '../backdrop-blur'
+import type { RecordChain } from '../live-record'
 import { MODAL_PLACEMENTS, statusBarIconsOf } from '../media-chrome'
 import { isRecord, lookup } from '../sanitize'
 import { shownLookOf } from '../screen-shown'
@@ -15,6 +17,11 @@ export interface Frame {
    * record together and the previous screen sees the data it saw before.
    */
   readonly record?: DataScope
+  /**
+   * The links the record is made of (since 9.27.0): one per list instance the row came from, outer first. The record of the
+   * frame follows the data through them (`live-flow.ts`); a frame without links keeps its record as it was opened.
+   */
+  readonly links?: RecordChain
 }
 
 export interface Flow {
@@ -55,6 +62,7 @@ export function screensOf(document: UiDocument): readonly ScreenEntry[] {
   for (const screen of screens as readonly unknown[]) {
     if (!isRecord(screen) || typeof screen.screenId !== 'string') continue
     const icons = statusBarIconsOf(screen.statusBarIcons)
+    const blur = screen.presentation === 'modal' ? backdropBlurOf(screen.backdropBlur) : undefined
     entries.push({
       screenId: screen.screenId,
       name: typeof screen.name === 'string' ? screen.name : '',
@@ -63,6 +71,10 @@ export function screensOf(document: UiDocument): readonly ScreenEntry[] {
       // Known words only: a newer word means "no request" / a sheet (`unknownModalPlacement`, `unknownStatusBarIcons`).
       ...((MODAL_PLACEMENTS as readonly unknown[]).includes(screen.modalPlacement) ? { modalPlacement: screen.modalPlacement as 'bottom' | 'center' } : {}),
       ...(icons === undefined ? {} : { statusBarIcons: icons }),
+      // Only a modal screen has a layer to blur; on a page the field is skipped. A value the schema would not accept is no field.
+      ...(blur === undefined ? {} : { backdropBlur: blur }),
+      // `dismissible` is read on a modal screen only, and only the word `false` (9.26.0); on a page it is no field.
+      ...(screen.presentation === 'modal' && screen.dismissible === false ? { dismissible: false as const } : {}),
     })
   }
   return entries
@@ -93,4 +105,5 @@ export function startOf(document: UiDocument, entry: string | undefined): { read
 export interface ShownFrame {
   readonly screen: ScreenEntry
   readonly record: DataScope | undefined
+  readonly links: RecordChain | undefined
 }

@@ -42,6 +42,8 @@ interface ChromeChild {
 /** Root children by zone in a width class: zones by document, and the navigation bar's place. */
 export interface ScreenChrome<T> {
   readonly appBar: T | undefined
+  /** Pinned to the top, in a run after the app bar zone (9.24.0). */
+  readonly topPinned: readonly T[]
   readonly body: readonly T[]
   readonly pinned: T | undefined
   readonly navBar: T | undefined
@@ -81,8 +83,9 @@ export function screenChromeIn<T extends ChromeChild>(
   children: readonly T[],
   widthClass: WidthClass,
   isShown: (node: T) => boolean = () => true,
+  rootProps?: unknown,
 ): ScreenChrome<T> {
-  const zones = screenChildrenByZone(children)
+  const zones = screenChildrenByZone(children, rootProps)
   const navBar = zones.navBar
   if (navBar === undefined) return { ...zones, navPlace: undefined }
   if (!isWideWidthClass(widthClass) || navWidePlacementOf(widePlacementFieldOf(navBar)) === 'bottom') return { ...zones, navPlace: 'bottom' }

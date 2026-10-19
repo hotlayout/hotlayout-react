@@ -135,6 +135,8 @@ Two notes on the example:
 | **Theme fallbacks** | An unreadable theme never blanks the screen: the built-in theme is used and you are told through `onReport`. |
 | **Images** | An asset token without a URL, and a URL that failed to load, are drawn as a neutral placeholder — never as the browser's broken-image icon. |
 | **Direction** | Sets `dir` on its own root from the language the document is shown in (CLDR via `Intl.Locale`) and mirrors directional icons. |
+| **Motion** | A node with `motion` drifts (`float`) or breathes (`pulse`) forever; it only paints, so neighbours never move. The position follows the contract's sine formula, computed by the browser from one animated angle. The system "reduce motion" setting and the server render leave the node at rest. |
+| **Blur and glass** | A modal screen with `backdropBlur` blurs everything under the layer (the dimming lies over the blur); a node with `style.backdropBlur` blurs what is painted under its box, within its radius. Both are `backdrop-filter`. |
 | **Touch targets** | Buttons look exactly as designed (a button with `sm` padding is 40 px tall) but are *pressable* in an area of at least 48 × 48 px, without shifting neighbours. |
 
 The contract between the builder and the readers (`screen-schema.json`,
@@ -164,11 +166,12 @@ come from the contract.
 | `locale` | `string` | The user's locale as the platform gives it (`ar-EG`, `pt_BR`). The renderer finds the document's translation itself — see [Languages](#languages-and-right-to-left). |
 | `dir` | `'ltr' \| 'rtl'` | Overrides the direction derived from `locale`. |
 | `timeZone` | `string` | IANA zone the bound dates are written in. Defaults to the zone of whoever renders. **Set it when you render on a server** — see [Server rendering](#server-rendering-and-nextjs). |
-| `now` | `number \| Date` | The moment the screen is rendered at (epoch milliseconds or a `Date`); `daysUntil` counts from it. Defaults to the clock of whoever renders, read on every render. **Set it when you render on a server**, and in tests and previews — see [Sentences, numbers, money and plurals](#sentences-numbers-money-and-plurals). |
+| `now` | `number \| Date` | The moment the screen is rendered at (epoch milliseconds or a `Date`); `daysUntil` and `countdownPart` count from it. Defaults to the clock of whoever renders, read on every render; a screen that shows a countdown part then ticks, and with your `now` it does not (you own the clock). **Set it when you render on a server**, and in tests and previews — see [Sentences, numbers, money and plurals](#sentences-numbers-money-and-plurals). |
 | `labels` | `{ back?: string }` | Texts that belong to the renderer: the accessible name of the back arrow. Translate it with your UI. |
 | **Events** | | |
-| `onAction` | `(action, source) => void` | Actions the renderer does not perform itself — see [Actions and navigation](#actions-and-navigation). `source` is `{ nodeId, screenId, record? }`. |
-| `onTrack` | `(event, source) => void` | The analytics event of a press, once per press and **before** anything else — see [Analytics](#analytics-what-was-pressed-what-was-shown). |
+| `onAction` | `(action, source) => unknown` | Actions the renderer does not perform itself — see [Actions and navigation](#actions-and-navigation). `source` is `{ nodeId, screenId, record? }`. A returned promise keeps a drag-to-confirm button busy until it settles. |
+| `onTrack` | `(event, source) => void` | The analytics event of a press, once per press and **before** the action — see [Analytics](#analytics-what-was-pressed-what-was-shown). |
+| `onHaptic` | `(kind, source) => void` | A request for a tactile response, once per press and **before** `onTrack` and the action — see [Haptic feedback](#haptic-feedback). The renderer never vibrates by itself. |
 | `onNavigate` | `(event) => boolean \| undefined` | Called **before** the renderer changes screens. Return `false` to cancel and navigate yourself — see [Driving navigation with your router](#driving-navigation-with-your-router). |
 | `onScreenChange` | `(screen) => void` | The screen-shown event: once per show of a screen, the first one included — see [Screen shown](#screen-shown). |
 | `onReport` | `(report) => void` | What the renderer refused, ignored or replaced — see [Reports](#reports) for the list, and for what is *not* reported. Without a handler the reports go to `console.warn`. |
@@ -184,6 +187,7 @@ come from the contract.
 | `stickyOffset` | `number \| string` | Only with `scroll="page"` and `chrome="sticky"`: the `top` the app bar sticks at when your site has a fixed header above the block. |
 | `stickyBottomOffset` | `number \| string` | The same for the bottom zone: the `bottom` it sticks at when your site has a fixed bar below the block. |
 | `safeAreaTop` | `number \| 'env'` | The top safe-area inset. Default `'env'`. See [Safe areas](#safe-areas). |
+| `trapFocus` | `boolean` | Keep `Tab` inside a modal layer at all times. Default `false`: only a dismissible layer cycles `Tab`, and `Tab` may leave a layer that waits for an action. |
 | `safeAreaBottom` | `number \| 'env'` | The bottom safe-area inset under the bottom zone. Default `'env'`. See [Safe areas](#safe-areas). |
 | `initialWidthClass` | `'compact' \| 'medium' \| 'expanded'` | The width class to draw until the root element has been measured (default `'compact'`). See [Adaptive layout by width](#adaptive-layout-by-width). |
 
@@ -367,8 +371,10 @@ An action may carry `track` — `{ event, params? }`, a name of letters, digits
 and underscores (at most 40) and flat string parameters. It arrives in
 `onTrack`:
 
-- **once per press and before anything else** — before the renderer navigates
-  (even when your `onNavigate` then cancels the step) and before `onAction`;
+- **once per press and before the action** — before the renderer navigates
+  (even when your `onNavigate` then cancels the step) and before `onAction`; the
+  only thing that comes earlier is the [haptic request](#haptic-feedback) of the
+  same press;
 - for `none` too — a button that only measures;
 - separately from the action: the action you get in `onAction` does not carry
   it.
@@ -389,6 +395,53 @@ export function Tracked({ layout }: { layout: UiDocument }) {
       // One call per screen shown: the first one, a forward step, a return. Not on re-renders, not on the server.
       onScreenChange={(screen) => {
         analytics.track('screen_view', { screen: screen.screenId, cause: screen.cause, depth: String(screen.depth), entry: screen.entry ?? '' })
+      }}
+    />
+  )
+}
+```
+
+### Haptic feedback
+
+An action may carry `haptic` — one of `light`, `medium`, `heavy`, `selection`,
+`success`, `warning` — next to `track`. It is a **request to your app**: the
+renderer never vibrates by itself. It calls `onHaptic(kind, source)`:
+
+- **once per press, first** — before `onTrack` and before the action of the same
+  press (the order is haptic, track, action), and also when the action is `none`
+  or your `onNavigate` cancels the step;
+- not for a disabled button, a held key's auto-repeat, a press that reached a
+  control inside a card instead of the card, or a drag to confirm that has not
+  completed (it asks when the thumb is dragged to the end, together with the
+  action);
+- not for an unknown word, and not at all for an action without the field — the
+  renderer adds no default, a section switch included;
+- separately from the action: the action you get in `onAction` does not carry it.
+
+Map the word to what your platform can do. In a browser that is often
+`navigator.vibrate`, which exists on Android and not on iOS Safari; without the
+prop nothing happens.
+
+<!-- example: actions.tsx#haptic -->
+```tsx
+// One call per press that asks for it, before `onTrack` and the action. The renderer vibrates nothing itself.
+const PATTERNS: Readonly<Record<HapticWord, number | number[]>> = {
+  light: 8,
+  medium: 16,
+  heavy: 28,
+  selection: 6,
+  success: [10, 40, 10],
+  warning: [24, 60, 24],
+}
+
+export function WithHaptics({ layout }: { layout: UiDocument }) {
+  return (
+    <HotlayoutScreen
+      document={layout}
+      onAction={handleAction}
+      onHaptic={(kind) => {
+        // Not every browser can: `vibrate` is absent on iOS Safari, and the user may have turned vibration off.
+        if ('vibrate' in navigator) navigator.vibrate(PATTERNS[kind])
       }}
     />
   )
@@ -480,6 +533,35 @@ list row. What differs is on the screen:
 - A press goes to the **innermost** control under the point, and its ancestors
   get nothing — a button inside a card does not also press the card.
 - The accessible name is the `label` first and then the text of the content.
+
+#### Long press
+
+A pressable container or a list row may also carry **`longPress`** (an action of the
+same form) and **`longPressLabel`** (its name). There is no new prop and no new
+handler: a long press arrives at the very same `onHaptic`, `onTrack` and `onAction`
+as a press, in that order, once, with the record of the row. `longPress` is not read
+on a `Button`, an `IconButton` or a navigation item.
+
+- **The hold.** A pointer that stays down on the node for 450 ms and has not moved
+  more than 10 CSS pixels runs the action while it is still down. A longer move
+  before that cancels the long press **and** the press (the finger is scrolling).
+  After it fired, the click that follows the release is swallowed: `action` does not
+  run. The pressed look stays while the finger is down. A node without `longPress`
+  is not changed: a long hold released in place is a press, as always.
+- **One receiver.** The touch goes to the innermost control under the finger. A
+  button inside a card keeps its press and the card gets no long press; a row with a
+  long press of its own inside a card is the receiver itself.
+- **Keyboard.** `ContextMenu` or `Shift+F10` on the focused node runs the long press
+  at once. `Enter` and `Space` stay the press of `action`. A container with only a
+  `longPress` is a control all the same: a tab stop, `role="button"`, named by its
+  content, and its click does nothing.
+- **Assistive technology.** The name of the action is a hidden element the node is
+  described by (`aria-describedby`), and `aria-keyshortcuts="ContextMenu Shift+F10"`
+  lists the keys. The name is not part of the name of the control, and a reader that
+  does not announce descriptions still has the keys.
+- **The context menu of the browser** is cancelled on such a node (the browser of a
+  phone opens it on the same hold). A right mouse button is not a long press and
+  does nothing.
 
 ## Screen layout
 
@@ -775,6 +857,7 @@ written. All of it is document data; you only pass `data` as before:
 | …with `currencyDisplay: 'symbol'`, `currencyPosition: 'before'`, `sign: 'always'` | «+42 000,50 ₴» | See [Money](#money) below. |
 | `format: 'date'` with `dateParts` | day and month; weekday, day and month; day, month and year | `dayMonth`, `weekdayDayMonth`, `dayMonthYear` choose which parts of the date are written. |
 | `format: 'daysUntil'` | `4` | Whole days until the bound moment, rounded **up**, never below zero: `max(0, ceil((moment − now) / 24 h))`. No time zone is involved. |
+| `format: 'countdownPart'`, `unit: 'days' \| 'hours' \| 'minutes' \| 'seconds'` (and `pad: 2`) | `2`, `14`, `05` | One part of the time left until the bound moment, **rounded down**: days, hours 0–23, minutes 0–59 or seconds 0–59; past moments give zeros. It is written like `number`; `pad: 2` writes at least two digits (`05`). A sentence composes the parts with its own words — `"{h}:{m}:{s}"`, `"{d} d {h} h"` — and a part is the number a plural word agrees with. |
 | a `plural` value | `day` / `days`, `день` / `дні` / `днів` | The form whose CLDR category matches the number (`Intl.PluralRules`). The language is the one the shown forms are written in — the translation's if the forms are translated, the document's own otherwise — never the device's. |
 
 The sentence and the plural forms are translated in the document
@@ -836,11 +919,17 @@ These are the contract's rules, the same in every reader.
   a known kind of the wrong shape — draws an empty place, the sentence stays,
   and `onReport` gets `ignored-input`.
 
-**`now` is the renderer's clock.** `daysUntil` is counted when the screen is
-rendered, from `now` — by default the clock of whoever renders. The screen
-does not tick: re-render it (new `now`, new data) when you want a fresh number.
-Pass `now` explicitly in three cases: server rendering
-([below](#server-rendering-and-nextjs)), tests, and previews of sample data.
+**`now` is the renderer's clock.** `daysUntil` and the parts of `countdownPart`
+are counted when the screen is rendered, from `now` — by default the clock of
+whoever renders. `daysUntil` does not tick: re-render the screen (new `now`, new
+data) when you want a fresh number. **A countdown does:** a screen that shows a
+`countdownPart` keeps one timer, every second when a part is `seconds` and every
+minute otherwise, and none when no node counts down; the number is never more
+than one tick behind the clock, and a hidden tab draws nothing until it is
+visible again. When you pass `now` yourself the clock is yours and nothing
+ticks — pass a new moment when you want a new number. Pass `now` explicitly in
+three cases: server rendering ([below](#server-rendering-and-nextjs)), tests,
+and previews of sample data.
 
 ### One screen, many records
 
@@ -898,8 +987,10 @@ Three things to know:
 - **The record is stronger than `data`.** On a screen opened from a row,
   `data['item.name']` is not read while the record has a name. A field the
   record does not have — or has as `null` — is read from `data`.
-- **The record is a snapshot** taken when the row was pressed. Updating
-  `collections` later does not change a details screen that is already open.
+- **The record follows the data.** The row is remembered with the list it came from
+  and with its `id` (see [A page follows the data](#a-page-follows-the-data)): when
+  you pass other `collections`, an open details screen shows the new values of that
+  record on the spot. A record without an `id` stays as it was when the row was pressed.
 - **Treat an id from `source.record` as user input.** The values are yours
   (they come from `collections`), but which collection a prefix such as
   `item` names is decided by the document. Check on your backend that this
@@ -912,6 +1003,26 @@ record to put into `data` for the screen you open.
 A condition on a collection (`{ path: 'items', op: 'isEmpty' }` — the empty
 state of a list) reads the list you pass in `collections`: a missing list is an
 empty one.
+
+### A page follows the data
+
+Give the renderer new `collections` (a new object, as your state changes) and every
+screen of the stack that was opened from a list row looks its record up again — the
+details page, the sheet above it, the page that was carried a record with
+`carryRecord`. The key is the field `id` of the record (`item.id` for the entity `item`):
+a non-empty string or a finite number, compared by JSON type, so `7` and `"7"` are two
+records. The record is searched for in the collection the row came from, and then in
+every other collection **the document names** for the same entity (the `source` of
+every `Repeater` with that `item`) — a task that moved from `tasks` to `doneTasks` is
+still found. The first record with the key wins and replaces the old one whole.
+
+What does not change: the stack, `onScreenChange` (a refresh is not a show), analytics,
+the scroll, the carousels and what was typed. The page is not rebuilt; a bound number
+with `animateChanges` counts to its new value. A record that is found nowhere stays as
+it was last seen — a page does not go blank because a list was reloaded — and the next
+`collections` are searched again. An action from the page hands you the refreshed
+`source.record`. If you used to close and reopen the page to show a changed record, you
+can stop.
 
 ### Writes: the document names the path
 
@@ -1408,7 +1519,11 @@ Four things to set or know when you render on a server:
   deadline that crosses a 24-hour boundary in between gives "4 days left" in
   the markup and "3 days left" after hydration. In a Server Component read the
   clock once and pass it down — the number travels to the browser with the
-  props, as in the first example above.
+  props, as in the first example above. A countdown (`countdownPart`) is the
+  same case twice: with your `now` the markup of the server and of the first
+  browser frame is the same; without it the two clocks differ, the text of a
+  countdown is exempt from the hydration check, and the browser's clock replaces
+  the server's number as soon as the page is interactive.
 - **Reports (`onReport`) fire in an effect**, i.e. in the browser. On the
   server use `checkDocumentVersion` and `resolveTheme(theme).reports` if you
   want to log fallbacks there.
@@ -1429,8 +1544,10 @@ The renderer lives in the regular DOM of your page.
 
 - **It does not leak out.** Every visual decision is an inline style; theme
   values are CSS variables (`--product-*`) set on the root element; the
-  stylesheet contains only selectors scoped to `[data-hotlayout]`. Nothing is
-  added to `<head>`, `<html>` or `<body>`.
+  stylesheet contains only selectors scoped to `[data-hotlayout]`, plus the two
+  global at-rules motion needs (`@property --hl-motion-phase` and
+  `@keyframes hl-motion-cycle`: such names cannot be scoped, so they are
+  prefixed). Nothing is added to `<head>`, `<html>` or `<body>`.
 - **Your page does not leak in.** A scoped reset (`all: unset`) with the
   specificity of an id selector removes whatever your global CSS gives to
   `button`, `div`, `img`, `p`, `*`… inside the screen, and the root restates
@@ -1540,10 +1657,17 @@ For an untrusted document and theme:
 ### Images: https only, unless you say otherwise
 
 An image address named by the document or by bound data is loaded only if it
-is an absolute `https:` URL. `http:`, `data:`, `blob:`, `javascript:`,
-relative addresses and anything else are drawn as the placeholder and
-reported. To narrow that to your own hosts, to route images through your
-proxy, or to allow `http://localhost` in development, decide yourself:
+is an absolute `https:` URL with a public host name: the same form as an
+`openUrl` link (a letter top-level label, no credentials, no IP literal such
+as `192.168.1.1`, `127.1` or `[::1]`, no `localhost`). `http:`, `data:`,
+`blob:`, `javascript:`, relative addresses and anything else are drawn as the
+placeholder and reported. For an address that came from your `data` the report
+and the console carry the scheme and host only, never the path or the query.
+Every `<img>` is drawn with `referrerPolicy="no-referrer"`, `loading="lazy"`
+and `decoding="async"`; a CSS `background-image` cannot carry a referrer
+policy, so the `Referrer-Policy` of your own page applies to those. To narrow that to your own hosts, to route images through your
+proxy, or to allow `http://localhost` or an intranet address in development,
+decide yourself (`allowedByDefault` is `false` for the addresses above):
 
 <!-- example: security.tsx#images -->
 ```tsx
@@ -1576,7 +1700,7 @@ addresses (`/img/42.png`), allow exactly those in `resolveImageUrl`.
 - **`!important` rules of your own page** still reach inside the screen — see
   [Styles and isolation](#styles-and-isolation).
 - **The content of an image** you allowed. An `https:` image is still a
-  request to that host from your user's browser (IP address, time, `Referer`),
+  request to that host from your user's browser (IP address, time; `Referer` is not sent for `<img>`, but your page's `Referrer-Policy` applies to CSS backgrounds),
   and the picture can show anything — including text that imitates your UI
   *inside* the screen's rectangle. Use `resolveImageUrl` and CSP to decide
   which hosts are acceptable.
@@ -1610,15 +1734,17 @@ Built in; nothing to configure except `labels`.
 | **Keyboard** | Buttons, icon buttons, accordion headers and the back arrow are real `<button>`s. A list row with an action is `role="button"`, a tab stop, activated by `Enter` and `Space`. |
 | **Focus ring** | Every focusable element shows a 2 px ring in the theme's `primary` colour on `:focus-visible`. Buttons and rows also get an inner ring in their own text colour, so the focus stays visible where the element touches the edge of the root (the root clips what is drawn outside it). |
 | **Tabs** | WAI-ARIA Tabs with automatic activation: one tab stop per strip, `←` `→` (swapped in RTL), `Home`, `End`; `tab` ↔ `tabpanel` are linked. |
-| **Modal screens** | WAI-ARIA Dialog: focus moves into the sheet and returns to what opened it, `Tab` cycles inside, `Esc` closes, the screen underneath is `inert`. |
+| **Modal screens** | WAI-ARIA Dialog: focus moves into the sheet and returns to what opened it, `Tab` cycles inside a layer the person can dismiss, `Esc` closes (unless the screen says `dismissible: false`), the screen underneath is `inert`. A layer that cannot be dismissed lets `Tab` leave the package, so a document can never lock a keyboard user out of your page; set `trapFocus` to keep `Tab` inside always. |
 | **Screen changes** | After the user navigates, focus moves to the new screen, so the next `Tab` starts there rather than at the top of your page. The first screen never takes focus. |
 | **Names** | Images use the `alt` from the document — a plain string or a string of the document (a binding, a template), translated like any text (no `alt`, or an empty one → decorative, hidden from assistive technology). Icons likewise. The back arrow is named by `labels.back` (default `"Back"`) — translate it. |
 | **Icon buttons** | An `IconButton` has no visible text; its accessible name is the `label` of the node, after translation and data binding (`aria-label`). A document that left the label empty still gets a working button, named by its icon in words (`chevron-left` → "chevron left"). An icon next to the label of a `Button` or a `Badge` is decorative and hidden from assistive technology; a badge with an icon is text, not a control. |
 | **Pressable cards** | A container with an action is `role="button"`, a tab stop before the controls inside it; its name is the `label` first, then the text of the content. |
+| **Long press** | A node with a long press is described by the name of the action (`aria-describedby` to a hidden element) and lists its keys (`aria-keyshortcuts="ContextMenu Shift+F10"`); those keys run it at once on the focused node. |
 | **Text fields** | A real `<input>` / `<textarea>` with a visible `<label for>` as its name; the helper and the error describe it (`aria-describedby`), an error sets `aria-invalid` and is announced politely. Tab order is document order. |
 | **Switches and checkboxes** | A `<button>` with `role="switch"` / `role="checkbox"` and `aria-checked`, named by its label; the whole row is the target; `Space` toggles (`Enter` too for a switch). |
 | **Options and toggles** | A node with `setValue` is `role="radio"` with `aria-checked` and, among the options of one parent that write the same path, `aria-posinset` / `aria-setsize`; a node with `toggleValue` is a button with `aria-pressed`. Each is a tab stop; `Enter` and `Space` press. |
 | **Choice groups** | `role="radiogroup"` with `role="radio"` rows and `aria-checked`; each option is a tab stop, selected by `Space` or `Enter`. |
+| **Reduced motion** | With `prefers-reduced-motion: reduce` every moving node (`motion`) stands at rest; the document needs no second variant. |
 | **Progress** | `role="progressbar"` with `aria-valuenow` / `aria-valuemax`. |
 | **Language** | The root carries `lang` and `dir`, so a screen reader switches voice for an Arabic screen on an English page. |
 
@@ -1628,7 +1754,7 @@ not say.
 
 ## Versions
 
-This version reads layout documents of schema **9.19.x** and themes of theme
+This version reads layout documents of schema **9.27.x** and themes of theme
 contract **4.0.x**, and embeds icon set 1.0.0. Any 9.x document and any 4.x
 theme is drawn; React 18 and 19 are supported by every release.
 
@@ -1689,6 +1815,12 @@ When the builder moves to a new schema major, update this package in your app
 
 | Package | Document schema |
 |---|---|
+| 0.24.x | 9.27.x |
+| 0.23.x | 9.25.x |
+| 0.22.x | 9.24.x |
+| 0.21.x | 9.23.x |
+| 0.20.x | 9.21.x |
+| 0.19.x | 9.20.x |
 | 0.17.x, 0.18.x | 9.19.x |
 | 0.15.x, 0.16.x | 9.18.x |
 | 0.14.x | 9.17.x |
@@ -1742,6 +1874,14 @@ package version otherwise.
 | | Write actions `setValue` / `toggleValue` and choice from own nodes | [Write actions and choice](#write-actions-and-choice) |
 | | Parts of a list row and of a text field | [below](#parts-of-a-list-row-919); [Forms](#forms) |
 | | `alt` as a string of the document, an icon name from data, date parts, `unset` in a width layer | [Accessibility](#accessibility); [Data](#data); [Adaptive layout](#adaptive-layout-by-width) |
+| 9.20 | Motion of a node (`motion`), blur under a modal layer, glass (`style.backdropBlur`) | changelog 0.19.0 |
+| 9.21 | A number that counts to its new value (`animateChanges`), a ticking countdown (`countdownPart`), round ends of a bar and a ring (`cap`), an app bar that changes when the body scrolls (`styleScrolled`, `titleShown`) | [below](#values-countdowns-round-ends-and-the-app-bar-after-scrolling-921) |
+| 9.22 | A floating navigation bar (`NavBar.float`), a dot on an item (`NavItem.badgeWhen`), drag to confirm (`Button.confirm`), a dashed border (`style.border.style`) | [below](#floating-bar-dot-drag-to-confirm-and-dashed-border-922) |
+| 9.23 | A filtered list (`Repeater.where`), a comparison with another path (`valuePath`), a gradient on the letters (`style.textGradient`), compact numbers (`notation`) | [below](#filtered-lists-gradient-text-and-compact-numbers-923) |
+| 9.24 | A value that grows when shown (`animateIn`), the busy state after drag to confirm and the promise of `onAction`, the motion of the dot on an item, nodes pinned to the top (`pin: "top"`) | [below](#appearing-values-busy-swipe-dot-motion-and-the-top-zone-924) |
+| 9.25 | The steps of a bar that fill smoothly, the glow of a scale (`glow`), a shadow in the colour of the background (`style.shadowColor`), the press feedback of a pressable node, a haptic request (`haptic`) | [below](#live-feedback-steps-glow-shadow-colour-press-and-haptic-925) |
+| 9.26 | A long press (`longPress`, `longPressLabel`), grouped lists (`Repeater.groupBy`), a sheet that follows the finger down, a modal screen that waits for an action (`dismissible: false`) | [Long press](#long-press); [below](#long-press-groups-and-sheets-926) |
+| 9.27 | A page opened from a list row follows the data | [A page follows the data](#a-page-follows-the-data) |
 
 #### Layout and text additions of 9.15–9.17
 
@@ -1765,6 +1905,208 @@ you are looking at.
   visible items of a group of neighbours.
 - **The label of a ring (9.17).** `labelTypography` / `labelColor`. The label
   never scales with the ring, never inherits and never sizes it.
+
+#### Values, countdowns, round ends and the app bar after scrolling (9.21)
+
+All four are optional; a document without them is drawn exactly as before.
+
+- **`animateChanges` on `Text`, `ProgressBar` and `CircularProgress`.** When the
+  *data* behind a bound number change while the node is on screen, the number
+  counts from the old value to the new one in 700 ms (ease-out) and ends exactly
+  on the new one: whole steps when both ends are whole, the cents of the
+  currency for `currency`, three digits for `number`; a bar and a ring grow
+  without a step. Every number on the way is written by the same format,
+  sentence and plural word as the last one. There is no transition for the
+  first draw of a node (so none on the server and none while hydrating), for a
+  node that appears, for a language changed in the same step, for `reduce
+  motion`, for a value that is not a number on either side ("no data" to data
+  included) and for the same value; a new change in the middle starts from the
+  number shown at that moment. The screen reader gets the final value only:
+  nothing is announced on the way. A new *document* is a first draw.
+- **`format: 'countdownPart'`** — see [Sentences, numbers, money and plurals](#sentences-numbers-money-and-plurals).
+- **`cap: 'round'` on `ProgressBar` and `CircularProgress`.** The ends of the
+  bar track and fill are half-circles of half the thickness (the theme `pill` is
+  not read); a ring arc gets half-circle ends that stay *inside* the filled
+  part, a tiny share is a dot, and a full ring has no ends and no seam.
+- **`styleScrolled` and `titleShown: 'scrolled'` on the app bar.** Once the body
+  has scrolled under the app bar zone, the bar takes `background`, `color`,
+  `shadow` and `backdropBlur` from `styleScrolled` (never its box; a token the
+  theme does not know is dropped), and the title is drawn only then — at rest it
+  keeps its place and its accessible name (`opacity: 0`). The screen root
+  listens to the scroll of its own body passively, and only when the bar asks;
+  with `scroll="page"` the scroll is how far the root top went past the line the
+  bar sticks to. The editor canvas never scrolls, so it shows the bar at rest.
+
+#### Floating bar, dot, drag to confirm and dashed border (9.22)
+
+All four are optional; a document without them is drawn exactly as before. The
+package adds **no global style** for them: everything is inline, and nothing is
+added to the markup of a node except the marks named below.
+
+- **`NavBar.float`.** With the bar in the *bottom* zone (`compact`, or
+  `widePlacement: "bottom"`) the whole zone — the pinned block and the bar —
+  lies over the body: it has no height in the flow (`data-hl-zone="bottom"`
+  carries `data-hl-floating`), the body area runs to the bottom of the screen and
+  the content scrolls under the bar. The root measures the zone and the body
+  ends with its usual end *plus* that height, so the last row scrolls clear of
+  the bar. The bottom safe inset (`safeAreaBottom`) is the transparent room
+  *under* the box of the bar, not part of its background. The look of the
+  pill — margin, radius, `backdropBlur`, shadow — is the `style` of the node;
+  nothing is built in. Only the boxes of the block and of the bar catch presses;
+  the rest of the zone lets them through to the body. With `scroll="page"` the
+  zone sticks to the bottom of the host page over the content (no backdrop).
+  At the top of a wide screen the field is not read.
+- **`NavItem.badgeWhen`.** A condition of the form of `visibleIf`; while it holds
+  a dot of 8 in the theme colour `accent` stands on the top corner of the icon at
+  the end of the line (`data-hl-badge`, hidden from screen readers; the name of the
+  item stays its label). A form the reader does not understand draws no dot.
+- **`Button.confirm: "swipe"`.** The button is drawn as a track with a round
+  thumb (`data-hl-confirm="swipe"`, `data-hl-swipe-thumb`). A pointer drags the
+  thumb along the line; releasing it at 90% of the way or further runs the
+  action, with its `track` event once before it; less, and the thumb returns.
+  A press with no drag does nothing. Enter, Space and an activation from a
+  screen reader run the action at once; a held key repeating is not a press.
+  A disabled button does not move. Give the host nothing: it is a plain
+  `<button>` with `touch-action: pan-y`.
+- **`style.border.style: "dashed"`.** The border keeps its room as a transparent
+  solid one and the dashes are an image over the border box (`border-image`),
+  drawn once the box is measured — so the server markup has the transparent
+  border and the dashes appear when the page is live. A node with a dashed border
+  carries `data-hl-dashed` and is followed by one hidden element that does the
+  measuring.
+
+#### Filtered lists, gradient text and compact numbers (9.23)
+
+All three are optional; a document without them is drawn exactly as before.
+
+- **`Repeater.where`** keeps only the records that pass a condition of the form of
+  `visibleIf`, evaluated on each record in its own scope; the condition may
+  compare with the value under another path (`valuePath`), for instance a
+  category chosen by a `setValue` action. A comparison with **no** operand passes
+  every record, so a filter that was never set shows everything. The grid
+  closes up, the carousel counts cards by the records drawn, and `limit` takes
+  the first records *that passed*. The empty state of a filtered list is a
+  condition `isEmpty` / `isNotEmpty` on the collection with the same `item` and
+  `where`.
+- **`valuePath`** is a comparison operand everywhere a condition is read
+  (`visibleIf`, `styleWhen`, `disabledIf`, `badgeWhen`, the states of parts). With
+  nothing under it the condition does not hold, `eq` and `neq` alike.
+- **`style.textGradient`** paints the letters of a `Text` with a gradient token
+  or an own gradient: one gradient over the whole content box of the text, a
+  part with its own colour keeps it, and the line of an emphasis and the marker
+  of a list item keep the ordinary colour (also the colour of the text when the
+  gradient does not resolve). It is not inherited and other widgets do not read it.
+- **`notation: "compact"`** beside `format: "number"` writes 48 200 as `48.2K`
+  (`48,2 тис.` in Ukrainian): one fraction digit, half up, a closed table of
+  suffixes by the first part of the language of the format — not `Intl`
+  compact. A plural word agrees with the full value.
+
+#### Appearing values, busy swipe, dot motion and the top zone (9.24)
+
+All four are optional; a document without them is drawn exactly as before.
+
+- **`animateIn: true`** on `Text`, `ProgressBar` and `CircularProgress`: when the node is
+  shown, its numbers grow from zero to their own with the curve, duration (700 ms) and
+  step of `animateChanges`. A text counts the numbers it is bound to (and the numbers of
+  a template); a scale grows its value (a literal value too) while the maximum stands.
+  The node is *shown* when it is drawn on a shown screen: the first screen, a screen
+  pushed on top, a screen shown again by "back" or a section switch, a node that appears
+  by a condition or a width class. Closing a modal layer is not a show, and a change of
+  data is not a show. "Reduce motion", no number and zero give the value at once, and a
+  screen reader reads the final value.
+  **A screen that came from the server does not grow on its first show.** While React
+  hydrates server markup the nodes keep the value the server wrote, because a drop to
+  zero under the reader's eyes is worse than no motion. Everything shown after that
+  (a transition, "back", a node that appears) grows. A client-only render grows from the
+  first frame. The server markup is always the final value.
+- **Drag to confirm stays busy.** After the thumb passes the threshold the action runs
+  at once and the thumb glides to the end and stays there with a ring instead of the
+  icon (`aria-busy`, no more drag, press or key). `onAction` may now return a
+  `Promise`: the state lasts until it settles (fulfilled or rejected), then the thumb
+  returns. Without a promise it lasts until the shown screen changes or eight seconds
+  pass. An action the reader runs (`navigate…`) changes the screen at once, and `none`
+  or an invalid standard action return the thumb at once. Return the promise from `onAction`:
+
+<!-- example: actions.tsx#busy-swipe -->
+```tsx
+// The thumb of a drag-to-confirm button waits here: it stays busy until the promise settles.
+async function redeemAndWait(action: HotlayoutAction, source: ActionSource): Promise<void> {
+  const offerId = source.record?.['offer.id']
+  await redeem(typeof offerId === 'string' ? offerId : action.params?.offerId)
+}
+```
+
+- **The dot on a navigation item** pops in (scale 0 → 1.25 → 1 in 320 ms) and fades out
+  (200 ms) when its condition *changes* on a shown screen. The first show and a screen
+  shown again have no motion. The size and the name of the item never change.
+- **`pin: "top"`** on the children of the root that stand in a run at the start (right
+  after the app bar, or first) pins them under the app bar: they never scroll, the body
+  scrolls below them. Hidden nodes take no room; the word is not read with
+  `bodyTop: "screenTop"` or after a child without it. In a block without its own height
+  (`scroll="page"`) the zone sticks right under the app bar by the same `chrome` switch.
+
+#### Live feedback: steps, glow, shadow colour, press and haptic (9.25)
+
+All five are optional; a document without the fields is drawn as before, except
+the two rules that need none: the steps of a bar fill smoothly while a value
+transition runs, and a pressable node gives feedback to the finger.
+
+- **The steps of a bar fill smoothly.** At rest a step is full or empty. While the
+  value of a bar with `segments` runs a transition (`animateChanges`, `animateIn`) the
+  filled steps are a number with a fraction on the way from the whole steps of the old
+  value to the whole steps of the new one; the step it reaches is cut at that share
+  and the radius of the step stays. Both ends are pictures at rest, so nothing jumps
+  when the transition ends; a change inside one step moves nothing; "reduce motion"
+  shows whole steps at once. A gradient runs along the drawn fill.
+- **`glow: "soft" | "strong"`** on `ProgressBar` and `CircularProgress`: a blurred copy
+  of the fill paint under the scale (blur 4 and 8 px, opacity 0.55 and 0.9), without
+  offset. The track does not glow. A bar with steps lights one step: the current one
+  when `currentColor` paints it, otherwise the last step with any fill. The glow takes
+  no room, is hidden from assistive technology, and is not clipped by the scale itself;
+  an ancestor that clips (the root of the screen does) clips it, as it clips a shadow.
+- **`style.shadowColor: "background"`**: every layer of `style.shadow` takes the hue of
+  the node's own background (a gradient gives the stop nearest to its middle) and keeps
+  its own opacity. No background, an image or an unknown colour: the shadow keeps its
+  colour.
+- **Press feedback.** The node that performs the press gives it: a card or a list row
+  scales to 0.97, a button to 0.96, an icon button, a ghost button and a navigation item
+  fade to 0.7 (80 ms down, 160 ms back with a slight overshoot). It follows the pointer,
+  so even a very short tap reaches the pressed pose. The keyboard gets none; with the
+  system "reduce motion" every kind only fades. `pressFeedback: "none"` on a node turns
+  it off. The scale is painting only: neighbours do not move.
+- **`haptic`** on an action: see [Haptic feedback](#haptic-feedback).
+
+#### Long press, groups and sheets (9.26)
+
+All four are optional; a document without the fields is drawn as before, except the
+rule that needs none: a modal sheet follows the finger down.
+
+- **`longPress` and `longPressLabel`**: see [Long press](#long-press).
+- **`Repeater.groupBy`** with a second child as the header of a group. The first child
+  is the template of a record, as always; the second is drawn before each group, in the
+  scope of the **first record** of the group (a press inside the header carries that
+  record). Records that follow one another with the same value under the path are one
+  group — absent, `null` and `""` are one value, and `1` and `"1"` are two. The groups
+  are made from the records that are drawn (after `where` and `limit`), in the order of
+  the data: the renderer never sorts, so the same day after another one is a new group.
+  Headers and records stand in one flow with one `gap`; a header hidden by its condition
+  takes no room; a numbered item counts the records only. A list in a grid or a row is
+  drawn without headers.
+- **A sheet follows the finger down.** A modal screen shown as a sheet from the bottom
+  is dragged down by any point of it while its body is scrolled to the top (otherwise the
+  move scrolls the body back first). The drag starts after 10 px and only when it is more
+  down than sideways. On release: a fling down (700 px/s) closes, a fling up returns,
+  otherwise 0.3 of the height decides. It returns in 250 ms, or goes down in 200 ms and
+  only then performs the same `navigate.back` as a tap on the scrim (so `onNavigate` and
+  the `back` show event fire after the sheet has gone; if your `onNavigate` refuses, the
+  sheet comes back). Under "reduce motion" the sheet still follows the finger and the
+  return and the exit are instant. A centred window is not dragged. The renderer sets no
+  `touch-action`, so the body keeps its own scrolling; a handle drawn by the document is
+  an ordinary node, so the sheet cannot tell it from the rest and always lets a scrolled
+  body scroll back first.
+- **`dismissible: false`** on a modal screen entry: no drag, no tap on the scrim and no
+  `Esc` close it. `navigate.back` from a button inside the layer does, and so does your
+  own system "back". Only the word `false` locks a layer; on a page the field is not read.
 
 #### Parts of a list row (9.19)
 
@@ -1879,9 +2221,10 @@ export function LiveRewards({ url, theme }: { url: string; theme: ThemeContract 
   from the list row that opened it — see
   [One screen, many records](#one-screen-many-records) — and a screen opened
   through `entry` gets none: put the record into `data`.
-- **The screen does not tick.** "Days left" (`daysUntil`) is counted when the
-  screen is rendered, from `now`; nothing re-renders it at midnight. Hours and
-  minutes until an event are not in the contract.
+- **Only a countdown ticks.** "Days left" (`daysUntil`) is counted when the
+  screen is rendered, from `now`; nothing re-renders it at midnight. Hours,
+  minutes and seconds until an event are `countdownPart`, and a screen that
+  shows one redraws itself (unless you pass `now`).
 - **Currency is written with its code**, after the amount (`120 JOD`), in every
   language, unless the binding names `currencyDisplay: 'symbol'` and / or
   `currencyPosition: 'before'`; a code the closed table of signs does not have

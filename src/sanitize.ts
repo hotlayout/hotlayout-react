@@ -98,6 +98,21 @@ export function safeInteger(value: unknown, min: number, max: number): number | 
 }
 
 /**
+ * A WHOLE number exactly within the field's bounds, or `undefined`. Unlike {@link safeInteger} it
+ * does not repair anything: `1.5`, `0`, `41`, a string and `NaN` are all "no field". For fields the
+ * schema bounds without a repair rule (`motion`, `backdropBlur`), where a value the schema would not
+ * accept must not become the nearest allowed one.
+ */
+export function exactInteger(value: unknown, min: number, max: number): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max ? value : undefined
+}
+
+/** A number exactly within the bounds (a fraction is allowed), or `undefined`; no clamping. */
+export function exactNumber(value: unknown, min: number, max: number): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max ? value : undefined
+}
+
+/**
  * Number -> CSS text. The only place a number becomes a style string. NO rounding: a fractional
  * gradient stop position must give the same percentage in every reader. The exception is
  * exponent notation (`1e-7`), which CSS does not understand: such a number is written as a
@@ -297,6 +312,48 @@ export function cssUrl(url: string): string {
 export function cssSvgDataUrl(svg: string): string | undefined {
   if (/["\\\r\n]/.test(svg)) return undefined
   return `url("data:image/svg+xml,${svg.replaceAll('<', '%3C').replaceAll('>', '%3E')}")`
+}
+
+/** A colour the reader composed from numbers or took from the theme as a value: `#rrggbb[aa]` or `rgba(r, g, b, a)`. */
+const LITERAL_COLOR = /^(?:#[0-9a-f]{6}(?:[0-9a-f]{2})?|rgba\(\d{1,3}, \d{1,3}, \d{1,3}, [0-9.]+\))$/
+
+/** The path of a dashed border: only the letters of the commands and the numbers `dashedPathOf` writes. */
+const DASH_PATH = /^[MLAZ0-9 .-]{1,2000}$/
+
+export interface DashedImage {
+  /** The border box, in logical pixels. */
+  readonly width: number
+  readonly height: number
+  readonly thickness: number
+  /** The centre-line path (`dashedPathOf`). */
+  readonly path: string
+  readonly dash: number
+  readonly gap: number
+  /** A literal colour (`colorLiteral`), not a variable: an image cannot read the variables of the page. */
+  readonly color: string
+  /** Right-to-left writing mirrors the drawn image. */
+  readonly rtl: boolean
+}
+
+/**
+ * A dashed border -> `url("data:image/svg+xml,...")` for `border-image-source` (schema 9.22.0).
+ *
+ * The markup is made HERE from numbers and one validated colour: nothing of the document enters it
+ * as text. Every number must be finite and within the box a screen can have, the path may only hold
+ * the commands and numbers of `dashedPathOf`, and the colour must be one the reader composed.
+ * Anything else gives `undefined` (the border stays transparent, like a solid border whose colour
+ * did not resolve).
+ */
+export function cssDashedBorderImage(image: DashedImage): string | undefined {
+  const sizes = [image.width, image.height, image.thickness, image.dash, image.gap]
+  if (!sizes.every((size) => Number.isFinite(size) && size >= 0 && size <= 16384) || image.width === 0 || image.height === 0) return undefined
+  if (!DASH_PATH.test(image.path) || !LITERAL_COLOR.test(image.color)) return undefined
+  const n = (value: number): string => cssNumber(Math.round(value * 10000) / 10000)
+  const flip = image.rtl ? ` transform='matrix(-1 0 0 1 ${n(image.width)} 0)'` : ''
+  const svg =
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${n(image.width)}' height='${n(image.height)}' viewBox='0 0 ${n(image.width)} ${n(image.height)}'>`
+    + `<path d='${image.path}' fill='none' stroke='${image.color.replaceAll('#', '%23')}' stroke-width='${n(image.thickness)}' stroke-dasharray='${n(image.dash)} ${n(image.gap)}'${flip}/></svg>`
+  return cssSvgDataUrl(svg)
 }
 
 /* ───────────────────────────── data path ───────────────────────────── */

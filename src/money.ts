@@ -30,6 +30,7 @@
  *
  * No React in this file: the server graph of the entry reads it too.
  */
+import { compactPartsOf, compactSuffixOf, readsCompactNotation } from './compact-number'
 import { CURRENCY_FORMAT, currencyFractionDigits, formatBound, hasNumberLocaleData, NUMBER_FORMAT, numericBoundValue, usableLocale } from './binding-format'
 
 /** The parts of a formatted number that `Text.spans[place].parts` can style. */
@@ -134,6 +135,9 @@ function writtenAsZero(magnitude: number, digits: Digits): boolean {
   return !/[1-9]/.test(format.format(magnitude))
 }
 
+/** The fraction digits of a compact mantissa: none, or one. */
+const COMPACT_DIGITS: Digits = { minimumFractionDigits: 0, maximumFractionDigits: 1 }
+
 /** Fraction digits by the rule of the format of 9.4.0: a number — 0…3; money — the digits of the currency; a whole amount — none. */
 function fractionDigitsOf(number: number, code: string | undefined): Digits {
   if (code === undefined) return { minimumFractionDigits: NUMBER_FORMAT.minimumFractionDigits, maximumFractionDigits: NUMBER_FORMAT.maximumFractionDigits }
@@ -190,15 +194,19 @@ function numberPieces(value: unknown, binding: Readonly<Record<string, unknown>>
   if (money && code === undefined) return undefined
 
   const look = readMoneyLook(binding)
-  const digits = fractionDigitsOf(number, code)
+  // Compact (9.23.0): the mantissa is written as a number with at most one fraction digit, and the suffix follows it.
+  const compact = readsCompactNotation(binding) ? compactPartsOf(number) : undefined
+  const digits = compact === undefined ? fractionDigitsOf(number, code) : COMPACT_DIGITS
   const composed = look.sign === 'always' || (money && (look.currencyDisplay === 'symbol' || look.currencyPosition === 'before'))
-  const amount = numberText(composed ? Math.abs(number) : number, language, digits)
+  const shown = compact === undefined ? number : Math.sign(number) * compact.mantissa
+  const amount = numberText(composed ? Math.abs(shown) : shown, language, digits)
   const currency = currencyAround(code, look)
   const pieces = mergedPieces([
     { text: composed ? signOf(number, digits, look) : '' },
     { text: currency.before, part: 'currency' },
     { text: amount.integer },
     { text: amount.fraction, part: 'fraction' },
+    { text: compact === undefined ? '' : compactSuffixOf(compact.step, language) },
     { text: currency.after, part: 'currency' },
   ])
   return composed && options.direction === 'rtl' ? isolated(pieces) : pieces
@@ -217,7 +225,7 @@ export function boundValuePieces(value: unknown, binding: Readonly<Record<string
     // A language or a code the engine does not accept: the format does not apply.
     return undefined
   }
-  const text = formatBound(value, binding.format, options.locale, options.timeZone, options.fallbackLocale, { currency: binding.currency, now: options.now, dateParts: binding.dateParts })
+  const text = formatBound(value, binding.format, options.locale, options.timeZone, options.fallbackLocale, { currency: binding.currency, now: options.now, dateParts: binding.dateParts, unit: binding.unit, pad: binding.pad })
   return text === undefined ? undefined : [{ text }]
 }
 

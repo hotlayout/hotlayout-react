@@ -3,7 +3,10 @@ import { useContext, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 
 import { NAV_BAR_LAYOUT, NAV_ITEM_TYPE, isActiveNavAction, navDrawnItems } from '../bottom-zone'
-import { isRecord } from '../sanitize'
+import { NAV_BADGE_DIAMETER, navBadgeShown } from '../nav-badge'
+import { pressFeedbackKindOf } from '../press-feedback'
+import { useBadgeMotion } from './use-badge-motion'
+import { cssPx, isRecord } from '../sanitize'
 import { shownTextOf } from '../shown-text'
 import { iconButtonNameOf } from '../layout-rules'
 import { FOCUSABLE_CLASS } from '../styles'
@@ -18,6 +21,7 @@ import { withTopInset } from './safe-top'
 import { contentColumn } from './screen-root'
 import { nodeShown } from './siblings'
 import { swallowAutoRepeat, useDocumentAction, usePress } from './use-press'
+import { pressFeedbackProps } from './use-press-feedback'
 import { usePartColor, usePartText, useText } from './use-text'
 import type { WidgetProps } from './widget-props'
 import { screenPart } from './screen-part'
@@ -110,6 +114,24 @@ export const NavBarView = screenPart(function NavBarView({ node, css: ownCss, ma
 })
 
 /**
+ * THE DOT on the icon of an item (9.22.0, `x-style.layout.navBadge`): a circle of 8 in the core
+ * token `accent`, its centre on the top corner of the glyph at the END of the line. The glyph is a
+ * square one font size wide in the middle of a box one line tall, so its top is `(line - size) / 2`
+ * below the top of the box, and its end edge is the end edge of the box. Out of the flow: it does not
+ * change the size of the item, and nothing clips it.
+ */
+const BADGE_DOT: CSSProperties = {
+  position: 'absolute',
+  inlineSize: cssPx(NAV_BADGE_DIAMETER),
+  blockSize: cssPx(NAV_BADGE_DIAMETER),
+  borderRadius: '50%',
+  backgroundColor: productVar('color', 'accent'),
+  insetInlineEnd: cssPx(-NAV_BADGE_DIAMETER / 2),
+  insetBlockStart: `calc((1lh - 1em) / 2 - ${cssPx(NAV_BADGE_DIAMETER / 2)})`,
+  pointerEvents: 'none',
+}
+
+/**
  * A NAVIGATION ITEM (schema 9.12.0): the icon ABOVE the label, centred on both axes; `sm`
  * (vertical) and `xs` (side) padding, an `xs` gap; an `md` icon, a `bodyS` label on one line with
  * an ellipsis. The button takes the whole share and the full height of the bar.
@@ -126,6 +148,10 @@ export const NavItemView = screenPart(function NavItemView({ node, props, css, t
   const place = useContext(NavPlaceContext)
   const mode = useContext(NavModeContext)
   const screenPlace = useContext(PlaceContext)
+  const scope = useData()
+  // The dot (9.22.0, `badgeWhen`): the condition of `visibleIf` with one difference - a form the reader does not understand is NO dot.
+  const badge = useBadgeMotion(navBadgeShown(props, scope))
+  const dot = badge.present
   const label = useText(props.label, 'label')
   const press = usePress(useDocumentAction(props.action, node.id), node.id)
   const active = isRecord(props.action) && isActiveNavAction(props.action, screenPlace.screenId)
@@ -177,6 +203,7 @@ export const NavItemView = screenPart(function NavItemView({ node, props, css, t
       aria-current={active ? 'page' : undefined}
       onClick={press}
       onKeyDown={swallowAutoRepeat}
+      {...pressFeedbackProps(press === undefined ? undefined : pressFeedbackKindOf(node, { disabled: false, swipe: false }))}
       style={{
         ...box,
         cursor: 'pointer',
@@ -186,8 +213,9 @@ export const NavItemView = screenPart(function NavItemView({ node, props, css, t
         ...css,
       }}
     >
-      <span aria-hidden="true" {...(wide ? { [NAV_MARK.icon]: '' } : {})} style={{ ...glyphBox(wide ? WIDE_NAV_LAYOUT.item.iconSize : NAV_BAR_LAYOUT.item.iconSize), flex: 'none' }}>
+      <span aria-hidden="true" {...(wide ? { [NAV_MARK.icon]: '' } : {})} style={{ ...glyphBox(wide ? WIDE_NAV_LAYOUT.item.iconSize : NAV_BAR_LAYOUT.item.iconSize), flex: 'none', ...(dot ? { position: 'relative' } : {}) }}>
         <Glyph name={props.icon} />
+        {dot ? <span key={badge.epoch} data-hl-badge="" {...(badge.motion === undefined ? {} : { 'data-hl-badge-motion': badge.motion })} style={BADGE_DOT} /> : null}
       </span>
       <span {...(wide ? { [NAV_MARK.label]: '' } : {})} style={{ ...labelCss, ...labelBox }}>
         {name}

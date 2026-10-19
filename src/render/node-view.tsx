@@ -1,8 +1,9 @@
 /** One node: visibility, effective style, foreground, box and place in the parent, then the widget. */
-import { useContext } from 'react'
+import { useContext, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { pullAxisOf } from '../layer-placement'
+import { motionMarks, motionOfNode, motionVars, registerMotionPhase } from '../motion'
 import { APP_BAR_LEADING_MAX_SHARE } from '../media-chrome'
 import { mathLength } from '../resolve'
 import { DirectionContext } from '../runtime'
@@ -10,11 +11,14 @@ import { cssNumber } from '../sanitize'
 import { ROLE_STYLE_KEYS, ROLE_WIDGETS } from '../style-roles'
 import { acceptsWeightedChildren, columnAlignOf } from '../layout-rules'
 import { boxCss } from '../style-box'
-import { inheritTextStyle, resolveNodeStyle } from '../style'
+import { inheritTextStyle, mergeNodeStyles, resolveNodeStyle } from '../style'
 import type { Css } from '../style'
 import { isKnownWidget } from '../types'
 import type { UiNode } from '../types'
+import { useScrolledLayer } from './bar-scrolled'
 import { choicePlaceOfNode } from './choice'
+import { DashProbe, dashedPartOf } from './dashed-border'
+import type { DashMeasure } from './dashed-border'
 import { AnatomyContext, CAROUSEL_CARD_VAR, CarouselCardContext, ColumnParentContext, FillIgnoredContext, ImageContext, LayerContext, LeadingZoneContext, NavPlaceContext, PullAxisContext, ScrollRowContext, SiblingNodesContext, StackLayerContext, TextContext, TightSlotContext, WeightedRowContext, WidthClassContext, useData, useTheme } from './contexts'
 import { carouselCardBox, clipSizedBox, columnChildCss, fillLayerCss, placedStyleOf, pulledShare, rowShareOf, scrollRowChildCss, tightSlotCss } from './node-box'
 import type { NodePlacement } from './node-box'
@@ -57,6 +61,9 @@ export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): R
   const anatomy = useContext(AnatomyContext)
   const navPlace = useContext(NavPlaceContext)
   const siblings = useContext(SiblingNodesContext)
+  const scrolledLayer = useScrolledLayer(node)
+  // The measured border box of a node with a dashed border (9.22.0); read by the probe drawn right after the node.
+  const [dashMeasure, setDashMeasure] = useState<DashMeasure | undefined>(undefined)
 
   // 1. Visibility: the width class (`showOn`) AND the data condition (`visibleIf`) are one question.
   if (!nodeShown(node, widthClass, scope)) return null
@@ -73,10 +80,14 @@ export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): R
   if (!isKnownWidget(node.type)) return <Children node={node} />
 
   // 2. The effective style: the base plus the first state whose condition holds.
-  const own = placedStyleOf(node, resolveNodeStyle(node, scope, theme), anatomy, navPlace)
+  // The app bar of a scrolled body (9.21.0): its layer lies LAST, over the base, the width-class layers and the state.
+  const resolved = resolveNodeStyle(node, scope, theme)
+  const own = placedStyleOf(node, scrolledLayer === undefined ? resolved : mergeNodeStyles(resolved, scrolledLayer, theme), anatomy, navPlace)
 
   // 3. The foreground comes AFTER the state. The children receive the same one.
   const text = inheritTextStyle(parentText, own, theme)
+  // A dashed border (9.22.0): the border stays a transparent solid one, and the dashes are an image over the box once it is measured.
+  const dashed = dashedPartOf(own?.border, theme, dashMeasure)
 
   /*
    * 4. The box. For a widget with a role, seven style fields go onto its own surface (the widget
@@ -109,6 +120,15 @@ export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): R
 
   const shareCss = pulledShare(node, box, row, place, theme)
 
+  /*
+   * MOTION (schema 9.20.0, `x-motion`): marks and variables on the node's own box; the style sheet
+   * turns them into a shift, a scale and an opacity, which only paint and never touch layout. The
+   * animation starts when the element appears, so a node that appears again starts from zero.
+   */
+  const motion = motionOfNode(node)
+  if (motion !== undefined) registerMotionPhase()
+  const motionCss: Css = motion === undefined ? {} : motionVars(motion, direction === 'rtl')
+
   // 5. The widget sits inside its own "place" so that text fields know their key.
   const view = (
     <NodePlace nodeId={node.id}>
@@ -130,11 +150,11 @@ export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): R
                     <WidgetView
                       node={node}
                       props={node.props}
-                      css={asCss({ ...box, ...fillCss, ...weightCss, ...rowCss, ...slotCss, ...rowViewportCss, ...columnCss, ...cardCss, ...layerCss })}
+                      css={asCss({ ...box, ...fillCss, ...weightCss, ...rowCss, ...slotCss, ...rowViewportCss, ...columnCss, ...cardCss, ...layerCss, ...motionCss, ...dashed.css })}
                       own={own}
                       dropped={dropped}
                       text={text}
-                      mark={{ 'data-hl-node': node.id, 'data-hl-type': node.type }}
+                      mark={{ 'data-hl-node': node.id, 'data-hl-type': node.type, ...(motion === undefined ? {} : motionMarks(motion)), ...dashed.mark }}
                       choice={choice}
                     />
                    </SiblingNodesContext.Provider>
@@ -152,7 +172,17 @@ export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): R
     </NodePlace>
   )
   // The row share: the wrapper divides the row and the box with its margins lies inside it.
-  const placed = shareCss === undefined ? view : <div style={shareCss}>{view}</div>
+  const shared = shareCss === undefined ? view : <div style={shareCss}>{view}</div>
+  // The probe of a dashed border sits right after the node it measures (it is hidden and draws nothing).
+  const placed =
+    dashed.active ? (
+      <>
+        {shared}
+        <DashProbe nodeId={node.id} radius={own?.radius} theme={theme} onMeasure={setDashMeasure} />
+      </>
+    ) : (
+      shared
+    )
   if (carouselCard === undefined) return placed
 
   /*

@@ -4,12 +4,13 @@
  * only at draw time, so the module cycle is safe).
  */
 
-import { useContext, useEffect, useRef } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { contentMaxWidthOf } from '../width-class'
 import { isReadableSpacingRef } from '../layer-placement'
 import { screenChromeIn } from '../wide-chrome'
 import { bodyStartsAtScreenTop } from '../screen-top'
+import { navFloatsIn } from '../nav-float'
 import { useIsomorphicLayoutEffect } from '../wide-nav-view'
 import { mathLength, spacingMathCss } from '../resolve'
 import { justifyLayout, mainJustifyOf } from '../alignment'
@@ -22,8 +23,12 @@ import { COLUMN } from './flex-words'
 import { NodeView } from './node-view'
 import { useSpacing, useSpacingMath } from './prop-tokens'
 import { nodeShown, numberedSiblings, SiblingViews, numbered } from './siblings'
+import { createScrollStore, ScrolledBar, useBarScrollStore } from './bar-scrolled'
+import type { ScrollStore } from './bar-scrolled'
+import { scrolledLayerOf, titleOnlyWhenScrolled } from '../app-bar-scrolled'
 import type { WidgetProps } from './widget-props'
 import { screenPart } from './screen-part'
+import { TOP_BAR_HEIGHT_VAR, TopPinnedZone } from './top-pinned-zone'
 
 
 /**
@@ -52,6 +57,10 @@ interface ScreenZones {
   readonly barNav: UiNode | undefined
   /** Where the navigation bar is now; `undefined` means it is not drawn. */
   readonly navPlace: 'bottom' | 'top' | 'appBar' | undefined
+  /** The bar in the bottom zone floats (9.22.0, `NavBar.float`): the whole zone lies over the body. */
+  readonly float: boolean
+  /** The nodes pinned to the top (9.24.0, `pin: 'top'`) that are shown: they stand under the app bar zone and never scroll. */
+  readonly topPinned: readonly UiNode[]
   readonly body: readonly UiNode[]
   /** The body starts at the top edge of the screen (`Screen.props.bodyTop`) and the app bar lies over it. */
   readonly atTop: boolean
@@ -66,7 +75,7 @@ function useScreenZones(node: UiNode, modal: boolean): ScreenZones {
   const children = node.children ?? []
   const isShown = (child: UiNode): boolean => nodeShown(child, widthClass, scope)
   const shown = (candidate: UiNode | undefined): UiNode | undefined => (candidate !== undefined && isShown(candidate) ? candidate : undefined)
-  const chrome = screenChromeIn(children, widthClass, isShown)
+  const chrome = screenChromeIn(children, widthClass, isShown, node.props)
   const bar = shown(chrome.appBar)
   const navBar = modal ? undefined : shown(chrome.navBar)
   const navPlace = navBar === undefined ? undefined : chrome.navPlace
@@ -77,6 +86,8 @@ function useScreenZones(node: UiNode, modal: boolean): ScreenZones {
     ownNav: navPlace === 'top' ? navBar : undefined,
     barNav: navPlace === 'appBar' && bar !== undefined ? navBar : undefined,
     navPlace,
+    float: navFloatsIn(navPlace, navBar?.props),
+    topPinned: chrome.topPinned.filter(isShown),
     body: chrome.body,
     // The bar's own strip never lies over the body: the word is not read on such a screen.
     atTop: bodyStartsAtScreenTop(node.props, navPlace === 'top' ? 'navBar' : bar === undefined ? 'none' : 'appBar'),
@@ -94,6 +105,8 @@ interface ScreenFrame {
   /** The zone sticks to the edge of the host page and needs the root sizes (backdrop, scroll padding). */
   readonly stickyTop: boolean
   readonly stickyBottom: boolean
+  /** The top zone of nodes sticks too (9.24.0): together with the app bar zone, by the same host switch. */
+  readonly stickyPinned: boolean
   /** The safe area inset under the bottom zone content (`bottomZone.safeArea`); zero means none is added. */
   readonly safe: string
   /** The top safe area inset (`safeTop`): inside the app bar box when there is one, otherwise above the body area; zero means none is added. */
@@ -112,7 +125,7 @@ function screenFrameOf(anatomy: ScreenAnatomy, zones: ScreenZones): ScreenFrame 
   const stickyTop = sticks && hasTop
   // A modal layer has no inset; a block without its own height gets it only while the app bar sticks to the top of the window.
   const topApplies = !anatomy.modal && (ownHeight || stickyTop)
-  return { ownHeight, hasTop, hasBottom, stickyTop, stickyBottom, safe: hasBottom && insetApplies ? anatomy.safeBottom : ZERO_INSET, safeTop: topApplies ? anatomy.safeTop : ZERO_INSET }
+  return { ownHeight, hasTop, hasBottom, stickyTop, stickyBottom, stickyPinned: sticks && zones.topPinned.length > 0, safe: hasBottom && insetApplies ? anatomy.safeBottom : ZERO_INSET, safeTop: topApplies ? anatomy.safeTop : ZERO_INSET }
 }
 
 /**
@@ -124,7 +137,7 @@ function screenFrameOf(anatomy: ScreenAnatomy, zones: ScreenZones): ScreenFrame 
 function bodyOverlapOf(zones: ScreenZones, gapMath: string, theme: Theme): string | undefined {
   const first = zones.firstInBody
   // The body starts at the top of the screen: there is nowhere to raise it, and `pull` acts as on a screen without an app bar.
-  if (zones.atTop || zones.bar === undefined || first === undefined || first.type === 'AppBar' || !isReadableSpacingRef(first.pull)) return undefined
+  if (zones.atTop || (zones.bar === undefined && zones.topPinned.length === 0) || first === undefined || first.type === 'AppBar' || !isReadableSpacingRef(first.pull)) return undefined
   return `max(0px, calc(${spacingMathCss(first.pull, theme) ?? '0px'} - ${gapMath}))`
 }
 
@@ -189,20 +202,39 @@ export const ScreenRootView = screenPart(function ScreenRootView({ node, props, 
   // The main axis of the screen (schema 9.15.0): the body content is no shorter than the body area, and the free space is "the area minus what scrolls".
   const main = justifyLayout(mainJustifyOf(node), 'block', gapMath)
   const overlap = bodyOverlapOf(zones, gapMath, theme)
-  const backdrop = frame.stickyTop || (frame.stickyBottom && zones.pinned !== undefined) ? backdropOf(rest) : NO_BACKDROP
+  // A floating zone has no backdrop (`navFloat.withoutOwnHeight.stuckBackdrop`): the body scrolls under it.
+  const backdrop = frame.stickyTop || frame.stickyPinned || (frame.stickyBottom && zones.pinned !== undefined && !zones.float) ? backdropOf(rest) : NO_BACKDROP
   // The body starts at the top of the screen: the content shows through the app bar, so no backdrop is put under it (`stuckBackdrop`).
   const topBackdrop = zones.atTop ? NO_BACKDROP : backdrop
   const root = useRef<HTMLDivElement>(null)
-  useStickyBarMetrics(root, frame.stickyTop, frame.stickyBottom, anatomy.stickyOffset, anatomy.stickyBottomOffset)
+  // The app bar after scrolling (9.21.0): listened to only when the bar zone asks for it (a layer or a title shown only when scrolled).
+  const [barScroll] = useState(createScrollStore)
+  const asks = zones.bar !== undefined && (scrolledLayerOf(zones.bar) !== undefined || titleOnlyWhenScrolled(zones.bar.props))
+  useBarScrollStore(barScroll, root, { id: zones.bar?.id, enabled: asks, ownHeight: frame.ownHeight, shape: zones.atTop ? 'lifted' : 'flow' })
+  useStickyBarMetrics(root, { bar: frame.stickyTop, pinned: frame.stickyPinned, bottom: frame.stickyBottom, floating: zones.float }, anatomy.stickyOffset, anatomy.stickyBottomOffset)
   useNavFocusCarry(root, zones.navPlace)
   const sides: CSSProperties = { paddingInlineStart: padding.inlineStart, paddingInlineEnd: padding.inlineEnd }
   const seam = zones.firstInBody === undefined ? undefined : gap
+  // The usual end of the body, and with a floating bar the height of the whole bottom zone on top of it (measured by `useStickyBarMetrics`): the last row scrolls clear of the bar.
+  const usualEnd = zones.pinned === undefined ? padding.blockEnd : seam
+  const bodyEnd = zones.float ? `calc(${mathLength(usualEnd, theme)} + var(${FLOAT_HEIGHT_VAR}, 0px))` : usualEnd
 
   return (
     <div {...mark} ref={root} data-hl-body-top={zones.atTop ? 'screenTop' : undefined} style={screenRootCss(frame, anatomy.modal, rest)}>
-      <ScreenTopZone zones={zones} frame={frame} contentMax={contentMax} sides={sides} padding={padding} backdrop={topBackdrop} stickyOffset={anatomy.stickyOffset} />
+      <ScreenTopZone zones={zones} frame={frame} contentMax={contentMax} sides={sides} padding={padding} backdrop={topBackdrop} stickyOffset={anatomy.stickyOffset} barScroll={barScroll} />
+      <TopPinnedZone
+        nodes={zones.topPinned}
+        numbers={zones.numbers}
+        lead={zones.bar === undefined ? padding.blockStart : gap}
+        sides={sides}
+        sticky={frame.stickyPinned}
+        stickyOffset={anatomy.stickyOffset}
+        backdrop={backdrop}
+        backdropSize={{ width: `var(${BACKDROP_WIDTH_VAR}, 0px)`, height: `var(${BACKDROP_HEIGHT_VAR}, 0px)` }}
+        column={(children) => <ContentColumn max={contentMax} style={{ gap }}>{children}</ContentColumn>}
+      />
       <div data-hl-zone="body" style={screenBodyCss(frame, anatomy.modal, overlap, anatomy.chrome === 'sticky')}>
-        <div style={{ ...COLUMN, flex: '1 0 auto', ...sides, paddingBlockStart: zones.bar === undefined ? padding.blockStart : zones.atTop ? undefined : seam, paddingBlockEnd: zones.pinned === undefined ? padding.blockEnd : seam }}>
+        <div style={{ ...COLUMN, flex: '1 0 auto', ...sides, paddingBlockStart: zones.bar === undefined && zones.topPinned.length === 0 ? padding.blockStart : zones.atTop ? undefined : seam, paddingBlockEnd: bodyEnd }}>
           <ContentColumn max={contentMax} attrs={main.attrs} style={{ flex: '1 0 auto', gap, ...main.style }}>
             <NodeChildren nodes={zones.body} numbers={zones.numbers} />
           </ContentColumn>
@@ -226,6 +258,8 @@ interface ScreenZoneProps {
   readonly backdrop: CSSProperties
   /** A ready CSS value for how far the zone sits from the edge it sticks to; `undefined` means zero. */
   readonly stickyOffset: string | undefined
+  /** Whether the body is scrolled under the app bar (the top zone only; the bottom zone gets none). */
+  readonly barScroll?: ScrollStore | undefined
 }
 
 /**
@@ -240,7 +274,7 @@ interface ScreenZoneProps {
  * is zero and the zone is transparent, with the root background itself under it. The background is
  * not copied onto the zone ITSELF: a screen gradient would be squeezed into its 72 px.
  */
-const ScreenTopZone = screenPart(function ScreenTopZone({ zones, frame, contentMax, sides, padding, backdrop, stickyOffset }: ScreenZoneProps): ReactNode {
+const ScreenTopZone = screenPart(function ScreenTopZone({ zones, frame, contentMax, sides, padding, backdrop, stickyOffset, barScroll }: ScreenZoneProps): ReactNode {
   const { bar, ownNav, barNav } = zones
   if (!frame.hasTop) {
     // No app bar: the inset goes above the body area. A body that starts at the screen top does not lie under it, so there is no inset above it (`bodyAtScreenTop`).
@@ -253,7 +287,7 @@ const ScreenTopZone = screenPart(function ScreenTopZone({ zones, frame, contentM
       <ContentMaxContext.Provider value={contentMax}>
         {bar !== undefined ? (
           <AppBarNavContext.Provider value={barNav === undefined ? undefined : { bar, navBar: barNav }}>
-            <NodeView node={bar} />
+            {barScroll === undefined ? <NodeView node={bar} /> : <ScrolledBar node={bar} store={barScroll}><NodeView node={bar} /></ScrolledBar>}
           </AppBarNavContext.Provider>
         ) : ownNav !== undefined ? (
           <NavPlaceContext.Provider value="top">
@@ -308,6 +342,41 @@ const ScreenBottomZone = screenPart(function ScreenBottomZone({ zones, frame, co
   if (!frame.hasBottom) return null
   const stuck: CSSProperties = frame.stickyBottom ? { position: 'sticky', insetBlockEnd: stickyOffset ?? '0px', zIndex: 1 } : {}
   const clear = bottomNav === undefined && frame.safe !== ZERO_INSET ? `calc(${mathLength(padding.blockEnd, theme)} + ${frame.safe})` : padding.blockEnd
+  const pinnedView =
+    pinned === undefined ? null : (
+      <div data-hl-zone="pinned" style={{ ...COLUMN, ...sides, paddingBlockEnd: clear, ...(zones.float ? CATCHES_PRESSES : {}) }}>
+        <ContentColumn max={contentMax}>{numbered(numbers, pinned, <ZoneNode node={pinned} />)}</ContentColumn>
+      </div>
+    )
+  // The inset lies INSIDE the bar background, or, with a floating bar, under the box of the bar and transparent (it is the padding of the zone).
+  const barView =
+    bottomNav === undefined ? null : (
+      <div data-hl-zone="navBar" style={{ ...COLUMN, ...(zones.float ? CATCHES_PRESSES : {}) }}>
+        <SafeBottomContext.Provider value={zones.float ? ZERO_INSET : frame.safe}>
+          <ContentMaxContext.Provider value={contentMax}>
+            <ZoneNode node={bottomNav} />
+          </ContentMaxContext.Provider>
+        </SafeBottomContext.Provider>
+      </div>
+    )
+  /*
+   * A FLOATING ZONE (9.22.0, `x-style.layout.navFloat`): the zone has no height in the flow, so the
+   * body area runs to the bottom of the screen, and its content is the box that grows UP from the
+   * bottom edge over the body. It sticks to the bottom of the host page (or stays at the end of the
+   * root with its own height). Only the boxes of the pinned block and of the bar catch presses: the
+   * rest of the zone, the side margin of a pill included, lets them through to the body. The safe inset
+   * is the padding under the bar, so the zone height measured for the tail of the body includes it.
+   */
+  if (zones.float) {
+    return (
+      <div data-hl-zone="bottom" data-hl-floating="" style={{ flex: 'none', blockSize: 0, position: 'relative', zIndex: 1, ...stuck }}>
+        <div style={{ position: 'absolute', insetInlineStart: 0, insetInlineEnd: 0, insetBlockEnd: 0, ...COLUMN, paddingBlockEnd: frame.safe, pointerEvents: 'none' }}>
+          {pinnedView}
+          {barView}
+        </div>
+      </div>
+    )
+  }
   return (
     <div data-hl-zone="bottom" style={{ flex: 'none', ...COLUMN, ...stuck }}>
       {Object.keys(backdrop).length === 0 ? null : (
@@ -315,23 +384,14 @@ const ScreenBottomZone = screenPart(function ScreenBottomZone({ zones, frame, co
           <div style={{ ...backdrop, flex: 'none', inlineSize: `var(${BACKDROP_WIDTH_VAR}, 0px)`, blockSize: `var(${BACKDROP_HEIGHT_VAR}, 0px)` }} />
         </div>
       )}
-      {pinned === undefined ? null : (
-        <div data-hl-zone="pinned" style={{ ...COLUMN, ...sides, paddingBlockEnd: clear }}>
-          <ContentColumn max={contentMax}>{numbered(numbers, pinned, <ZoneNode node={pinned} />)}</ContentColumn>
-        </div>
-      )}
-      {bottomNav === undefined ? null : (
-        <div data-hl-zone="navBar" style={COLUMN}>
-          <SafeBottomContext.Provider value={frame.safe}>
-            <ContentMaxContext.Provider value={contentMax}>
-              <ZoneNode node={bottomNav} />
-            </ContentMaxContext.Provider>
-          </SafeBottomContext.Provider>
-        </div>
-      )}
+      {pinnedView}
+      {barView}
     </div>
   )
 })
+
+/** The box of a part of a floating zone catches presses; the zone around it lets them through. */
+const CATCHES_PRESSES: CSSProperties = { pointerEvents: 'auto' }
 
 /**
  * THE CONTENT COLUMN of the body and the pinned block (schema 9.18.0). The wrapper is ALWAYS there,
@@ -340,7 +400,7 @@ const ScreenBottomZone = screenPart(function ScreenBottomZone({ zones, frame, co
  * outer box. The app bar and the navigation bar limit their own content: `ContentMaxContext` gives
  * them the number. The `data-hl-content` mark is a hook for host tests, like the zone marks.
  */
-const ContentColumn = screenPart(function ContentColumn({ max, attrs, style, children }: { readonly max: number | undefined; readonly attrs?: Readonly<Record<string, string>>; readonly style?: CSSProperties; readonly children: ReactNode }): ReactNode {
+export const ContentColumn = screenPart(function ContentColumn({ max, attrs, style, children }: { readonly max: number | undefined; readonly attrs?: Readonly<Record<string, string>>; readonly style?: CSSProperties; readonly children: ReactNode }): ReactNode {
   return (
     <div {...attrs} data-hl-content="" style={{ ...COLUMN, ...style, ...(max === undefined ? {} : contentColumn(max)) }}>
       {children}
@@ -450,6 +510,8 @@ const BACKDROP_WIDTH_VAR = '--hl-backdrop-w'
 const BACKDROP_HEIGHT_VAR = '--hl-backdrop-h'
 const STICKY_CLEAR_VAR = '--hl-sticky-clear'
 const STICKY_CLEAR_END_VAR = '--hl-sticky-clear-end'
+/** The height of a floating bottom zone, whole: the end of the body adds it so the last row scrolls clear of the bar. */
+const FLOAT_HEIGHT_VAR = '--hl-float-h'
 
 /** The app bar backdrop: a window as large as the zone that clips the root background; behind the app bar content, catches no touches. */
 const BACKDROP_CLIP: CSSProperties = { position: 'absolute', inset: 0, overflow: 'clip', zIndex: -1, pointerEvents: 'none' }
@@ -462,34 +524,63 @@ const BACKDROP_CLIP: CSSProperties = { position: 'absolute', inset: 0, overflow:
  * of flow). Without `ResizeObserver` (server, an old engine) there are no variables, and the app
  * bar stays transparent over the unmoving root background.
  */
-function useStickyBarMetrics(root: RefObject<HTMLDivElement | null>, bar: boolean, bottom: boolean, offset: string | undefined, bottomOffset: string | undefined): void {
+interface StickyZones {
+  /** The app bar sticks to the top of the host page. */
+  readonly bar: boolean
+  /** The top zone of nodes sticks under it (9.24.0). */
+  readonly pinned: boolean
+  /** The bottom zone sticks to the bottom of the host page. */
+  readonly bottom: boolean
+  /** The bottom zone floats over the body (9.22.0): its height is the tail of the body. */
+  readonly floating: boolean
+}
+
+function useStickyBarMetrics(root: RefObject<HTMLDivElement | null>, zones: StickyZones, offset: string | undefined, bottomOffset: string | undefined): void {
+  const { bar, pinned, bottom, floating } = zones
   useEffect(() => {
     const element = root.current
-    if ((!bar && !bottom) || element === null) return undefined
-    const top = bar ? element.querySelector<HTMLElement>(':scope > [data-hl-zone="appBar"], :scope > [data-hl-zone="navTop"]') : null
-    const low = bottom ? element.querySelector<HTMLElement>(':scope > [data-hl-zone="bottom"]') : null
-    // An app bar lying over the body sits in a zero-height zone: measure its box, not the zone.
-    const topBox = top?.hasAttribute('data-hl-lifted') === true ? top.firstElementChild : top
+    if ((!bar && !pinned && !bottom && !floating) || element === null) return undefined
+    const { topBox, pinnedBox, low } = zoneBoxes(element, { bar, pinned, bottom, floating })
     const write = (): void => {
       const width = element.clientWidth
       const height = element.clientHeight
       if (width <= 0 || height <= 0) return
       element.style.setProperty(BACKDROP_WIDTH_VAR, `${String(width)}px`)
       element.style.setProperty(BACKDROP_HEIGHT_VAR, `${String(height)}px`)
-      if (bar) element.style.setProperty(STICKY_CLEAR_VAR, `calc(${String(topBox instanceof HTMLElement ? topBox.offsetHeight : 0)}px + ${offset ?? '0px'})`)
-      // The mirror of the app bar offset: a focused element does not hide under a stuck bottom zone.
-      if (bottom) element.style.setProperty(STICKY_CLEAR_END_VAR, `calc(${String(low?.offsetHeight ?? 0)}px + ${bottomOffset ?? '0px'})`)
+      if (bar || pinned) writeTopMetrics(element, { topBox, pinnedBox }, offset)
+      // The mirror of the app bar offset: a focused element does not hide under a stuck or floating bottom zone.
+      if (bottom || floating) element.style.setProperty(STICKY_CLEAR_END_VAR, `calc(${String(low?.offsetHeight ?? 0)}px + ${bottomOffset ?? '0px'})`)
+      if (floating) element.style.setProperty(FLOAT_HEIGHT_VAR, `${String(low?.offsetHeight ?? 0)}px`)
     }
     write()
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(write)
     observer?.observe(element)
     if (topBox instanceof HTMLElement) observer?.observe(topBox)
+    if (pinnedBox !== null) observer?.observe(pinnedBox)
     if (low !== null) observer?.observe(low)
     return () => {
       observer?.disconnect()
-      for (const name of [BACKDROP_WIDTH_VAR, BACKDROP_HEIGHT_VAR, STICKY_CLEAR_VAR, STICKY_CLEAR_END_VAR]) element.style.removeProperty(name)
+      for (const name of [BACKDROP_WIDTH_VAR, BACKDROP_HEIGHT_VAR, STICKY_CLEAR_VAR, STICKY_CLEAR_END_VAR, FLOAT_HEIGHT_VAR, TOP_BAR_HEIGHT_VAR]) element.style.removeProperty(name)
     }
-  }, [root, bar, bottom, offset, bottomOffset])
+  }, [root, bar, pinned, bottom, floating, offset, bottomOffset])
+}
+
+/** The boxes the sticky metrics measure: the app bar, the top zone of nodes and the bottom zone (when each one sticks or floats). */
+function zoneBoxes(element: HTMLElement, zones: StickyZones): { readonly topBox: Element | null | undefined; readonly pinnedBox: HTMLElement | null; readonly low: HTMLElement | null } {
+  const top = zones.bar ? element.querySelector<HTMLElement>(':scope > [data-hl-zone="appBar"], :scope > [data-hl-zone="navTop"]') : null
+  const zone = zones.bottom || zones.floating ? element.querySelector<HTMLElement>(':scope > [data-hl-zone="bottom"]') : null
+  // A floating zone has no height of its own: the box that grows up from its bottom edge is what to measure.
+  const low = zone?.hasAttribute('data-hl-floating') === true && zone.firstElementChild instanceof HTMLElement ? zone.firstElementChild : zone
+  // An app bar lying over the body sits in a zero-height zone: measure its box, not the zone.
+  const topBox = top?.hasAttribute('data-hl-lifted') === true ? top.firstElementChild : top
+  return { topBox, pinnedBox: zones.pinned ? element.querySelector<HTMLElement>(':scope > [data-hl-zone="topPinned"]') : null, low }
+}
+
+/** The height of the stuck app bar zone (for the top zone to stick under it) and how far a focused element stays from the top: both zones and the offset. */
+function writeTopMetrics(element: HTMLElement, boxes: { readonly topBox: Element | null | undefined; readonly pinnedBox: HTMLElement | null }, offset: string | undefined): void {
+  const barHeight = boxes.topBox instanceof HTMLElement ? boxes.topBox.offsetHeight : 0
+  element.style.setProperty(TOP_BAR_HEIGHT_VAR, `${String(barHeight)}px`)
+  element.style.setProperty(STICKY_CLEAR_VAR, `calc(${String(barHeight + (boxes.pinnedBox?.offsetHeight ?? 0))}px + ${offset ?? '0px'})`)
 }
 
 /** The screen root background for a stuck app bar zone: the same declaration (`stuckBackdrop`). A root without a background gives a transparent zone. */

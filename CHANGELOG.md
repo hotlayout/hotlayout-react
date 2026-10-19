@@ -10,10 +10,148 @@ are listed under **Changed** or **Removed**.
 The package version is independent of the contract versions. Which documents
 and themes a release reads is stated in every entry.
 
-## [Unreleased]
+## [0.25.0] - 2026-10-19
+
+**Reads:** unchanged (schema 9.27.x, theme contract 4.0.x, icon set 1.0.0). A hardening release.
+
+### Added
+
+- **`trapFocus`** prop (default `false`): keep `Tab` inside a modal layer at all times.
 
 ### Changed
 
+- **Safer picture default.** Without `resolveImageUrl`, an address is loaded only when it has the host form of an `openUrl` link: a letter top-level label, no credentials, no IP literal in any notation, no `localhost`. `allowedByDefault` is `false` for the rest; `resolveImageUrl` can still allow them.
+- **No `Referer` for pictures.** Every `<img>` carries `referrerPolicy="no-referrer"`, `loading="lazy"` and `decoding="async"`. Lazy images are not preloaded, so the server markup no longer hoists a `<link rel="preload">` out of the root. CSS background images follow your page's `Referrer-Policy`.
+- **Focus.** Only a dismissible modal layer cycles `Tab`; a layer that cannot be dismissed, or has nothing to focus, lets `Tab` leave the package unless `trapFocus` is set.
+- **Less in the logs.** For an address that came from data, `console` and `onReport` carry the scheme and host only, never the path or the query.
+- A script address is recognised as the URL parser reads it (leading control characters and spaces stripped, tab and line breaks removed), also in the answer of `resolveImageUrl`.
+- Text with `opacity` 0 or a colour with zero alpha is `aria-hidden` and not part of the name of a pressable card.
+
+## [0.24.0] - 2026-10-17
+
+**Reads:** layout documents of schema **9.27.x** and themes of theme contract **4.0.x**, icon set 1.0.0. The additions of 9.26 are optional and have no default: a document without them is drawn as before, except for the two rules that need no field (a modal sheet follows the finger down, and a page opened from a list row follows the data).
+
+### Added
+
+- **Long press.** `longPress` and `longPressLabel` on `Column`, `Row`, `Container`, `Stack` and `ListTile`. A pointer that stays down for 450 ms within 10 CSS pixels runs the action while it is still down; the click after the release is swallowed. The action goes through the same `onHaptic`, `onTrack` and `onAction` as a press (no new prop), once, in that order, with the record of the row. The touch goes to the innermost control under the finger, so a button in a card keeps its press. `ContextMenu` and `Shift+F10` on the focused node run it at once; `Enter` and `Space` stay the press. A container with only a long press is a control (tab stop, `role="button"`, named by its content). The name of the action is a hidden element the node is described by (`aria-describedby`), and `aria-keyshortcuts="ContextMenu Shift+F10"` lists the keys. The `contextmenu` event on such a node is cancelled; a right mouse button is not a long press.
+- **Grouped lists.** `Repeater.groupBy` with a second child as the header of a group. Groups are made from the drawn records (after `where` and `limit`), in the order of the data; the header is drawn in the scope of the first record of its group and a press inside it carries that record. Headers and records share one `gap`; a hidden header takes no room; numbered items count records only. A grid or a row is drawn without headers.
+- **A sheet that follows the finger down.** A modal sheet from the bottom is dragged by any point while its body is scrolled to the top: it starts after 10 px when the move is more down than sideways; on release a fling of 700 px/s decides, otherwise 0.3 of the height. It returns in 250 ms or goes down in 200 ms and only then performs the same `navigate.back` as a tap on the scrim (the `back` show event comes after the exit; a refusal in `onNavigate` brings the sheet back). The node under the finger is cancelled when the sheet takes the touch, and the click after a drag is not a press. No `touch-action` is set, so the body keeps its own scrolling. A centred window is not dragged.
+- **`dismissible: false`** on the entry of a modal screen: no drag, no tap on the scrim, no `Esc`. `navigate.back` from inside the layer still closes it. On a page the field is not read.
+- **A page follows the data.** The record of every frame of the stack (opened from a list row, inherited by a modal layer, carried by `carryRecord`) is kept as a chain of links — the collection, the entity and the fields of each list instance it came from — and is looked up by `<item>.id` whenever `collections` change: first in the collection of the row, then in the other collections of the same entity that the document names. A record found is replaced whole; one found nowhere stays as it was last seen. A refresh is not a show: the stack, `onScreenChange`, analytics, scroll and typed text stay, and a bound number with `animateChanges` counts to its new value. An action from the page hands the host the refreshed `source.record`.
+
+### Changed
+
+- The reader version is 9.27.0.
+- A screen opened from a list row no longer keeps a snapshot of the row: pass other `collections` and it shows the new values. A record without an `id` is not live and stays as it was.
+
+### Security
+
+- `longPress` is read by the same checked path as `action` (a closed catalogue, own string parameters, a haptic word of the list, an event of the named form). Its label is a document string that only becomes text; the id that links it to the node is made by React, never taken from the document, and `aria-keyshortcuts` is a constant. `groupBy` is read from the record only, as an own key. `dismissible` acts only as the word `false`. A guard walks every leaf of both new fixtures, and the data the groups and the live record are read from, with a hostile string and number.
+
+## [0.23.0] - 2026-10-16
+
+**Reads:** layout documents of schema **9.25.x** and themes of theme contract **4.0.x**, icon set 1.0.0. The additions of 9.25 are optional and have no default: a document without them is drawn as before, except for the two rules that need no field (the steps of a bar fill smoothly during a value transition, and a pressable node gives feedback to the finger).
+
+### Added
+
+- **The steps of a bar fill smoothly.** While the value of a bar with `segments` runs a transition (`animateChanges`, `animateIn`) the filled steps are a number with a fraction on the way from the whole steps of the old value to the whole steps of the new one; the step it reaches is cut at that share and keeps its radius. The ends are pictures at rest, a change inside one step moves nothing, and "reduce motion" shows whole steps at once.
+- **`glow: "soft" | "strong"`** on `ProgressBar` and `CircularProgress`: a blurred copy of the fill paint under the scale (blur 4 and 8 px, opacity 0.55 and 0.9). A bar with steps lights one step. The glow takes no room and is not clipped by the scale itself.
+- **`style.shadowColor: "background"`**: the layers of `style.shadow` take the hue of the node's own background (the stop nearest to the middle of a gradient) and keep their own opacity; also on a button and an icon button.
+- **Press feedback.** The node that performs a press scales to 0.97 (a card, a row), 0.96 (a button) or fades to 0.7 (an icon button, a ghost button, a navigation item): 80 ms down, 160 ms back with a slight overshoot, driven by the pointer so a short tap still reaches the pose. No feedback from the keyboard; under "reduce motion" only the fade. `pressFeedback: "none"` on a node turns it off.
+- **`haptic` on an action and the `onHaptic(kind, source)` prop.** One of `light`, `medium`, `heavy`, `selection`, `success`, `warning`, handed to the host once per press, before `onTrack` and the action. The package never vibrates by itself; the README shows `navigator.vibrate`.
+- The type `HapticWord` is exported.
+
+### Security
+
+- `glow`, `style.shadowColor`, `pressFeedback` and `haptic` are words of closed lists; the glow numbers come from the contract, the shadow colour is composed from channel numbers, and only a word of the list ever reaches the host. A guard walks every leaf of the new fixture and every hostile shape of the four fields.
+
+### Changed
+
+- The reader version is 9.25.0; nothing of 9.25 is skipped any more.
+- `ActionHandler` presses carry the haptic word (`PressExtras.haptic`); the `Shown` data of a value transition carries the ends of the scale transitions in progress.
+
+## [0.22.0] - 2026-10-16
+
+**Reads:** layout documents of schema **9.24.x** and themes of theme contract **4.0.x**, icon set 1.0.0. The additions of 9.24 are optional and have no default: a document without them is drawn exactly as before.
+
+### Added
+
+- **A value that grows when shown (`animateIn: true`).** On `Text`, `ProgressBar` and `CircularProgress` the numbers of the node grow from zero to their own with the curve, duration and step of `animateChanges`: a text counts the numbers it is bound to, a scale its value (a literal one too) while the maximum stands. Shown means drawn on a shown screen: the first screen, a screen pushed on top, a screen shown again by "back" or a section switch, a node that appears. Closing a modal layer and a change of data are not a show. "Reduce motion", no number and zero give the value at once. With `animateChanges` a change of data during the appearance leads from the shown value; without it the new value is there at once and a change of language ends the appearance. **A node hydrated from server markup does not grow on its first show**, so hydration never differs from the markup and never drops to zero; the server markup is the final value.
+- **The busy state after drag to confirm.** Released past the threshold, the action runs at once and the thumb glides to the end (200 ms) and stays there, busy: a ring of three quarters instead of the icon (800 ms a turn), `aria-busy`, no more drag, press or key. `onAction` may return a `Promise`: the state lasts until it settles, fulfilled or rejected, then the thumb returns (250 ms). Without a promise it lasts until the shown screen changes or eight seconds pass. An action of the reader changes the screen at once; `none` and an invalid standard action return the thumb at once.
+- **The motion of the dot on a navigation item.** The dot pops in (scale 0, 1.25 at 0.6, 1 over 320 ms) and fades out (200 ms, kept in the markup until it is over) when its condition changes on a shown screen; a new change starts its own motion. No motion on the first show, on a screen shown again, with "reduce motion" or on the server.
+- **Nodes pinned to the top (`pin: 'top'`).** The children of the root in a run at the start, right after the app bar zone, stand in a top zone under it and never scroll; the body scrolls below them, a gap of the screen under the zone, clipped at its bottom edge. Without an app bar the zone starts at the root top padding under the safe inset. The `pull` of the first node is not read; hidden nodes take no room; the word is not read with `bodyTop: 'screenTop'`. With `scroll="page"` the zone sticks right under the app bar by the same `chrome` switch. The same in every width class and in a modal layer.
+
+### Security
+
+- `animateIn` is the literal `true` or nothing; `pin` acts only as the exact word `top` in the run at the start of the root; the answer of the host to an action is a promise only when it is an object with a `then` function, read once (a throwing getter is no promise), and a rejection is handled by the button. A literal value of a scale travels beside the data, never inside them, so a data key cannot set it. A guard test replaces every leaf of the new frame, and every shape of the new fields, with hostile values.
+
+### Changed
+
+- `ActionHandler` now returns what the press learned (who runs the action, the promise of the host); the `onAction` prop type returns `unknown` (a promise is read, anything else is ignored), so every existing handler still type-checks.
+- The reader version is 9.24.0; nothing of 9.22, 9.23 or 9.24 is skipped any more.
+
+## [0.21.0] - 2026-10-16
+
+**Reads:** layout documents of schema **9.23.x** and themes of theme contract **4.0.x**, icon set 1.0.0. The additions of 9.22 and 9.23 are optional and have no default: a document without them is drawn exactly as before.
+
+### Added
+
+- **A floating navigation bar (`NavBar.float`).** With the bar in the bottom zone the whole zone — the pinned block and the bar — lies over the body: the body area reaches the bottom of the screen, the content scrolls under the bar, and the end of the body adds the measured height of the zone so the last row scrolls clear of it. The bottom safe inset is the transparent room under the box of the bar. The look is the `style` of the node (nothing is built in). Only the boxes of the block and of the bar catch presses. With `scroll="page"` the zone sticks to the bottom of the host page, with no backdrop. Not read where the bar stands at the top.
+- **A dot on a navigation item (`NavItem.badgeWhen`).** A condition of the form of `visibleIf`; while it holds, a dot of 8 in the theme colour `accent` stands on the top corner of the icon at the end of the line. Hidden from screen readers, the name of the item is unchanged; a condition the reader does not understand draws no dot.
+- **Drag to confirm (`Button.confirm: 'swipe'`).** A track with a round thumb at the inline start (the icon of the button or a chevron, in the colours of the role). Dragging it past 90% of the way and releasing runs the action, the analytics event once before it; less returns the thumb. A pointer press with no drag does nothing; Enter, Space and an activation from a screen reader act at once, a held key repeating does not. The thumb moves with the writing direction, returns by itself (a jump with "reduce motion"), and a disabled button does not move. The drag is taken once it goes more along the line than across, so the body keeps scrolling vertically.
+- **A dashed border (`style.border.style: 'dashed'`).** The contract's pattern — the centre line of the border with arcs at the corners, a dash of three and a gap of two widths, the count closed without a seam — drawn as a `border-image` over the border box once the box is measured (not `border-style: dashed`). The border keeps its room as a transparent solid one; on the server and before the first measurement the dashes are absent.
+- **A filtered list (`Repeater.where`) and the emptiness of a filtered list.** Records that pass the condition, evaluated on each record in its own scope, are the records the list draws: the grid closes up, the carousel counts cards, stops and dots by them, numbered rows count them, and `limit` takes the first records that passed. A comparison with no operand passes every record. A condition on the collection with `item` and `where` counts the same records, without `limit`.
+- **A comparison with another path (`valuePath`).** An operand read in the same scope as `path`, in every place a condition is read; with nothing under it the condition does not hold, `eq` and `neq` alike.
+- **A gradient on the letters (`style.textGradient`).** Read by `Text` only, not inherited. One gradient over the whole content box of the text; a part with its own colour keeps it; the line of an emphasis and the marker of a list item keep the ordinary colour, as does the whole text when the gradient does not resolve.
+- **Compact numbers (`notation: 'compact'`).** `48.2K` / `48,2 тис.` by the contract's arithmetic and closed suffix table, not `Intl` compact; the sign, parts and plural word follow the full value.
+
+### Security
+
+- `float`, `confirm` and the word of `border.style` are the literal `true` or a word of a closed list; `badgeWhen`, `where` and the operand path go through the same reading of a condition as `visibleIf` and read only own keys of the data; the nesting of a filter is not followed. The gradient and the colours of the dashes pass the same sanitising as the background, the markup of the dashes is made from numbers and one composed colour (a data URL is composed only in `sanitize.ts`), and the suffix of a compact number comes only from the table. A guard test replaces every leaf of the new frames, and every shape of the new fields, with hostile values.
+
+### Changed
+
+- The reader version is 9.23.0; nothing of 9.22 or 9.23 is skipped any more.
+- Internal: `isDisabledBy` shares its reading of a condition with the dot (`isUnderstoodConditionMet`).
+
+## [0.20.0] - 2026-10-16
+
+**Reads:** layout documents of schema **9.23.x** (parsed; the additions of 9.22 and 9.23 are not drawn yet) and themes of theme contract **4.0.x**, icon set 1.0.0. The four additions of 9.21 are optional and have no default: a document without them is drawn exactly as before.
+
+### Added
+
+- **A number that counts to its new value (`animateChanges`).** On `Text` (a bound number or currency, also inside a sentence with its plural word), `ProgressBar` and `CircularProgress` (the fill, the arc and the label). 700 ms, ease-out; whole steps for whole numbers, the cents of the currency or three digits otherwise; a scale grows without a step. No transition for the first draw (so none on the server or while hydrating), a node that appears, a language changed in the same step, the system "reduce motion", a value that is not a number on either side, or the same value; a change in the middle starts from the number shown. Driven by `requestAnimationFrame`, so a hidden tab stops it; the screen reader hears the final value only.
+- **A countdown (`countdownPart`).** One part of the time left until a date, with `unit` (`days`, `hours`, `minutes`, `seconds`) and `pad`: rounded down, written like `number`, and the number a plural word agrees with. A screen that shows a part keeps one timer — every second when a part is `seconds`, otherwise every minute, none without a countdown — and only the texts that show a part are drawn again. It starts after the mount and stops with the screen; a hidden tab draws nothing until it is visible again. With `now` given by the host nothing ticks.
+- **Round ends (`cap: 'round'`)** on `ProgressBar` and `CircularProgress`: half-circle ends of half the thickness for a bar (the theme `pill` is not read, a non-zero fill is never shorter than the thickness); half-circle ends inside the filled part for a ring arc, a dot for a tiny share, no ends and no seam when full; a gradient runs along the whole filled part and an end takes its colour at its own centre.
+- **An app bar that changes when the body scrolls (`styleScrolled`, `titleShown: 'scrolled'`).** The look of the bar once the body has scrolled under it (`background`, `color`, `shadow`, `backdropBlur`, laid last over the base, the width layers and the state; never its box), and a title drawn only then (at rest it keeps its place and its accessible name). The root listens to the scroll of its own body, passively, and only when the app bar zone asks.
+
+### Security
+
+- `cap` and `titleShown` are words of a closed list, `styleScrolled` is read for its four known fields and goes through the same sanitising as `style`, `animateChanges` is the literal `true`, `unit` and `pad` are words of a closed list, and every number on the way of a transition is a finite number the data gave. A guard test replaces every leaf of the new frame, and every shape of the new fields, with hostile values.
+
+### Changed
+
+- The reader version is 9.23.0. The three additions of 9.23 are skipped, each with the price the contract names: `Repeater.where` and the filtered emptiness (every record is drawn and counted), a comparison by `valuePath` (no operand), `style.textGradient` (the fallback colour) and `notation: 'compact'` (every digit).
+- 9.22: the four additions are skipped, each with the price the contract names: `NavBar.float` (the body ends above an ordinary bar), `NavItem.badgeWhen` (no dot), `Button.confirm: 'swipe'` (an ordinary button, a tap acts) and `style.border.style: 'dashed'` (a solid border).
+- A text that shows a countdown part is exempt from React's hydration text check and is drawn anew once the screen clock is live: a server and a browser read two clocks, and the number of the browser wins at once. Pass `now` when you want the same markup on both sides.
+
+## [0.19.0] - 2026-10-16
+
+**Reads:** layout documents of schema **9.20.x** and themes of theme contract **4.0.x**, icon set 1.0.0. The three additions of 9.20 are optional and have no default: a document without them is drawn exactly as before.
+
+### Added
+
+- **Motion of a node (`motion`).** `float` (a drift along `vertical`, `horizontal` or `both` axes by up to `amplitude` pixels) and `pulse` (a breath in scale and, optionally, opacity), each with a `duration` and an optional `delay`. It is only painting: the layout never changes, neighbours do not move, a clipping parent still clips. A registered angle variable is turned by one linear animation and `translate`, `scale` and `filter: opacity()` compute the pose with `sin()` / `cos()`, so the position at any moment equals the contract's formula. Horizontal drift goes toward the end of the line (mirrored in right-to-left writing). A node that appears again starts from zero. The system "reduce motion", the server render and a form the reader does not know all leave the node at rest. The style sheet gained one `@property`, one `@keyframes` and a few rules, all prefixed with `hl-`.
+- **Blur under a modal layer (`backdropBlur` of a screen entry).** A blur layer lies between everything under the layer (with its app bar and navigation bar) and the scrim, in the same area; the layer itself is never blurred and a tap beside it still dismisses it. Not read for a page.
+- **Glass (`style.backdropBlur`).** `backdrop-filter: blur(Npx)` (also prefixed for older Safari) on the box of the node, clipped by its radius; on a button, an icon button and a badge it is the surface of the role. States and width layers can name or unset it. Not inherited.
+
+### Security
+
+- The new numbers reach the style only as whole numbers or fractions within the bounds of the schema (`exactInteger`, `exactNumber` in `sanitize.ts`); a value the schema would not accept means no field, never the nearest allowed one. A guard test replaces every leaf of the new frame and every shape of the new fields with hostile values.
+
+### Changed
+
+- The reader version is 9.20.0, and `backdropBlur` is a known key of `NodeStyle`.
 - Internal: source files split by widget family (`render/`), by concern of the screen stack (`screen/`) and by rule group (`style-box`, `style-roles`, `layout-rules`, `input-number`, `inputs-layout`, `wide-nav`, `wide-modal`); no behaviour change, the public entry is the same.
 
 ## [0.18.2] - 2026-10-13

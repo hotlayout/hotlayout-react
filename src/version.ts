@@ -117,8 +117,56 @@ import { ICON_SET_VERSION } from './icon-set'
  *  6. `alt` as a document string (`render/alt-text.ts`), an icon from data (`icon-path.ts`,
  *     `render/icon-name.ts`), date parts (`date-parts.ts`) and an explicit `unset` in the width
  *     layer (`width-unset.ts`, `width-class.ts`).
+ *
+ * 9.20.0: three fields, all optional and without a default:
+ *  1. `node.motion` (`motion.ts`): an endless drift (`float`) or breath (`pulse`) that only
+ *     paints — a registered phase variable, one linear animation, the pose computed by `sin()` /
+ *     `cos()` in the style sheet; the system "reduce motion" and the server render give the pose
+ *     at rest;
+ *  2. `backdropBlur` of a modal screen entry (`backdrop-blur.ts`, `screen/layers.tsx`): a blur
+ *     layer under the scrim, the same area; not read on a page;
+ *  3. glass `style.backdropBlur` (`style-box.ts`): `backdrop-filter` on the box of the node.
+ *
+ * 9.21.0: PERFORMED. `animateChanges` (a number counts to its new value; `render/use-value-transition.ts`,
+ * the rule in `value-transition.ts`), the format `countdownPart` with `unit` and `pad` and the clock that
+ * ticks it (`countdown.ts`, `render/countdown-clock.tsx`), `cap: 'round'` (`progress-cap.ts`) and the app bar
+ * after scrolling, `styleScrolled` and `titleShown` (`app-bar-scrolled.ts`, `render/bar-scrolled.tsx`).
  */
-export const READER_SCHEMA_VERSION = '9.19.0'
+/*
+ * 9.22.0: PERFORMED. The floating bar, `NavBar.float` (`nav-float.ts`, the zone and the tail of the
+ * body in `render/screen-root.tsx`), the dot on an item, `NavItem.badgeWhen` (`nav-badge.ts`,
+ * `render/nav-bar.tsx`), drag to confirm, `Button.confirm: 'swipe'` (`swipe-confirm.ts`,
+ * `render/swipe-button.tsx`) and the dashed border, `style.border.style: 'dashed'` (`border-dash.ts`,
+ * `render/dashed-border.tsx`).
+ *
+ * 9.23.0: PERFORMED. `Repeater.where` and the emptiness of a filtered list, a comparison against the
+ * value of another path, `valuePath` (`conditions.ts`, `list-filter.ts`), `style.textGradient`
+ * (`text-gradient.ts`) and `notation: 'compact'` (`compact-number.ts`, `money.ts`).
+ */
+/*
+ * 9.24.0: PERFORMED. `animateIn` (`value-appear.ts`, `render/use-value-transition.ts`), the busy state after
+ * drag to confirm and the promise of the host (`swipe-busy.ts`, `render/swipe-button.tsx`), the motion of
+ * the dot on an item (`nav-badge-motion.ts`, `render/use-badge-motion.ts`) and `pin: 'top'` (`top-zone.ts`,
+ * `render/top-pinned-zone.tsx`).
+ */
+/*
+ * 9.25.0: the steps of a bar fill smoothly while a value transition runs (`segment-fill.ts`,
+ * `render/progress-steps.tsx`), `glow` on a scale (`progress-glow.ts`, `render/glow-layer.tsx`),
+ * `style.shadowColor` (`shadow-color.ts`), the press feedback of a pressable node
+ * (`press-feedback.ts`, `render/use-press-feedback.ts`) and `haptic` on an action (`haptic.ts`,
+ * the `onHaptic` prop).
+ */
+/*
+ * 9.26.0: PERFORMED. `longPress` and `longPressLabel` (`long-press.ts`, `render/use-long-press.tsx`),
+ * `Repeater.groupBy` with the header as the second child (`repeater-group.ts`, `render/repeater.tsx`),
+ * the drag down of a modal sheet and `dismissible: false` on a screen entry (`sheet-dismiss.ts`,
+ * `screen/use-sheet-drag.ts`, `screen/layers.tsx`).
+ */
+/*
+ * 9.27.0: PERFORMED. The record of a frame of the stack is a chain of links that follows the
+ * collections the host gives (`live-record.ts`, `screen/live-flow.ts`).
+ */
+export const READER_SCHEMA_VERSION = '9.27.0'
 
 /**
  * The THEME contract version this renderer is written for. The theme is versioned separately

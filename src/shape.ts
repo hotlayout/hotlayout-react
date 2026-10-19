@@ -114,6 +114,12 @@ function shapeOne(raw: unknown, fallbackId: string, report: IssueSink): { readon
   if (raw.pull !== undefined) node.pull = raw.pull
   // Since 9.12.0: pinning to the bottom arrives as it is; only `bottom-zone.ts` reads the value.
   if (raw.pin !== undefined) node.pin = raw.pin
+  // Since 9.20.0: the motion arrives as it is; only `motion.ts` (`readMotion`) reads the value, and a form it does not know means the node stands still.
+  if (raw.motion !== undefined) node.motion = raw.motion
+  // Since 9.21.0: the look of the app bar after scrolling arrives as it is; only `app-bar-scrolled.ts` reads it and takes the four fields it knows.
+  if (raw.styleScrolled !== undefined) node.styleScrolled = raw.styleScrolled
+  // Since 9.25.0: the press feedback arrives as it is; only `press-feedback.ts` reads it, and the one word `none` turns the feedback off.
+  if (raw.pressFeedback !== undefined) node.pressFeedback = raw.pressFeedback
   // Since 9.16.0: the app bar zone arrives as it is; only `media-chrome.ts` (`barZoneOf`) reads the value: the word `leading` or "no field".
   if (raw.zone !== undefined) node.zone = raw.zone
   // The colour of a widget PART lives in `props` (`Divider`, `ProgressBar`, `CircularProgress`).

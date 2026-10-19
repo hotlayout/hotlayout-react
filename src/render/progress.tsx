@@ -4,24 +4,50 @@ import type { CSSProperties, ReactNode } from 'react'
 
 import { readBindableNumber } from '../data'
 import type { DataScope } from '../data'
-import { PROGRESS_SEGMENT_GAP, RING_LABEL_STYLE, barGradientCss, filledSegments, namedRingLabelStyle, progressRatio, readSegments, resolveCurrentColor, resolveProgressPaint, ringGeometry, ringGradientCss, ringInputOf, segmentsKindFor } from '../progress'
+import { PROGRESS_SEGMENT_GAP, RING_LABEL_STYLE, barGradientCss, namedRingLabelStyle, progressRatio, readSegments, resolveCurrentColor, resolveProgressPaint, ringGeometry, ringGradientCss, ringInputOf, segmentsKindFor } from '../progress'
+import { readProgressGlow } from '../progress-glow'
+import { barCapFillCss, barCapRadius, readProgressCap, ringCapPaint, ringCapPosition } from '../progress-cap'
 import { colorCss, typographyCss } from '../resolve'
 import { DirectionContext } from '../runtime'
 import { cssPercent, cssPx } from '../sanitize'
 import { typographyToCss } from '../style'
 import { productVar } from '../theme'
 import { useData, useTheme } from './contexts'
+import { GlowLayer } from './glow-layer'
+import { stepsParts, stepUnitsOf } from './progress-steps'
+import type { StepsLook } from './progress-steps'
+import { useValueTransition } from './use-value-transition'
+import type { Shown } from './use-value-transition'
 import { COLUMN } from './flex-words'
 import { mathToken } from './prop-tokens'
 import type { WidgetProps } from './widget-props'
 import { screenPart } from './screen-part'
 
-function progressOf(props: Readonly<Record<string, unknown>>, scope: DataScope): { value: number; max: number; ratio: number } {
-  const value = readBindableNumber(props.value, scope) ?? 0
+function progressOf(props: Readonly<Record<string, unknown>>, scope: DataScope, literal?: number): { value: number; max: number; ratio: number } {
+  // A literal value that is being shown growing (`animateIn`) is passed by the hook, not read from the data.
+  const value = literal ?? readBindableNumber(props.value, scope) ?? 0
   const max = readBindableNumber(props.max, scope) ?? 100
   return { value, max, ratio: progressRatio(value, max) }
 }
 
+/**
+ * What a scale reads: the REAL numbers (for the screen reader: it hears the final value, not the
+ * ones between), the SHOWN share (the fill grows smoothly while `animateChanges` leads it) and the
+ * label (stepped numbers, the shown share).
+ */
+function shownProgress(
+  props: Readonly<Record<string, unknown>>,
+  scope: DataScope,
+  data: Shown,
+  labelFormat: unknown,
+): { progress: { value: number; max: number; ratio: number }; shown: { ratio: number; ends: Shown['ends'] }; label: string | undefined } {
+  const progress = progressOf(props, scope)
+  const smooth = progressOf(props, data.smooth, data.literal?.smooth)
+  const stepped = progressOf(props, data.stepped, data.literal?.stepped)
+  return { progress, shown: { ratio: smooth.ratio, ends: data.ends }, label: progressLabel(labelFormat, { value: stepped.value, max: stepped.max, ratio: smooth.ratio }) }
+}
+
+/** The label: `percent` is the shown share, `valueOfMax` the stepped numbers (whole when both ends are whole). */
 function progressLabel(format: unknown, progress: { value: number; max: number; ratio: number }): string | undefined {
   if (format === 'percent') return `${String(Math.round(progress.ratio * 100))}%`
   if (format === 'valueOfMax') return `${String(progress.value)} / ${String(progress.max)}`
@@ -48,10 +74,12 @@ const PROGRESS_LABEL = { typography: 'caption', gap: 'xs' } as const
 export const ProgressBarView = screenPart(function ProgressBarView({ props, css, mark }: WidgetProps): ReactNode {
   const theme = useTheme()
   const direction = useContext(DirectionContext)
-  const progress = progressOf(props, useData())
+  const scope = useData()
+  const { progress, shown, label } = shownProgress(props, scope, useValueTransition(props), props.labelFormat ?? 'valueOfMax')
   const paint = resolveProgressPaint(props, theme)
-  const label = progressLabel(props.labelFormat ?? 'valueOfMax', progress)
-  const pill = productVar('radius', 'pill')
+  // Round ends (9.21.0): half the thickness for the track, the fill and every step; the theme `pill` is not read.
+  const round = readProgressCap(props.cap) === 'round'
+  const pill = round ? cssPx(barCapRadius(paint.thickness)) : productVar('radius', 'pill')
 
   /*
    * STEPS (schema 9.11.0, `x-style.layout.progressSegments`): the scale cut into equal steps.
@@ -92,12 +120,31 @@ export const ProgressBarView = screenPart(function ProgressBarView({ props, css,
     'aria-valuenow': progress.value,
   } as const
 
+  // The glow (9.25.0): a blurred copy of the fill under the scale. The scale is then positioned, so it paints over the copy.
+  const glow = readProgressGlow(props.glow)
+  const lift: CSSProperties = glow === undefined ? {} : { position: 'relative' }
+  let shine: ReactNode = null
+
   let bar: ReactNode
   if (steps === undefined) {
+    const fillCss: CSSProperties = {
+      inlineSize: round ? barCapFillCss(shown.ratio, paint.thickness) : cssPercent(shown.ratio),
+      blockSize: '100%',
+      borderRadius: pill,
+      ...(paint.fill.kind === 'gradient' ? { backgroundImage: barGradientCss(paint.fill.stops, direction) } : { backgroundColor: paint.fill.color }),
+    }
+    if (glow !== undefined && shown.ratio > 0) {
+      shine = (
+        <GlowLayer glow={glow}>
+          <div style={fillCss} />
+        </GlowLayer>
+      )
+    }
     bar = (
       <div
         ref={track}
         {...scale}
+        data-hl-cap={round ? 'round' : undefined}
         style={{
           inlineSize: '100%',
           // The solid bar that replaces the steps keeps the same minimum width as the steps: `(N - 1) x gap`.
@@ -106,16 +153,10 @@ export const ProgressBarView = screenPart(function ProgressBarView({ props, css,
           borderRadius: pill,
           overflow: 'hidden',
           backgroundColor: paint.track,
+          ...lift,
         }}
       >
-        <div
-          style={{
-            inlineSize: cssPercent(progress.ratio),
-            blockSize: '100%',
-            borderRadius: pill,
-            ...(paint.fill.kind === 'gradient' ? { backgroundImage: barGradientCss(paint.fill.stops, direction) } : { backgroundColor: paint.fill.color }),
-          }}
-        />
+        <div style={fillCss} />
       </div>
     )
   } else {
@@ -128,33 +169,31 @@ export const ProgressBarView = screenPart(function ProgressBarView({ props, css,
      *
      * The gradient runs as a LINE through the filled steps: in each filled step it is a strip as
      * long as all the filled steps together with the gaps, shifted by the step number, so the colour
-     * in a step is what it would be in a solid fill.
+     * in a step is what it would be in a solid fill. While the value runs a transition (9.25.0) the
+     * number of filled steps has a fraction and the step it reaches is cut at that share.
      */
-    const filled = filledSegments(progress.ratio, steps)
-    const currentColor = resolveCurrentColor(props, theme)
     const gap = productVar('spacing', PROGRESS_SEGMENT_GAP)
-    const gapMath = mathToken(PROGRESS_SEGMENT_GAP, theme)
+    const look: StepsLook = {
+      paint,
+      currentColor: resolveCurrentColor(props, theme),
+      pill,
+      direction,
+      gapMath: mathToken(PROGRESS_SEGMENT_GAP, theme),
+      units: stepUnitsOf({ value: props.value, max: progress.max, shownRatio: shown.ratio, steps, ends: shown.ends }),
+    }
+    const parts = stepsParts(look, steps, glow, { gap, blockSize: cssPx(paint.thickness) })
+    shine = parts.shine
     bar = (
-      <div ref={track} {...scale} style={{ display: 'flex', inlineSize: '100%', blockSize: cssPx(paint.thickness), gap }}>
-        {Array.from({ length: steps }, (_unused, index) => {
-          const state = index < filled ? 'filled' : index === filled ? 'current' : 'unfilled'
-          const solid = state === 'filled' ? (paint.fill.kind === 'color' ? paint.fill.color : undefined) : state === 'current' && currentColor !== undefined ? currentColor : paint.track
-          return (
-            <div key={index} data-hl-step={state} style={{ flex: '1 1 0px', minInlineSize: 0, position: 'relative', overflow: 'hidden', borderRadius: pill, backgroundColor: solid }}>
-              {state === 'filled' && paint.fill.kind === 'gradient' ? (
-                <span
-                  style={{
-                    position: 'absolute',
-                    insetBlock: 0,
-                    insetInlineStart: `calc(-1 * ${String(index)} * (100% + ${gapMath}))`,
-                    inlineSize: `calc(${String(filled)} * 100% + ${String(filled - 1)} * ${gapMath})`,
-                    backgroundImage: barGradientCss(paint.fill.stops, direction),
-                  }}
-                />
-              ) : null}
-            </div>
-          )
-        })}
+      <div ref={track} {...scale} data-hl-cap={round ? 'round' : undefined} style={{ display: 'flex', inlineSize: '100%', blockSize: cssPx(paint.thickness), gap, ...lift }}>
+        {parts.cells}
+      </div>
+    )
+  }
+  if (shine !== null) {
+    bar = (
+      <div style={{ position: 'relative', inlineSize: '100%' }}>
+        {shine}
+        {bar}
       </div>
     )
   }
@@ -199,9 +238,8 @@ export const ProgressBarView = screenPart(function ProgressBarView({ props, css,
 export const CircularProgressView = screenPart(function CircularProgressView({ props, css, own, dropped, mark }: WidgetProps): ReactNode {
   const theme = useTheme()
   const scope = useData()
-  const progress = progressOf(props, scope)
+  const { progress, shown, label } = shownProgress(props, scope, useValueTransition(props), props.labelFormat ?? 'none')
   const paint = resolveProgressPaint(props, theme)
-  const label = progressLabel(props.labelFormat ?? 'none', progress)
   /*
    * THE LABEL STYLE (schema 9.17.0): a named one counts only for fields of a shape the reader
    * understands and only with a token the theme knows; otherwise the fallback applies ENTIRELY (a
@@ -222,7 +260,47 @@ export const CircularProgressView = screenPart(function CircularProgressView({ p
     mask: ring,
     WebkitMask: ring,
   }
-  const sweep = cssPercent(progress.ratio)
+  const sweep = cssPercent(shown.ratio)
+  // Round ends (9.21.0): the arc between the centres of the ends and two half-circles of the thickness (one dot for a tiny share).
+  const capped = readProgressCap(props.cap) === 'round' ? ringCapPaint({ ratio: shown.ratio, diameter, thickness, fill: paint.fill }) : undefined
+
+  /*
+   * The fill of the arc: with round ends the arc between the centres of the ends and two dots, otherwise
+   * one conic gradient. It is drawn twice with the glow (9.25.0): the copy under the track, blurred on
+   * its WRAPPER (the mask cuts the middle out before a filter on the same element would act).
+   */
+  let fillArc: ReactNode = null
+  if (capped !== undefined) {
+    if (capped.background !== undefined || capped.ends.length > 0) {
+      fillArc = (
+        <div data-hl-cap="round" style={{ ...arc, ...(capped.background === undefined ? {} : { background: capped.background }) }}>
+          {capped.ends.map((end) => {
+            const place = ringCapPosition(end.angle, diameter, thickness)
+            return (
+              <span
+                key={end.key}
+                data-hl-cap-end={end.key}
+                style={{ position: 'absolute', left: place.left, top: place.top, inlineSize: cssPx(thickness), blockSize: cssPx(thickness), transform: 'translate(-50%, -50%)', borderRadius: '50%', background: end.color }}
+              />
+            )
+          })}
+        </div>
+      )
+    }
+  } else if (shown.ratio > 0) {
+    fillArc = (
+      <div
+        style={{
+          ...arc,
+          background:
+            paint.fill.kind === 'gradient'
+              ? ringGradientCss(paint.fill.stops, shown.ratio)
+              : `conic-gradient(from 0deg, ${paint.fill.color} ${sweep}, transparent ${sweep})`,
+        }}
+      />
+    )
+  }
+  const glow = readProgressGlow(props.glow)
 
   return (
     <div {...mark} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', ...css }}>
@@ -235,18 +313,9 @@ export const CircularProgressView = screenPart(function CircularProgressView({ p
       >
         {thickness <= 0 ? null : (
           <>
+            {glow !== undefined && fillArc !== null ? <GlowLayer glow={glow}>{fillArc}</GlowLayer> : null}
             <div style={{ ...arc, backgroundColor: paint.track }} />
-            {progress.ratio <= 0 ? null : (
-              <div
-                style={{
-                  ...arc,
-                  background:
-                    paint.fill.kind === 'gradient'
-                      ? ringGradientCss(paint.fill.stops, progress.ratio)
-                      : `conic-gradient(from 0deg, ${paint.fill.color} ${sweep}, transparent ${sweep})`,
-                }}
-              />
-            )}
+            {fillArc}
           </>
         )}
         {label === undefined ? null : (

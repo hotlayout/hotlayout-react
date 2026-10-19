@@ -2,10 +2,12 @@
 import { useEffect, useRef } from 'react'
 import type { CSSProperties, KeyboardEvent, ReactNode, RefObject } from 'react'
 
+import { backdropFilterCss } from '../backdrop-blur'
 import { MODAL_WINDOW_MAX_WIDTH } from '../media-chrome'
 import { spacingMathCss } from '../resolve'
 import { productVar } from '../theme'
 import type { Theme } from '../theme'
+import { useSheetDrag } from './use-sheet-drag'
 import { WIDE_MODAL_MAX_HEIGHT_SHARE, WIDE_MODAL_MAX_WIDTH } from '../wide-modal'
 import type { ModalShape } from '../wide-modal'
 const MODAL_SCRIM = 'rgba(0, 0, 0, 0.45)'
@@ -94,7 +96,8 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select
  * Dialog behaviour (WAI-ARIA "Dialog (Modal)"):
  *  - on appearance focus moves to the sheet; on removal it returns to whatever opened the modal
  *    (if it is still on the page);
- *  - Tab and Shift+Tab cycle INSIDE the sheet;
+ *  - Tab and Shift+Tab cycle INSIDE a dismissible sheet (Esc is the way out); a sheet that cannot be
+ *    dismissed lets Tab leave unless the host sets `trapFocus`;
  *  - Esc dismisses, with the same `navigate.back` as a tap on the scrim;
  *  - layers below the modal become `inert`: they stay visible (that is what `modal` means), but
  *    neither the keyboard nor a screen reader reaches them.
@@ -109,6 +112,9 @@ export function ModalLayer({
   shape,
   theme,
   ownHeight,
+  backdropBlur,
+  dismissible,
+  trapFocus,
   onDismiss,
   children,
 }: {
@@ -121,12 +127,20 @@ export function ModalLayer({
   readonly theme: Theme
   /** `scroll="screen"`: the host gave the block a height, so the layer area is the whole block. Otherwise it is the visible part of the block. */
   readonly ownHeight: boolean
+  /** Blur of everything under the layer (since 9.20.0), a validated radius; absent means only the scrim. */
+  readonly backdropBlur?: number | undefined
+  /** `false` (9.26.0): the layer waits for an action inside it - no drag down, no tap on the scrim, no Esc. */
+  readonly dismissible: boolean
+  /** Host decision (`trapFocus`): Tab never leaves the layer. Without it only a dismissible layer cycles Tab, and Tab may always leave a layer with nothing to focus. */
+  readonly trapFocus: boolean
   readonly onDismiss: () => void
   readonly children: ReactNode
 }): ReactNode {
   const sheet = useRef<HTMLDivElement>(null)
   const layer = useRef<HTMLDivElement>(null)
   useVisiblePartHeight(layer, !ownHeight)
+  // Only a sheet from the bottom follows the finger; a window is not tied to an edge.
+  useSheetDrag(sheet, layer, dismissible && shape === 'sheet', onDismiss)
 
   useEffect(() => {
     const node = sheet.current
@@ -147,11 +161,15 @@ export function ModalLayer({
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape') {
+      // A layer that waits for an action ignores Esc and leaves it to the host.
+      if (!dismissible) return
       event.stopPropagation()
       onDismiss()
       return
     }
     if (event.key !== 'Tab') return
+    // A layer that waits for an action and a host that did not ask for a trap leave Tab alone: the person must be able to reach the host page.
+    if (!dismissible && !trapFocus) return
     const node = sheet.current
     if (node === null) return
     const stops = Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE))
@@ -159,7 +177,7 @@ export function ModalLayer({
     const last = stops[stops.length - 1]
     const active = node.ownerDocument.activeElement
     if (first === undefined || last === undefined) {
-      event.preventDefault()
+      if (trapFocus) event.preventDefault()
       return
     }
     if (event.shiftKey && (active === first || active === node)) {
@@ -173,7 +191,9 @@ export function ModalLayer({
 
   return (
     <div ref={layer} data-hl-screen={screenId} data-hl-presentation="modal" data-hl-placement={placement} data-hl-shape={shape} style={MODAL_LAYER} onKeyDown={onKeyDown}>
-      <div aria-hidden="true" data-hl-scrim="" style={MODAL_SCRIM_STYLE} onClick={onDismiss} />
+      {/* The blur lies over every layer below (with its app bar and navigation bar) and under the scrim: the same area, the blur first. The layer itself is above both. */}
+      {backdropBlur === undefined ? null : <div aria-hidden="true" data-hl-backdrop-blur={String(backdropBlur)} style={{ ...MODAL_BLUR_STYLE, ...backdropFilterCss(backdropBlur) }} />}
+      <div aria-hidden="true" data-hl-scrim="" style={MODAL_SCRIM_STYLE} onClick={dismissible ? onDismiss : undefined} />
       {/* Layer area: the whole block (own height) or its VISIBLE part, sticky, without `position: fixed`. */}
       <div data-hl-layer-area={ownHeight ? 'block' : 'visible'} style={{ ...(ownHeight ? MODAL_AREA_BLOCK : MODAL_AREA_VISIBLE), ...(shape === 'sheet' ? MODAL_AREA_BOTTOM : MODAL_AREA_CENTER) }}>
         <div ref={sheet} role="dialog" aria-modal="true" aria-label={name} tabIndex={-1} style={shape === 'window' ? MODAL_WINDOW : shape === 'sheetWindow' ? modalSheetWindow(theme) : MODAL_SHEET}>
@@ -212,6 +232,8 @@ const MODAL_AREA_VISIBLE: CSSProperties = { position: 'sticky', insetBlockStart:
 const MODAL_AREA_BOTTOM: CSSProperties = { justifyContent: 'flex-end' }
 /** Window: `xl` margin on all sides (`modalLayer.center.margin`), centred on both axes. */
 const MODAL_AREA_CENTER: CSSProperties = { alignItems: 'center', justifyContent: 'center', padding: productVar('spacing', 'xl') }
+/** The blur layer has the area of the scrim and catches nothing: a tap beside the layer lands on the scrim above it. */
+const MODAL_BLUR_STYLE: CSSProperties = { position: 'absolute', inset: 0, pointerEvents: 'none' }
 const MODAL_SCRIM_STYLE: CSSProperties = { position: 'absolute', inset: 0, backgroundColor: MODAL_SCRIM }
 /** Sheet: no built-in background (`builtInLook: 'none'`); height follows the content, at most the area. The screen body scrolls inside it, not the sheet itself. */
 const MODAL_SHEET: CSSProperties = { position: 'relative', display: 'flex', flexDirection: 'column', maxBlockSize: '100%', minBlockSize: 0, pointerEvents: 'auto' }

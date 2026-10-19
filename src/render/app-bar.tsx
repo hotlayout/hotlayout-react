@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { BACK_ACTION_TYPE } from '../actions'
 import type { DataScope } from '../data'
 import { APP_BAR_LEADING_MAX_SHARE, appBarActionsOf, appBarDrawnActions, appBarLeadingOf, appBarLeadingShown, titleAlignOf } from '../media-chrome'
+import { titleOnlyWhenScrolled } from '../app-bar-scrolled'
 import { LabelsContext } from '../runtime'
 import type { ScreenLabels } from '../runtime'
 import { cssNumber } from '../sanitize'
@@ -16,6 +17,7 @@ import type { UiNode } from '../types'
 import { NAV_MARK, useWideNavView } from '../wide-nav-view'
 import type { WidthClass } from '../width-class'
 import { AppBarNavContext, ContentMaxContext, LeadingZoneContext, NavModeContext, NavPlaceContext, SafeTopContext, WidthClassContext, useData, useTheme } from './contexts'
+import { BarScrolledContext } from './bar-scrolled'
 import { Glyph } from './icon'
 import { NodeView } from './node-view'
 import { useSpacing, useSpacingMath } from './prop-tokens'
@@ -119,11 +121,16 @@ function leadingZone({ look, who, navView, labels, press }: { readonly look: Bar
   )
 }
 
-function titleZone(look: BarLook, titleStart: boolean): ReactNode {
+/**
+ * `hidden`: the title block is drawn only while the body is scrolled (`titleShown: 'scrolled'`). At
+ * rest it keeps its place, so the zones do not jump, and stays in the accessibility tree as the name
+ * of the screen: `opacity`, not `display` or `visibility`.
+ */
+function titleZone(look: BarLook, titleStart: boolean, hidden: boolean): ReactNode {
   const { title, subtitle, lineGap, titleCss, subtitleCss } = look
   const oneLine: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
   return (
-    <div data-hl-zone="title" style={{ minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: lineGap, textAlign: titleStart ? 'start' : 'center' }}>
+    <div data-hl-zone="title" data-hl-title-rest={hidden ? 'hidden' : undefined} style={{ minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: lineGap, textAlign: titleStart ? 'start' : 'center', ...(hidden ? { opacity: 0 } : {}) }}>
       {/* The line text sits in its own inline element: its width is the natural width of the TEXT whatever the width of the line box (`wide-nav-view.ts`). */}
       <div style={{ ...titleCss, ...oneLine }}>
         <span {...{ [NAV_MARK.titleText]: '' }}>{title}</span>
@@ -190,6 +197,7 @@ function trailingZone({ look, who, navView, navBar }: { readonly look: BarLook; 
 export const AppBarView = screenPart(function AppBarView({ node, props, css: ownCss, text, mark }: WidgetProps): ReactNode {
   const scope = useData()
   const widthClass = useContext(WidthClassContext)
+  const scrolled = useContext(BarScrolledContext)
   const contentMax = useContext(ContentMaxContext)
   /*
    * Navigation items in the app bar (schema 9.18.0): on a wide place the screen root hands the
@@ -223,7 +231,7 @@ export const AppBarView = screenPart(function AppBarView({ node, props, css: own
   const zones = (
     <>
       {leadingZone({ look, who, navView, labels, press })}
-      {titleZone(look, titleStart)}
+      {titleZone(look, titleStart, titleOnlyWhenScrolled(props) && !scrolled)}
       {trailingZone({ look, who, navView, navBar })}
     </>
   )
@@ -236,7 +244,7 @@ export const AppBarView = screenPart(function AppBarView({ node, props, css: own
    */
   if (contentMax !== undefined) {
     return (
-      <header {...mark} data-hl-title-align={titleStart ? 'start' : undefined} style={css}>
+      <header {...mark} data-hl-title-align={titleStart ? 'start' : undefined} data-hl-scrolled={scrolled ? 'true' : undefined} style={css}>
         <div ref={gridRef as RefObject<HTMLDivElement>} data-hl-title-align={titleStart ? 'start' : undefined} data-hl-content="" style={{ ...gridStyle, ...contentColumn(contentMax) }}>
           {zones}
         </div>
@@ -244,7 +252,7 @@ export const AppBarView = screenPart(function AppBarView({ node, props, css: own
     )
   }
   return (
-    <header ref={gridRef} {...mark} data-hl-title-align={titleStart ? 'start' : undefined} style={{ ...gridStyle, ...css }}>
+    <header ref={gridRef} {...mark} data-hl-title-align={titleStart ? 'start' : undefined} data-hl-scrolled={scrolled ? 'true' : undefined} style={{ ...gridStyle, ...css }}>
       {zones}
     </header>
   )

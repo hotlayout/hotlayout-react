@@ -272,18 +272,24 @@ describe('modal screen: WAI-ARIA Dialog (Modal) pattern', () => {
     expect(fireEvent.keyDown(first, { key: 'Tab' })).toBe(true)
   })
 
-  it('a dialog with no controls does not let focus escape', () => {
+  // Changed in 0.25.0: a dialog with nothing to focus no longer swallows Tab by default (WCAG 2.1.2); only the host's `trapFocus` does.
+  it('a dialog with no controls lets Tab leave the package by default and keeps it only with trapFocus', () => {
     const document_ = modalDocument()
     const withLink: UiDocument = {
       ...document_,
       screens: document_.screens.map((entry) => (entry.screenId === 'page' ? { ...entry, root: screenRoot('page-root', [button('open', 'open', { type: 'navigate', params: { screenId: 'empty' } })]) } : entry)),
     }
-    render(<HotlayoutScreen document={withLink} onReport={silent} />)
+    const { unmount } = render(<HotlayoutScreen document={withLink} onReport={silent} />)
     open()
     const dialog = screen.getByRole('dialog', { name: 'Empty' })
     expect(focused()).toBe(dialog)
-    expect(fireEvent.keyDown(dialog, { key: 'Tab' })).toBe(false)
-    expect(focused()).toBe(dialog)
+    expect(fireEvent.keyDown(dialog, { key: 'Tab' })).toBe(true)
+    unmount()
+    render(<HotlayoutScreen document={withLink} onReport={silent} trapFocus />)
+    open()
+    const trapped = screen.getByRole('dialog', { name: 'Empty' })
+    expect(fireEvent.keyDown(trapped, { key: 'Tab' })).toBe(false)
+    expect(focused()).toBe(trapped)
   })
 
   it('Esc closes the dialog with the same `navigate.back`, returns focus to what opened it, and removes inert', () => {

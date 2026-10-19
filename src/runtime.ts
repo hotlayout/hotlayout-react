@@ -9,18 +9,33 @@ import { createContext } from 'react'
 
 import type { ActionSource, HotlayoutAction, TrackEvent } from './actions'
 import type { TextDirection } from './direction'
+import type { HapticWord } from './haptic'
+import type { RecordChain } from './live-record'
+import type { SwipeActionRunner } from './swipe-busy'
 
 /**
  * `insideListItem` says whether the node is drawn inside a `Repeater` instance. It decides which
  * record `navigate` opens the screen with (`record-scope.ts`); the flag is not passed to the
  * host, which gets the record itself in `source.record`.
  */
-export type ActionHandler = (action: HotlayoutAction, source: ActionSource, insideListItem?: boolean, extras?: PressExtras) => void
+export type ActionHandler = (action: HotlayoutAction, source: ActionSource, insideListItem?: boolean, extras?: PressExtras) => PressOutcome | undefined
 
-/** What a press carries besides the action itself (since 9.8.0): the analytics event and the `carryRecord` word. */
+/**
+ * What a press LEARNED about its action (since 9.24.0): who runs it and, for the host, the promise
+ * it returned. The button that drags to confirm stays busy by it (`swipe-busy.ts`).
+ */
+export interface PressOutcome {
+  readonly runner: SwipeActionRunner
+  readonly answer: PromiseLike<unknown> | undefined
+}
+
+/** What a press carries besides the action itself: the analytics event and the `carryRecord` word (since 9.8.0), the haptic request (since 9.25.0). */
 export interface PressExtras {
+  readonly haptic?: HapticWord | undefined
   readonly track?: TrackEvent | undefined
   readonly carryRecord?: boolean | undefined
+  /** The links of the record the node's scope is made of (since 9.27.0): a page opened from a row keeps them, so the record can follow the data. Never handed to the host. */
+  readonly links?: RecordChain | undefined
 }
 
 /** The action handler. Without a host an action goes nowhere, which is not an error. */

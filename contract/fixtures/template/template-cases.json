@@ -336,5 +336,735 @@
     {"name": "the field on a number: ignored, the number is written as before", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "dateParts": "dayMonth"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1850}, "now": "2026-10-10T09:00:00.000Z", "readerOnly": "The builder does not publish the field on a format that does not read it.", "expected": "1,850"},
     {"name": "the field without a format: ignored, the value is shown as it is", "value": {"kind": "binding", "path": "account.lastAt", "fallback": "—", "dateParts": "dayMonth"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"account.lastAt": "2026-10-15T12:00:00.000Z"}, "now": "2026-10-10T09:00:00.000Z", "readerOnly": "The builder does not publish the field without the date format.", "expected": "2026-10-15T12:00:00.000Z"},
     {"name": "the field on daysUntil: ignored, the number of days is written", "value": {"kind": "binding", "path": "account.lastAt", "fallback": "—", "format": "daysUntil", "dateParts": "dayMonth"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"account.lastAt": "2026-10-15T12:00:00.000Z"}, "now": "2026-10-10T09:00:00.000Z", "readerOnly": "The builder does not publish the field on a format that does not read it.", "expected": "6"}
+  ],
+  "countdownNote": "Schema 9.21.0 — a countdown part: «format: countdownPart» with «unit» (days, hours 0–23, minutes 0–59, seconds 0–59) and an optional «pad: 2» (rules: x-countdown). A row of «countdownCases» is a row of «cases»: «now» is the clock of the reader, the moment is in the data. S = floor(max(0, moment - now) / 1000); the parts round DOWN. «expected» is the whole string, character for character. «readerOnly» — a document the builder does not make, and the row says what a reader does with it.",
+  "countdownCases": [
+    {
+      "name": "days: whole days left",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "days"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "2"
+    },
+    {
+      "name": "hours: 0–23 after the whole days",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "hours"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "14"
+    },
+    {
+      "name": "minutes: 0–59 after the whole hours",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "minutes"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "5"
+    },
+    {
+      "name": "minutes with pad 2: a zero in front",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "minutes",
+        "pad": 2
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "05"
+    },
+    {
+      "name": "seconds: 0–59",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "seconds"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "9"
+    },
+    {
+      "name": "seconds with pad 2",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "seconds",
+        "pad": 2
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "09"
+    },
+    {
+      "name": "pad 2 does not cut a longer number",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "hours",
+        "pad": 2
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "14"
+    },
+    {
+      "name": "the sentence is the template: order and words belong to the translation",
+      "value": {
+        "kind": "template",
+        "template": "{d} d {h} h {m} min {s} s",
+        "values": {
+          "d": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "days"
+          },
+          "h": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "hours"
+          },
+          "m": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "minutes",
+            "pad": 2
+          },
+          "s": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "seconds",
+            "pad": 2
+          }
+        }
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "2 d 14 h 05 min 09 s"
+    },
+    {
+      "name": "Ukrainian words and a plural word agree with the days part",
+      "value": {
+        "kind": "template",
+        "template": "{d} {dw} {h} год {m} хв",
+        "values": {
+          "d": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "days"
+          },
+          "dw": {
+            "kind": "plural",
+            "of": "d",
+            "forms": {
+              "one": "день",
+              "few": "дні",
+              "many": "днів",
+              "other": "дня"
+            }
+          },
+          "h": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "hours"
+          },
+          "m": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "minutes",
+            "pad": 2
+          }
+        }
+      },
+      "sourceLocale": "uk",
+      "translationLocale": "uk",
+      "formattingLocale": "uk",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "2 дні 14 год 05 хв"
+    },
+    {
+      "name": "the plural word agrees with the hours part",
+      "value": {
+        "kind": "template",
+        "template": "{h} {hw} left",
+        "values": {
+          "h": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "hours"
+          },
+          "hw": {
+            "kind": "plural",
+            "of": "h",
+            "forms": {
+              "one": "hour",
+              "other": "hours"
+            }
+          }
+        }
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "14 hours left"
+    },
+    {
+      "name": "one hour: «one» form",
+      "value": {
+        "kind": "template",
+        "template": "{h} {hw} left",
+        "values": {
+          "h": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "hours"
+          },
+          "hw": {
+            "kind": "plural",
+            "of": "h",
+            "forms": {
+              "one": "hour",
+              "other": "hours"
+            }
+          }
+        }
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-10T10:30:00.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "1 hour left"
+    },
+    {
+      "name": "rounding is DOWN: 59 min 59 s is 0 hours",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "hours"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-10T09:59:59.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "0"
+    },
+    {
+      "name": "rounding is DOWN: 999 ms is 0 seconds",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "seconds"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-10T09:00:00.999Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "0"
+    },
+    {
+      "name": "one second and a millisecond is 1 second",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "seconds"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-10T09:00:01.001Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "1"
+    },
+    {
+      "name": "26 hours: 1 day and 2 hours (hours wrap at 24)",
+      "value": {
+        "kind": "template",
+        "template": "{d}/{h}",
+        "values": {
+          "d": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "days"
+          },
+          "h": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "hours"
+          }
+        }
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-11T11:00:00.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "1/2"
+    },
+    {
+      "name": "61 seconds: 1 minute and 1 second (seconds wrap at 60)",
+      "value": {
+        "kind": "template",
+        "template": "{m}:{s}",
+        "values": {
+          "m": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "minutes"
+          },
+          "s": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "seconds",
+            "pad": 2
+          }
+        }
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-10T09:01:01.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "1:01"
+    },
+    {
+      "name": "exactly now: zero",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "seconds",
+        "pad": 2
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-10T09:00:00.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "00"
+    },
+    {
+      "name": "a past moment: every part is zero, not a minus",
+      "value": {
+        "kind": "template",
+        "template": "{d} d {h} h {m} min {s} s",
+        "values": {
+          "d": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "days"
+          },
+          "h": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "hours"
+          },
+          "m": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "minutes",
+            "pad": 2
+          },
+          "s": {
+            "kind": "binding",
+            "path": "offer.endsAt",
+            "fallback": "—",
+            "format": "countdownPart",
+            "unit": "seconds",
+            "pad": 2
+          }
+        }
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-09T00:00:00.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "0 d 0 h 00 min 00 s"
+    },
+    {
+      "name": "a zone offset in the data changes the moment, not the parts rule",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "hours"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000+02:00"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "12"
+    },
+    {
+      "name": "days are written like «number»: groups (en)",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "days"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2030-02-25T09:00:00.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "1,234"
+    },
+    {
+      "name": "days are written like «number»: groups (es)",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "days"
+      },
+      "sourceLocale": "es",
+      "translationLocale": "es",
+      "formattingLocale": "es",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2030-02-25T09:00:00.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "1.234"
+    },
+    {
+      "name": "Arabic digits of the formatting locale, with pad",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "minutes",
+        "pad": 2
+      },
+      "sourceLocale": "en",
+      "translationLocale": "ar",
+      "formattingLocale": "ar-EG",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "mayDiffer": "Digits come from the CLDR data of the platform; `ar-EG` is Arabic-Indic everywhere we looked.",
+      "expected": "٠٥"
+    },
+    {
+      "name": "no data: the fallback, never formatted",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "hours"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {},
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "—"
+    },
+    {
+      "name": "not a date: the value as it is",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "hours"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "soon"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "soon"
+    },
+    {
+      "name": "a date without a zone is not a date: the value as it is",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "hours"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "2026-10-12T23:05:09"
+    },
+    {
+      "name": "without «unit» the format does not apply: the value as it is",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "2026-10-12T23:05:09.000Z",
+      "readerOnly": "the validator rejects it (countdown_unit_required)"
+    },
+    {
+      "name": "an unknown unit is no unit: the value as it is",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "countdownPart",
+        "unit": "weeks"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "2026-10-12T23:05:09.000Z",
+      "readerOnly": "the schema rejects the word"
+    },
+    {
+      "name": "«unit» on another format is not read",
+      "value": {
+        "kind": "binding",
+        "path": "offer.endsAt",
+        "fallback": "—",
+        "format": "date",
+        "unit": "hours"
+      },
+      "sourceLocale": "en",
+      "translationLocale": "en",
+      "formattingLocale": "en",
+      "translations": {},
+      "data": {
+        "offer.endsAt": "2026-10-12T23:05:09.000Z"
+      },
+      "now": "2026-10-10T09:00:00.000Z",
+      "expected": "Oct 12, 2026",
+      "readerOnly": "the validator rejects it (binding_look_field_unused)",
+      "timeZone": "UTC"
+    }
+  ],
+  "compactNote": "Schema 9.23.0 — a compact number: «notation: compact» beside «format: number» (rules: x-compactNumber). A row of «compactCases» is a row of «cases». Below 1 000 the number is written as «number» writes it; otherwise the magnitude divided by the largest step not above it (thousand, million, billion), one fraction digit, half up (the magnitude, so a negative number rounds away from zero), the trailing zero dropped, a mantissa that reaches 1 000 written with the next step. The suffix comes from a closed table by the first subtag of the formatting locale — «en»: K, M, B with no gap; «uk»: «тис.», «млн», «млрд» after U+00A0; any other language: the «en» suffixes. The decimal separator and the digits are those of the formatting locale. A plural word agrees with the FULL value. «expected» is the whole string, character for character; U+00A0, U+2066, U+2069 and U+2212 are written as escapes.",
+  "compactCases": [
+    {"name": "below the first step: every digit", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 999}, "now": "2026-10-10T09:00:00.000Z", "expected": "999"},
+    {"name": "the first step: 1000 is 1K, the trailing zero dropped", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1000}, "now": "2026-10-10T09:00:00.000Z", "expected": "1K"},
+    {"name": "half up: 1050 is 1.1K", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1050}, "now": "2026-10-10T09:00:00.000Z", "expected": "1.1K"},
+    {"name": "one fraction digit", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1200}, "now": "2026-10-10T09:00:00.000Z", "expected": "1.2K"},
+    {"name": "the sample of the design: 48.2K", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "48.2K"},
+    {"name": "below the half: down", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 48249}, "now": "2026-10-10T09:00:00.000Z", "expected": "48.2K"},
+    {"name": "exactly the half: up", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 48250}, "now": "2026-10-10T09:00:00.000Z", "expected": "48.3K"},
+    {"name": "just below the next step", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 999949}, "now": "2026-10-10T09:00:00.000Z", "expected": "999.9K"},
+    {"name": "rounded to 1000K: written with the next step", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 999950}, "now": "2026-10-10T09:00:00.000Z", "expected": "1M"},
+    {"name": "a million", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1000000}, "now": "2026-10-10T09:00:00.000Z", "expected": "1M"},
+    {"name": "millions with a fraction digit", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 12500000}, "now": "2026-10-10T09:00:00.000Z", "expected": "12.5M"},
+    {"name": "billions", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1234567890}, "now": "2026-10-10T09:00:00.000Z", "expected": "1.2B"},
+    {"name": "beyond the last step: billions with groups", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1000000000000}, "now": "2026-10-10T09:00:00.000Z", "expected": "1,000B"},
+    {"name": "negative: the minus the platform writes", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": -48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "-48.2K"},
+    {"name": "negative below the step: every digit", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": -999}, "now": "2026-10-10T09:00:00.000Z", "expected": "-999"},
+    {"name": "zero", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 0}, "now": "2026-10-10T09:00:00.000Z", "expected": "0"},
+    {"name": "a fraction below the step: as the number format", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 999.6}, "now": "2026-10-10T09:00:00.000Z", "expected": "999.6"},
+    {"name": "a fraction above the step: rounded", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1000.4}, "now": "2026-10-10T09:00:00.000Z", "expected": "1K"},
+    {"name": "sign always: plus before the compact number", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact", "sign": "always"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "+48.2K"},
+    {"name": "sign always, negative: U+2212, the magnitude rounded half up", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact", "sign": "always"}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": -48250}, "now": "2026-10-10T09:00:00.000Z", "expected": "\u221248.3K"},
+    {"name": "uk: below the step", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {}, "data": {"user.points": 999}, "now": "2026-10-10T09:00:00.000Z", "expected": "999"},
+    {"name": "uk: thousands — the Ukrainian thousands suffix after U+00A0", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {}, "data": {"user.points": 1000}, "now": "2026-10-10T09:00:00.000Z", "expected": "1\u00A0тис."},
+    {"name": "uk: the decimal comma of the language", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "48,2\u00A0тис."},
+    {"name": "uk: rounded to the next step", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {}, "data": {"user.points": 999950}, "now": "2026-10-10T09:00:00.000Z", "expected": "1\u00A0млн"},
+    {"name": "uk: millions", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {}, "data": {"user.points": 12500000}, "now": "2026-10-10T09:00:00.000Z", "expected": "12,5\u00A0млн"},
+    {"name": "uk: billions", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {}, "data": {"user.points": 1234567890}, "now": "2026-10-10T09:00:00.000Z", "expected": "1,2\u00A0млрд"},
+    {"name": "uk: beyond the last step, groups of the language", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {}, "data": {"user.points": 1000000000000}, "now": "2026-10-10T09:00:00.000Z", "expected": "1\u00A0000\u00A0млрд"},
+    {"name": "uk: negative", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {}, "data": {"user.points": -48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "-48,2\u00A0тис."},
+    {"name": "uk: sign always", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact", "sign": "always"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "+48,2\u00A0тис."},
+    {"name": "uk-UA: the suffix language is the first subtag", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk-UA", "translations": {}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "48,2\u00A0тис."},
+    {"name": "ar: no table of its own — the English suffix", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "ar", "formattingLocale": "ar", "direction": "rtl", "translations": {}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "48.2K"},
+    {"name": "ar-EG: the digits of the locale, the English suffix", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "ar", "formattingLocale": "ar-EG", "direction": "rtl", "translations": {}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "٤٨٫٢K"},
+    {"name": "ar-EG: below the step", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "ar", "formattingLocale": "ar-EG", "direction": "rtl", "translations": {}, "data": {"user.points": 999}, "now": "2026-10-10T09:00:00.000Z", "expected": "٩٩٩"},
+    {"name": "ar-EG: sign always — the composed form isolated in right-to-left text", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact", "sign": "always"}, "sourceLocale": "en", "translationLocale": "ar", "formattingLocale": "ar-EG", "direction": "rtl", "translations": {}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "\u2066+٤٨٫٢K\u2069"},
+    {"name": "de: the decimal comma, the English suffix", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "de", "formattingLocale": "de", "translations": {}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "48,2K"},
+    {"name": "fr: millions", "value": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "sourceLocale": "en", "translationLocale": "fr", "formattingLocale": "fr", "translations": {}, "data": {"user.points": 1500000}, "now": "2026-10-10T09:00:00.000Z", "expected": "1,5M"},
+    {"name": "plural uk: agrees with the full value 48200 (many), not with 48,2", "value": {"kind": "template", "template": "{count} {unit}", "values": {"count": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "unit": {"kind": "plural", "of": "count", "forms": {"one": "point", "other": "points"}}}}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {"template": "{count} {unit}", "values.unit.forms.one": "бал", "values.unit.forms.few": "бали", "values.unit.forms.many": "балів", "values.unit.forms.other": "бала"}, "data": {"user.points": 48200}, "now": "2026-10-10T09:00:00.000Z", "expected": "48,2\u00A0тис. балів"},
+    {"name": "plural uk: 1000 is many, not one", "value": {"kind": "template", "template": "{count} {unit}", "values": {"count": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "unit": {"kind": "plural", "of": "count", "forms": {"one": "point", "other": "points"}}}}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {"template": "{count} {unit}", "values.unit.forms.one": "бал", "values.unit.forms.few": "бали", "values.unit.forms.many": "балів", "values.unit.forms.other": "бала"}, "data": {"user.points": 1000}, "now": "2026-10-10T09:00:00.000Z", "expected": "1\u00A0тис. балів"},
+    {"name": "plural uk: 1001 is one — the full value decides", "value": {"kind": "template", "template": "{count} {unit}", "values": {"count": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "unit": {"kind": "plural", "of": "count", "forms": {"one": "point", "other": "points"}}}}, "sourceLocale": "en", "translationLocale": "uk", "formattingLocale": "uk", "translations": {"template": "{count} {unit}", "values.unit.forms.one": "бал", "values.unit.forms.few": "бали", "values.unit.forms.many": "балів", "values.unit.forms.other": "бала"}, "data": {"user.points": 1001}, "now": "2026-10-10T09:00:00.000Z", "expected": "1\u00A0тис. бал"},
+    {"name": "plural en: 1000 is other", "value": {"kind": "template", "template": "{count} {unit}", "values": {"count": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "unit": {"kind": "plural", "of": "count", "forms": {"one": "point", "other": "points"}}}}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1000}, "now": "2026-10-10T09:00:00.000Z", "expected": "1K points"},
+    {"name": "plural en: below the step, one", "value": {"kind": "template", "template": "{count} {unit}", "values": {"count": {"kind": "binding", "path": "user.points", "fallback": "0", "format": "number", "notation": "compact"}, "unit": {"kind": "plural", "of": "count", "forms": {"one": "point", "other": "points"}}}}, "sourceLocale": "en", "translationLocale": "en", "formattingLocale": "en", "translations": {}, "data": {"user.points": 1}, "now": "2026-10-10T09:00:00.000Z", "expected": "1 point"}
   ]
 }

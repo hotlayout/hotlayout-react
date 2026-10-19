@@ -968,7 +968,13 @@ describe('style isolation and the public entry', () => {
     expect(root.hasAttribute('data-hotlayout')).toBe(true)
     expect(root.querySelector('style')?.textContent).toBe(HOTLAYOUT_CSS)
     // Every selector starts with the root boundary: nothing leaks outward.
-    for (const line of HOTLAYOUT_CSS.split('\n')) expect(line.startsWith('[data-hotlayout]:not(#hl-none) ')).toBe(true)
+    // The only exceptions are the at-rules of motion, whose names carry the package prefix (a name cannot be scoped by a selector) or whose body is scoped itself.
+    const scoped = (line: string): boolean =>
+      line.startsWith('[data-hotlayout]:not(#hl-none) ') ||
+      line.startsWith('@property --hl-') ||
+      line.startsWith('@keyframes hl-') ||
+      line.startsWith('@media (prefers-reduced-motion:reduce){[data-hotlayout]:not(#hl-none) ')
+    for (const line of HOTLAYOUT_CSS.split('\n')) expect(scoped(line), line).toBe(true)
     // ...and only inside the package's OWN root: `:is()` would match every argument, including a host element.
     expect(HOTLAYOUT_CSS).not.toMatch(/:is\(|:where\(/)
     expect(globalThis.document.head.querySelector('style')).toBeNull()

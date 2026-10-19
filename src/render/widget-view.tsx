@@ -12,6 +12,7 @@ import { ColumnView, ContainerView, DividerView, RowView, SpacerView } from './l
 import { ListTileView } from './list-tile'
 import { NavBarView, NavItemView } from './nav-bar'
 import { usePressHost } from './press-host'
+import { LongPressContext, useLongPress } from './use-long-press'
 import { CircularProgressView, ProgressBarView } from './progress'
 import { RepeaterView } from './repeater'
 import { ScreenRootView } from './screen-root'
@@ -133,6 +134,9 @@ function contentWidget(widget: WidgetProps): ReactNode {
 
 export const WidgetView = screenPart(function WidgetView(given: WidgetProps): ReactNode {
   // A container with an action (schema 9.19.0) is a pressable container: the role, focus and keyboard go on its root element.
-  const widget = usePressHost(given)
-  return layoutWidget(widget) ?? contentWidget(widget)
+  const long = useLongPress(given.node, given.props)
+  const widget = usePressHost({ ...given, long })
+  const view = layoutWidget(widget) ?? contentWidget(widget)
+  // The hidden name of the long press is drawn inside the node by `PressLabel`; the context tells it whose it is.
+  return long === undefined ? view : <LongPressContext.Provider value={long}>{view}</LongPressContext.Provider>
 })

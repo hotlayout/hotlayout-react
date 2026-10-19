@@ -1,9 +1,12 @@
 /** The box of a node: its `style` (spacing, size, radius, border, background, shadow, opacity) as CSS. */
 import { valueAt } from './data'
 import type { DataScope } from './data'
+import { backdropBlurOf, backdropFilterCss } from './backdrop-blur'
+import { borderStyleOf } from './border-dash'
 import { DEFAULT_IMAGES } from './images'
 import type { ImagePolicy } from './images'
-import { clampLiteral, colorCss, gradientCss, optionalLiteral, radiusCss, shadowCss, spacingCss } from './resolve'
+import { tintedShadowCss } from './shadow-color'
+import { clampLiteral, colorCss, colorLiteral, gradientCss, optionalLiteral, radiusCss, shadowCss, spacingCss } from './resolve'
 import { cssNumber, isRecord, safeIdent } from './sanitize'
 import type { Css } from './style'
 import { productVar } from './theme'
@@ -102,7 +105,17 @@ export function borderCss(border: unknown, theme: Theme): Css {
   const color = colorCss(border.color, theme)
   // A color that did not resolve means NO border, not a "transparent border": a transparent one
   // would still eat layout pixels.
-  return color === undefined ? {} : { border: `${cssNumber(clampLiteral(border.width, 'borderWidth'))}px solid ${color}` }
+  if (color === undefined) return {}
+  // A dashed border keeps its room as a TRANSPARENT solid one; the dashes are an image over the box (`border-dash.ts`).
+  return { border: `${cssNumber(clampLiteral(border.width, 'borderWidth'))}px solid ${borderStyleOf(border) === 'dashed' ? 'transparent' : color}` }
+}
+
+/** The line of a dashed border as the box needs it: the width and a literal colour; `undefined` for a solid or an unresolved border. */
+export function dashedBorderOf(border: unknown, theme: Theme): { readonly width: number; readonly color: string } | undefined {
+  if (!isRecord(border) || border.width === undefined || borderStyleOf(border) !== 'dashed') return undefined
+  const color = colorLiteral(border.color, theme)
+  const width = clampLiteral(border.width, 'borderWidth')
+  return color === undefined || !(width > 0) ? undefined : { width, color }
 }
 
 /**
@@ -198,6 +211,27 @@ export function constrainSize(size: number | undefined, min: number | undefined,
 const px = (value: number): string => `${cssNumber(value)}px`
 
 /**
+ * What is painted over the whole box: `opacity` and the glass.
+ *
+ * Opacity applies to background, border, shadow and content TOGETHER (`x-style.opacityAppliesTo`):
+ * exactly what `opacity` does in CSS. An explicit `null` in an optional numeric field is a MISSING
+ * field (`nullNumericField: 'absent'`), not the lower bound: otherwise the node would become invisible.
+ *
+ * GLASS (9.20.0, `x-backdropBlur.style`): the blur of what is painted under the box, clipped by the
+ * radius of this same box. On a button, an icon button and a badge the box IS the surface of the role
+ * (one element carries the background and the radius), so no special place is needed. The node's own
+ * background lies over the blur; the node and its children stay sharp. Not inherited.
+ */
+function effectsCss(style: NodeStyle, glass: boolean): Css {
+  const css: Css = {}
+  const opacity = optionalLiteral(style.opacity, 'opacity')
+  if (opacity !== undefined) css.opacity = opacity
+  const blur = glass ? backdropBlurOf(style.backdropBlur) : undefined
+  if (blur !== undefined) Object.assign(css, backdropFilterCss(blur))
+  return css
+}
+
+/**
  * BOX MODEL, one for all node types.
  *
  *     margin -> [ box: size, background, border, radius, shadow, opacity ] -> padding -> content
@@ -251,15 +285,11 @@ export function boxCss(style: NodeStyle | undefined, theme: Theme, scope: DataSc
   if (has('border')) Object.assign(css, borderCss(style.border, theme))
   if (has('background')) Object.assign(css, backgroundCss(style.background, theme, scope, images))
   if (has('shadow')) {
-    const shadow = shadowCss(style.shadow, theme)
+    // `shadowColor: 'background'` (9.25.0): the layers take the hue of the node's own background.
+    const shadow = tintedShadowCss(style, theme) ?? shadowCss(style.shadow, theme)
     if (shadow !== undefined) css.boxShadow = shadow
   }
-  // Opacity applies to background, border, shadow and content TOGETHER
-  // (`x-style.opacityAppliesTo`): exactly what `opacity` does in CSS.
-  // An explicit `null` in an optional numeric field is a MISSING field (`nullNumericField:
-  // 'absent'`), not the lower bound: otherwise the node would become invisible.
-  const opacity = optionalLiteral(style.opacity, 'opacity')
-  if (opacity !== undefined) css.opacity = opacity
+  Object.assign(css, effectsCss(style, has('backdropBlur')))
 
   return css
 }

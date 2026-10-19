@@ -1,6 +1,6 @@
 /** README examples: actions, navigation, passing a record to a details screen. */
 import { HotlayoutScreen, openInNewTab, runStandardAction } from '@hotlayout/react'
-import type { ActionSource, DataScope, HotlayoutAction, UiDocument } from '@hotlayout/react'
+import type { ActionSource, DataScope, HapticWord, HotlayoutAction, UiDocument } from '@hotlayout/react'
 
 declare function redeem(offerId: string | undefined): Promise<void>
 declare const router: { push: (path: string) => void }
@@ -111,6 +111,43 @@ export function Catalog({ layout, shared, items, onRedeem }: { layout: UiDocumen
         // Pressed in a list row: that row. Pressed on a screen opened from a row: that row too.
         const itemId = source.record?.['item.id']
         if (action.type === 'submit' && typeof itemId === 'string') onRedeem(itemId)
+      }}
+    />
+  )
+}
+// #endregion
+
+// #region busy-swipe
+// The thumb of a drag-to-confirm button waits here: it stays busy until the promise settles.
+async function redeemAndWait(action: HotlayoutAction, source: ActionSource): Promise<void> {
+  const offerId = source.record?.['offer.id']
+  await redeem(typeof offerId === 'string' ? offerId : action.params?.offerId)
+}
+// #endregion
+
+export function WithBusySwipe({ layout }: { layout: UiDocument }) {
+  return <HotlayoutScreen document={layout} onAction={redeemAndWait} />
+}
+
+// #region haptic
+// One call per press that asks for it, before `onTrack` and the action. The renderer vibrates nothing itself.
+const PATTERNS: Readonly<Record<HapticWord, number | number[]>> = {
+  light: 8,
+  medium: 16,
+  heavy: 28,
+  selection: 6,
+  success: [10, 40, 10],
+  warning: [24, 60, 24],
+}
+
+export function WithHaptics({ layout }: { layout: UiDocument }) {
+  return (
+    <HotlayoutScreen
+      document={layout}
+      onAction={handleAction}
+      onHaptic={(kind) => {
+        // Not every browser can: `vibrate` is absent on iOS Safari, and the user may have turned vibration off.
+        if ('vibrate' in navigator) navigator.vibrate(PATTERNS[kind])
       }}
     />
   )

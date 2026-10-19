@@ -23,22 +23,30 @@
  *  - There is no pressed state, no disabled state and no minimum target: the target is the
  *    box of the card.
  */
+import { useContext } from 'react'
 import type { CSSProperties, HTMLAttributes, KeyboardEvent, MouseEvent, ReactNode } from 'react'
 
 import { actionOf, INERT_ACTION_TYPE } from '../actions'
-import { preparePress } from '../press'
+import { carriesTrack } from '../press'
+import { pressFeedbackKindOf } from '../press-feedback'
 import { isRecord } from '../sanitize'
 import { shownTextOf } from '../shown-text'
 import { FOCUSABLE_CLASS } from '../styles'
 import type { UiNode } from '../types'
+import { controlUnder } from './control-under'
+import { LongPressContext, LongPressNote, longPressActionOf, withLongPress } from './use-long-press'
 import { useDocumentAction, usePress } from './use-press'
+import { pressFeedbackProps } from './use-press-feedback'
 import { useText } from './use-text'
 import type { WidgetProps } from './widget-props'
 import { useWriteSemantics } from './choice'
 import { screenPart } from './screen-part'
 
 /** The attributes a pressable container adds to its root element. */
-export type PressAttributes = Pick<HTMLAttributes<HTMLElement>, 'role' | 'tabIndex' | 'className' | 'onClick' | 'onKeyDown'> & { readonly 'data-hl-press'?: string }
+export type PressAttributes = Pick<
+  HTMLAttributes<HTMLElement>,
+  'role' | 'tabIndex' | 'className' | 'onClick' | 'onKeyDown' | 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel' | 'onPointerLeave' | 'onContextMenu' | 'aria-describedby' | 'aria-keyshortcuts'
+> & { readonly 'data-hl-press'?: string }
 
 /** `x-style.layout.composition.pressable`, the part a reader needs, mirrored (a test compares it with the artifact). */
 export const COMPOSITION_RULES = {
@@ -99,11 +107,6 @@ export const COMPOSITION_RULES = {
 /** The four containers that can be pressable. */
 const PRESSABLE_TYPES: readonly string[] = ['Column', 'Row', 'Container', 'Stack']
 
-/** Whether the action carries analytics that the press sends: the same check as the press itself makes (a `track` of a wrong shape is ignored whole). */
-function carriesTrack(action: { readonly type: string }): boolean {
-  return preparePress(action, () => undefined, () => undefined, '').track !== undefined
-}
-
 /**
  * The action of a pressable container, or `undefined` if the node is not one: not one of the
  * four types, no action, or an action `none` without analytics.
@@ -114,35 +117,18 @@ export function pressActionOf(node: UiNode, action: { readonly type: string } | 
 }
 
 /**
- * Elements that take a press by themselves, found by what they are in the markup. The card
- * itself matches (`role="button"`); the walk below stops at the first match.
- */
-const CONTROL_SELECTOR = 'button, a[href], input, textarea, select, [role="button"], [role="radio"], [role="tab"], [role="tablist"], [role="switch"], [role="checkbox"]'
-/** An input widget takes the press with its whole box, label and note included. */
-const CONTROL_TYPES: readonly string[] = ['TextField', 'Switch', 'Checkbox']
-
-/** The innermost control between the target and the card (the card itself when there is none). */
-function controlUnder(target: EventTarget | null, card: HTMLElement): Element {
-  let element = target instanceof Element ? target : null
-  while (element !== null && element !== card) {
-    if (element.matches(CONTROL_SELECTOR) || CONTROL_TYPES.includes(element.getAttribute('data-hl-type') ?? '')) return element
-    element = element.parentElement
-  }
-  return card
-}
-
-/**
  * The widget with the attributes of a pressable container, if it is one; otherwise the very
  * same object. Hooks run in every case (the order of hooks cannot depend on the document).
  */
 export function usePressHost(widget: WidgetProps): WidgetProps {
-  const { node, props } = widget
+  const { node, props, long } = widget
   const container = PRESSABLE_TYPES.includes(node.type)
   const action = pressActionOf(node, useDocumentAction(container ? props.action : undefined, node.id))
   const press = usePress(action, node.id)
   // A card with a write action is an option or a toggle of its own (9.19.0), with a state; its role replaces `button`.
   const semantics = useWriteSemantics(action, widget.choice)
-  if (press === undefined) return widget
+  // A container with only a long press is a control too (9.26.0): it is focusable and named, and its click does nothing.
+  if (!container || (press === undefined && long === undefined)) return widget
 
   const attributes: PressAttributes = {
     role: 'button',
@@ -150,17 +136,24 @@ export function usePressHost(widget: WidgetProps): WidgetProps {
     className: FOCUSABLE_CLASS,
     'data-hl-press': '',
     onClick: (event: MouseEvent<HTMLElement>) => {
-      if (controlUnder(event.target, event.currentTarget) === event.currentTarget) press()
+      // The click after a long press is not a press.
+      if (long?.swallowClick(event) === true) return
+      if (controlUnder(event.target, event.currentTarget) === event.currentTarget) press?.()
     },
     onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
       // A key pressed on a control inside is that control's.
-      if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
+      if (event.target !== event.currentTarget) return
+      // The context menu key and Shift+F10 are the long press, at once.
+      if (long?.runFromKey(event) === true) return
+      if (press === undefined || (event.key !== 'Enter' && event.key !== ' ')) return
       event.preventDefault()
       // A held key is ONE press, not one per auto-repeat.
       if (!event.repeat) press()
     },
   }
-  return { ...widget, css: { cursor: 'pointer', ...widget.css }, mark: { ...widget.mark, ...attributes, ...semantics } }
+  // The pressed look (9.25.0): the card answers the finger unless it said `pressFeedback: 'none'`.
+  const feedback = withLongPress(pressFeedbackProps(pressFeedbackKindOf(node, { disabled: false, swipe: false })), long)
+  return { ...widget, css: { cursor: 'pointer', ...long?.look, ...widget.css }, mark: { ...widget.mark, ...attributes, ...long?.attributes, ...feedback, ...semantics } }
 }
 
 /** A text only assistive technology reads; it takes no room and cannot be hit. */
@@ -172,11 +165,19 @@ const VISUALLY_HIDDEN: CSSProperties = { position: 'absolute', inlineSize: 1, bl
  */
 export const PressLabel = screenPart(function PressLabel({ node }: { readonly node: UiNode }): ReactNode {
   const label = useText(isRecord(node.props) ? node.props.label : undefined, 'label')
-  const live = pressActionOf(node, actionOf(isRecord(node.props) ? node.props.action : undefined)) !== undefined
+  const long = useContext(LongPressContext)
+  const pressable = pressActionOf(node, actionOf(isRecord(node.props) ? node.props.action : undefined)) !== undefined
+  // A container with only a long press is pressable too: its name is drawn the same way.
+  const withLong = longPressActionOf(node) !== undefined
   const shown = shownTextOf(label)
-  return live && shown !== '' ? (
-    <span data-hl-press-label="" style={VISUALLY_HIDDEN}>
-      {shown}
-    </span>
-  ) : null
+  return (
+    <>
+      {(pressable || withLong) && shown !== '' ? (
+        <span data-hl-press-label="" style={VISUALLY_HIDDEN}>
+          {shown}
+        </span>
+      ) : null}
+      {withLong ? <LongPressNote long={long} /> : null}
+    </>
+  )
 })

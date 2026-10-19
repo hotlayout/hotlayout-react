@@ -79,10 +79,10 @@ export interface WritePress {
  * what lies under the path NOW (the scope of the node, so the session and the record count): the same
  * value is not written again. A path the host's gate refuses is reported by the write itself.
  */
-export function pressWriteAction(action: { readonly type: string; readonly params?: unknown; readonly track?: unknown }, press: WritePress): void {
-  // `paramBindings` and `carryRecord` of a write action are never read: only the event of `track` is taken from the action.
-  const prepared = preparePress({ type: 'none', track: action.track } as { readonly type: string }, () => undefined, press.report, press.source.nodeId)
-  if (prepared.track !== undefined) press.dispatch({ type: 'none' }, press.source, press.insideListItem, { track: prepared.track })
+export function pressWriteAction(action: { readonly type: string; readonly params?: unknown; readonly track?: unknown; readonly haptic?: unknown }, press: WritePress): void {
+  // `paramBindings` and `carryRecord` of a write action are never read: only the haptic request and the event of `track` are taken from the action.
+  const prepared = preparePress({ type: 'none', track: action.track, haptic: action.haptic } as { readonly type: string }, () => undefined, press.report, press.source.nodeId)
+  if (prepared.track !== undefined || prepared.haptic !== undefined) press.dispatch({ type: 'none' }, press.source, press.insideListItem, { track: prepared.track, haptic: prepared.haptic })
   const step = writeStepOf(action, (path) => valueAt(press.scope, path))
   if (step === undefined) return
   if (step.kind === 'invalid') {

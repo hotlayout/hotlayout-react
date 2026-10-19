@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { BACK_ACTION_TYPE } from '../actions'
 import type { HotlayoutReport, HotlayoutScreenProps } from '../HotlayoutScreen'
 import { modalPlacementOf } from '../media-chrome'
+import { isDismissible } from '../sheet-dismiss'
 import { CarouselMemoryContext, ScreenView } from '../render'
 import type { CarouselMemory, ScreenViewProps } from '../render'
 import type { ScreenAnatomy } from '../render/contexts'
@@ -56,7 +57,7 @@ export function incompatibleRoot({
 /** What every layer of one render shares. */
 export interface LayerEnv {
   /** The props of `ScreenView` that are the same for every screen of the stack. */
-  readonly screenProps: Omit<ScreenViewProps, 'screenId' | 'root' | 'widthClass' | 'record' | 'anatomy'>
+  readonly screenProps: Omit<ScreenViewProps, 'screenId' | 'root' | 'widthClass' | 'record' | 'links' | 'anatomy'>
   /** The index of the lowest drawn frame: the highest page of the stack. */
   readonly base: number
   readonly widthClass: WidthClass
@@ -73,7 +74,7 @@ export interface LayerEnv {
 }
 
 /** One drawn frame of the stack: the page, or a modal layer over it. */
-export function stackLayer(env: LayerEnv, { screen, record }: ShownFrame, offset: number): ReactNode {
+export function stackLayer(env: LayerEnv, { screen, record, links }: ShownFrame, offset: number): ReactNode {
   const { screenProps, base, widthClass, anatomy, resolved, renderError, flowKey, issues, deliver, memoryFor, sectionSuffix, current, handleAction } = env
   const index = Math.max(base, 0) + offset
   const isModal = offset > 0
@@ -86,6 +87,7 @@ export function stackLayer(env: LayerEnv, { screen, record }: ShownFrame, offset
       root={screen.root}
       widthClass={isModal ? modalContentWidthClass(screen.modalPlacement, widthClass) : widthClass}
       record={record}
+      links={links}
       anatomy={isModal ? { ...anatomy, modal: true, windowed: shape !== 'sheet', sheetWindow: shape === 'sheetWindow' } : anatomy}
     />
   )
@@ -135,6 +137,9 @@ export function stackLayer(env: LayerEnv, { screen, record }: ShownFrame, offset
       shape={shape}
       theme={resolved.theme}
       ownHeight={anatomy.scroll === 'screen'}
+      backdropBlur={screen.backdropBlur}
+      dismissible={isDismissible(screen)}
+      trapFocus={anatomy.trapFocus === true}
       onDismiss={() => {
         // The scrim and Esc are `navigate.back`, not a separate action: a second way back would drift apart from the first.
         handleAction({ type: BACK_ACTION_TYPE }, record === undefined ? { nodeId: rootIdOf(screen), screenId: screen.screenId } : { nodeId: rootIdOf(screen), screenId: screen.screenId, record })

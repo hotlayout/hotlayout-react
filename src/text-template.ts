@@ -337,7 +337,7 @@ function countOf(binding: Readonly<Record<string, unknown>>, environment: TextEn
   }
   // An unknown format yields no number: the reader does not know what the value becomes under it.
   if (binding.format !== undefined && !(COUNTABLE_FORMATS as readonly unknown[]).includes(binding.format)) return undefined
-  return numericBoundValue(raw, binding.format, environment.now)
+  return numericBoundValue(raw, binding.format, environment.now, binding.unit)
 }
 
 /* ─────────────────────────── the reader's "now" ─────────────────────────── */

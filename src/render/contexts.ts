@@ -10,6 +10,7 @@ import type { ImagePolicy } from '../images'
 import { DEFAULT_IMAGES } from '../images'
 import type { LocaleResolution } from '../locale'
 import type { ReaderLayer } from '../layer-placement'
+import type { RecordChain } from '../live-record'
 import { safeBottomInset } from '../sanitize'
 import { NO_SAFE_TOP, safeTopInset } from '../screen-top'
 import type { IssueSink } from '../shape'
@@ -38,6 +39,8 @@ export interface RecordPlace {
   readonly record: DataScope | undefined
   /** Whether the node is drawn inside a list instance: a row NAMES a record, a screen button does not. */
   readonly insideListItem: boolean
+  /** The links the record is made of, outer first (since 9.27.0): the frame's own and one per list instance above the node. Handed to the reader, never to the host. */
+  readonly links?: RecordChain | undefined
 }
 
 export const NO_RECORD: RecordPlace = { record: undefined, insideListItem: false }
@@ -200,6 +203,8 @@ export interface ScreenAnatomy {
   /** The same for the bottom zone (`bottom`); `undefined` means zero. */
   readonly stickyBottomOffset?: string | undefined
   readonly modal: boolean
+  /** Host decision: a modal layer keeps Tab inside it always (see `trapFocus`). */
+  readonly trapFocus?: boolean | undefined
   /** The modal layer is a window in the middle (`center`, or a sheet shown as a window on a wide place): it has no bottom safe area inset. */
   readonly windowed?: boolean | undefined
   /**
@@ -292,3 +297,10 @@ export const SafeTopContext = createContext(NO_SAFE_TOP)
 
 /** The children of the node being drawn, by the document: what its own children read as their siblings. The place of an option in its group comes from them. */
 export const SiblingNodesContext = createContext<readonly UiNode[]>([])
+
+/**
+ * The number of the current show of the screen stack (`Flow.show`): it grows with every transition,
+ * "back" and section switch. A button that waits for the host (the busy swipe) compares it with the
+ * number it started at: a different one means the shown screen changed and the wait is over.
+ */
+export const ShowContext = createContext(0)

@@ -5,7 +5,7 @@
  * for both. That guarantees visibility and style states never drift apart in interpretation.
  */
 import type { DataScope } from './data'
-import { valueAt } from './data'
+import { itemScope, valueAt, withItemScope } from './data'
 import { isRecord } from './sanitize'
 import type { VisibilityCondition } from './types'
 
@@ -100,10 +100,71 @@ function compare(left: unknown, right: unknown, op: 'gt' | 'gte' | 'lt' | 'lte')
  * neither.
  */
 export function isConditionMet(input: VisibilityCondition, scope: DataScope): boolean {
+  return conditionHolds(input, scope, true)
+}
+
+/** Whether there is no operand under `valuePath`: absent, `null` or the empty string (`x-listFilter.valuePath.operandMissing`). */
+export function isOperandMissing(value: unknown): boolean {
+  return value === undefined || value === null || value === ''
+}
+
+/**
+ * The operand of a comparison: the value under `valuePath` when the condition names one (read in
+ * the same scope as `path`), otherwise the literal `value`. A string `valuePath` wins over `value`.
+ */
+function operandOf(condition: VisibilityCondition, scope: DataScope): unknown {
+  const raw: unknown = (condition as { readonly valuePath?: unknown }).valuePath
+  return typeof raw === 'string' ? valueAt(scope, raw) : condition.value
+}
+
+/**
+ * The records of a collection that pass `where`, one at a time, STOPPING at the first one the
+ * caller needs: emptiness only asks whether there is at least one. `item` is the entity prefix of
+ * the list; without a usable `where` every record passes.
+ */
+function someRecordPasses(scope: DataScope, condition: Readonly<Record<string, unknown>>): boolean {
+  const listed = valueAt(scope, condition.path)
+  if (!Array.isArray(listed)) return false
+  const where = isRecord(condition.where) ? (condition.where as unknown as VisibilityCondition) : undefined
+  const item = typeof condition.item === 'string' ? condition.item : ''
+  return (listed as readonly unknown[]).some((record) => where === undefined || wherePasses(where, withItemScope(scope, itemScope(item, record as Readonly<Record<string, unknown>>))))
+}
+
+/**
+ * Whether a record passes the filter of a list (`Repeater.where`, the filtered emptiness).
+ *
+ * The one difference from every other place of a condition: NO OPERAND passes EVERY record (a
+ * filter without a value does not filter: "All" writes the empty string). A filter has no filter
+ * inside it, so a nested `where` is not looked at.
+ */
+export function wherePasses(where: VisibilityCondition, scope: DataScope): boolean {
+  const raw: unknown = where
+  if (!isRecord(raw) || typeof raw.path !== 'string' || typeof raw.op !== 'string') return true
+  if (typeof raw.valuePath === 'string' && KNOWN_OPS.has(raw.op) && isOperandMissing(valueAt(scope, raw.valuePath))) return true
+  return conditionHolds(where, scope, false)
+}
+
+/** A comparison, against the literal `value` or against the value under `valuePath` (9.23.0); with nothing under `valuePath` it never holds, `eq` and `neq` alike. */
+function comparisonHolds(condition: VisibilityCondition, value: unknown, scope: DataScope): boolean {
+  const operand = operandOf(condition, scope)
+  if (typeof condition.valuePath === 'string' && isOperandMissing(operand)) return false
+  if (condition.op === 'eq') return equals(value, operand)
+  if (condition.op === 'neq') return !equals(value, operand)
+  return compare(value, operand, condition.op as 'gt' | 'gte' | 'lt' | 'lte')
+}
+
+/** Whether the condition is `isEmpty` / `isNotEmpty` on a collection with a filter of its own (9.23.0). */
+function asksFilteredEmptiness(raw: Readonly<Record<string, unknown>>): boolean {
+  return (raw.op === 'isEmpty' || raw.op === 'isNotEmpty') && isRecord(raw.where)
+}
+
+function conditionHolds(input: VisibilityCondition, scope: DataScope, filterable: boolean): boolean {
   // A condition from the network that is not an object or has no path means "no condition": the node is visible.
   const raw: unknown = input
   if (!isRecord(raw) || typeof raw.path !== 'string' || typeof raw.op !== 'string') return true
   const condition = input
+  // Emptiness of a FILTERED list (9.23.0): the records that pass the filter are counted, with no `limit`.
+  if (filterable && asksFilteredEmptiness(raw)) return someRecordPasses(scope, raw) === (raw.op === 'isNotEmpty')
   const value = valueAt(scope, condition.path)
 
   /*
@@ -125,6 +186,11 @@ export function isConditionMet(input: VisibilityCondition, scope: DataScope): bo
   // Contract rule `x-compatibility.policy.missingConditionValue`.
   if (value === undefined || value === null) return condition.op === 'isEmpty'
 
+  return opHolds(condition, value, scope)
+}
+
+/** The operator on a value that is there (an unknown operator and a missing value are settled before). */
+function opHolds(condition: VisibilityCondition, value: unknown, scope: DataScope): boolean {
   switch (condition.op) {
     case 'isTrue':
       return asBoolean(value)
@@ -141,14 +207,12 @@ export function isConditionMet(input: VisibilityCondition, scope: DataScope): bo
     case 'isNotEmpty':
       return Array.isArray(value) ? value.length > 0 : asText(value).length > 0
     case 'eq':
-      return equals(value, condition.value)
     case 'neq':
-      return !equals(value, condition.value)
     case 'gt':
     case 'gte':
     case 'lt':
     case 'lte':
-      return compare(value, condition.value, condition.op)
+      return comparisonHolds(condition, value, scope)
     default:
       return true
   }
@@ -162,6 +226,16 @@ export function isConditionMet(input: VisibilityCondition, scope: DataScope): bo
  * (`missingDisabledValue`).
  */
 export function isDisabledBy(condition: unknown, scope: DataScope): boolean {
+  return isUnderstoodConditionMet(condition, scope)
+}
+
+/**
+ * Whether a condition HOLDS, where a condition that cannot be understood (not an object, no path, an
+ * unknown operator) does NOT hold: the opposite of `visibleIf`, where it is "visible". For the places
+ * where acting on a form the reader does not know would be the worse mistake (`disabledIf`, the dot of
+ * `badgeWhen`).
+ */
+export function isUnderstoodConditionMet(condition: unknown, scope: DataScope): boolean {
   if (!isRecord(condition) || typeof condition.path !== 'string' || typeof condition.op !== 'string' || !KNOWN_OPS.has(condition.op)) return false
   return isConditionMet(condition as unknown as VisibilityCondition, scope)
 }
@@ -170,6 +244,53 @@ export function isDisabledBy(condition: unknown, scope: DataScope): boolean {
 export function isNodeVisible(condition: VisibilityCondition | null | undefined, scope: DataScope): boolean {
   return condition === undefined || condition === null || isConditionMet(condition, scope)
 }
+
+/** The block `x-listFilter` of the artifact, whole (a test compares it): the operand from another path, the list filter and the emptiness of a filtered list. */
+export const LIST_FILTER_RULES = {
+  valuePath: {
+    field: 'valuePath',
+    instead: 'value',
+    ops: ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'],
+    readIn: 'the-same-scope-as-path',
+    types: 'the-value-types-of-the-two-paths-match-x-conditions.opPathTypes-string-and-date-compare-as-text',
+    everywhere: ['visibleIf', 'styleWhen', 'disabledIf', 'where', 'badgeWhen', 'part-styles'],
+    collection: 'never-a-collection',
+    operandMissing: {
+      is: ['absent', 'null', 'the-empty-string'],
+      inWhere: 'the-condition-holds-for-every-record',
+      elsewhere: 'the-condition-does-not-hold-eq-and-neq-alike',
+    },
+    pathMissing: 'x-compatibility.policy.missingConditionValue',
+  },
+  where: {
+    widget: 'Repeater',
+    prop: 'where',
+    form: 'ListWhereCondition — a condition without where',
+    scope: 'the-record-of-the-instance-over-the-outer-scope-x-dataScope.layers',
+    notPassed: 'the-record-does-not-exist-for-the-layout',
+    order: 'the-order-of-the-collection',
+    limit: 'the-first-limit-records-that-passed',
+    grid: 'cells-of-passed-records-only-no-holes',
+    carousel: 'cards-stops-and-dots-of-passed-records',
+    numbering: 'instances-of-passed-records',
+    carryRecord: 'unchanged-the-record-of-the-tapped-instance',
+    withoutField: 'every-record',
+  },
+  emptiness: {
+    ops: ['isEmpty', 'isNotEmpty'],
+    props: { item: 'item', where: 'where' },
+    pathIs: 'a-collection',
+    counts: 'records-that-pass-the-same-predicate-as-Repeater.where',
+    notAList: 'no-records',
+    limit: 'not-applied',
+  },
+  olderReader: {
+    where: 'the-field-is-skipped-every-record-is-drawn',
+    filteredEmptiness: 'the-whole-collection-is-counted',
+    valuePath: 'a-comparison-without-a-value-publish-when-readers-of-9.23-are-out',
+  },
+  cases: 'contract/fixtures/repeater-filter/repeater-filter-cases.json',
+} as const
 
 /** The block `x-conditions` of the artifact, whole (a test compares it): which operator is legal on which type of path, and what "empty" means. */
 export const CONDITION_RULES = {

@@ -68,6 +68,11 @@ export interface VisibilityCondition {
   readonly op: VisibilityOp
   /** Unary operators have NO such key at all: not `null`, but absent. */
   readonly value?: string | number | boolean
+  /** The operand is the value under another data path (since 9.23.0), instead of `value`. Comparison operators only. */
+  readonly valuePath?: string
+  /** On a collection path with `isEmpty` / `isNotEmpty` (since 9.23.0): the entity prefix of the list and its filter. */
+  readonly item?: string
+  readonly where?: VisibilityCondition
 }
 
 /* ─────────────── "a token or an own value" (schema 9.0.0) ─────────────── */
@@ -168,6 +173,8 @@ export type NodeBackground =
 export interface NodeBorder {
   readonly width: number
   readonly color: ColorRef
+  /** The line (since 9.22.0): the one word `dashed`; no field and any other word is a solid border. */
+  readonly style?: string
 }
 
 /**
@@ -204,7 +211,13 @@ export interface NodeStyle {
   readonly border?: NodeBorder
   readonly background?: NodeBackground
   readonly shadow?: ShadowRef
+  /** The colour of the shadow (since 9.25.0): `background` — the hue of the own background. Not drawn by this version: the shadow keeps its own colour. */
+  readonly shadowColor?: 'background'
   readonly opacity?: number
+  /** Glass (since 9.20.0): a blur of what lies under the box, in logical pixels (a whole number 1..40). */
+  readonly backdropBlur?: number
+  /** A gradient on the glyphs of a text (since 9.23.0): read by `Text` only and not inherited. A gradient that does not resolve leaves the text its colour. */
+  readonly textGradient?: GradientRef
 }
 
 export const NODE_STYLE_KEYS = [
@@ -212,6 +225,7 @@ export const NODE_STYLE_KEYS = [
   'typography',
   'fontStyle',
   'textDecoration',
+  'textGradient',
   'padding',
   'margin',
   'width',
@@ -224,7 +238,9 @@ export const NODE_STYLE_KEYS = [
   'border',
   'background',
   'shadow',
+  'shadowColor',
   'opacity',
+  'backdropBlur',
 ] as const satisfies readonly (keyof NodeStyle)[]
 
 export interface StyleCase {
@@ -313,6 +329,12 @@ export interface UiNode {
   readonly styleOn?: unknown
   /** Prop overrides by width class (since 9.18.0). `unknown`: only `width-class.ts` (`propsOverrideOf`) reads it. */
   readonly propsOn?: unknown
+  /** An endless motion of the node (since 9.20.0). `unknown`, since it arrives from the network: only `motion.ts` (`readMotion`) reads it; a form it does not know means the node stands still. */
+  readonly motion?: unknown
+  /** The feedback of a pressable node to the finger (since 9.25.0). `unknown`, since it arrives from the network: only `press-feedback.ts` reads it; the word `none` turns the feedback off, anything else is no field. */
+  readonly pressFeedback?: unknown
+  /** The look of an app bar while the body is scrolled (since 9.21.0). `unknown`, since it arrives from the network: only `app-bar-scrolled.ts` reads it; a form it does not know means the bar does not change. */
+  readonly styleScrolled?: unknown
 }
 
 export type ScreenPresentation = 'page' | 'modal'
@@ -325,8 +347,12 @@ export interface ScreenEntry {
   readonly presentation?: ScreenPresentation
   /** Since 9.9.0: where a modal layer sits, `bottom` (a sheet) or `center` (a window). Read only for a modal screen; a sheet without the field. */
   readonly modalPlacement?: 'bottom' | 'center'
+  /** Since 9.20.0: the blur of everything under a modal layer, in logical pixels (a whole number 1..40). Read only for a modal screen; on a page there is no layer to blur. */
+  readonly backdropBlur?: number
   /** Since 9.9.0: a REQUEST about status bar icons. The reader does not touch the system bar; the request travels to the host in `onScreenChange`. */
   readonly statusBarIcons?: 'light' | 'dark'
+  /** Since 9.26.0: `false` — the layer waits for an action inside it (no drag, no tap on the scrim, no Esc). Read only for a modal screen; without the field a person can dismiss it. */
+  readonly dismissible?: false
 }
 
 export interface LocalizationSection {

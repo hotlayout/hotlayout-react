@@ -7,6 +7,7 @@ import { typographyCss } from '../resolve'
 import { shownTextOf } from '../shown-text'
 import { BADGE_PADDING, BUTTON_LABEL_ALIGN, ICON_BESIDE_TEXT, ICON_BUTTON, PROP_DEFAULTS, buttonGeometryOf, hasIconBesideText, iconBesideTextOrder, iconButtonNameOf } from '../layout-rules'
 import { roleSurfaceCss } from '../style-roles'
+import { SWIPE_THUMB_INSET, confirmOf } from '../swipe-confirm'
 import { typographyToCss } from '../style'
 import type { Css } from '../style'
 import { PRESSABLE_CLASS } from '../styles'
@@ -16,7 +17,10 @@ import { ImageContext, useData, useTheme } from './contexts'
 import { Glyph } from './icon'
 import { useIconName } from './icon-name'
 import { asCss, inlineMarginOf } from './prop-tokens'
+import { pressFeedbackKindOf } from '../press-feedback'
+import { pressFeedbackProps } from './use-press-feedback'
 import { disabledPressLook, pressHandlers, useDocumentAction, usePress, usePressDisabled } from './use-press'
+import { SwipeButton } from './swipe-button'
 import { useText } from './use-text'
 import type { WidgetProps } from './widget-props'
 import { screenPart } from './screen-part'
@@ -76,6 +80,32 @@ export const ButtonView = screenPart(function ButtonView({ node, props, css, own
   const text = <span style={{ display: 'block', minInlineSize: 0, maxBlockSize: '100%', overflow: overflow === 'hidden' ? 'hidden' : undefined }}>{label}</span>
 
   /*
+   * DRAG TO CONFIRM (schema 9.22.0): the same button is drawn as a track with a thumb. The thumb takes the
+   * background of the ROLE (the own background of the node paints the track), and the colour of the label of
+   * the role; a role without a background gives `primary` and `onPrimary`.
+   */
+  if (confirmOf(props) === 'swipe') {
+    const role = roleSurfaceCss(node.type, props, undefined, { theme, scope, images }, {})
+    const roleBackground = role.backgroundColor
+    return (
+      <SwipeButton
+        mark={mark}
+        semantics={semantics}
+        box={box}
+        layout={{ display: fullWidth ? 'flex' : 'inline-flex', alignItems: 'center', justifyContent: 'center', textAlign: BUTTON_LABEL_ALIGN, inlineSize: fullInline, ...BESIDE_GAP }}
+        label={text}
+        icon={icon}
+        thumb={roleBackground === undefined ? { background: productVar('color', 'primary'), color: productVar('color', 'onPrimary') } : { background: String(roleBackground), color: String(role.color) }}
+        disabled={disabled}
+        press={press}
+        inset={theme.spacing[SWIPE_THUMB_INSET] ?? 0}
+        paddingBlock={theme.spacing[geometry.padding.block] ?? 0}
+        look={disabledPressLook(disabled, box.opacity)}
+      />
+    )
+  }
+
+  /*
    * The "icon + label" pair is centred in the button TOGETHER (`justify-content: center`, also in a
    * full-width button) and is not spread to the edges. The icon is decorative: the button name is
    * its label.
@@ -86,6 +116,7 @@ export const ButtonView = screenPart(function ButtonView({ node, props, css, own
       {...semantics}
       type="button"
       className={PRESSABLE_CLASS}
+      {...pressFeedbackProps(press === undefined ? undefined : pressFeedbackKindOf(node, { disabled, swipe: false }))}
       style={{ display: fullWidth ? 'flex' : 'inline-flex', alignItems: 'center', justifyContent: 'center', textAlign: BUTTON_LABEL_ALIGN, inlineSize: fullInline, ...BESIDE_GAP, ...box, ...disabledPressLook(disabled, box.opacity) }}
       {...pressHandlers(disabled, press)}
     >
@@ -168,7 +199,7 @@ export const IconButtonView = screenPart(function IconButtonView({ node, props, 
 
   const box = { ...asCss(surface), ...css }
   return (
-    <button {...mark} {...semantics} type="button" className={PRESSABLE_CLASS} aria-label={name === '' ? undefined : name} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...box, ...disabledPressLook(disabled, box.opacity) }} {...pressHandlers(disabled, press)}>
+    <button {...mark} {...semantics} type="button" className={PRESSABLE_CLASS} aria-label={name === '' ? undefined : name} {...pressFeedbackProps(press === undefined ? undefined : pressFeedbackKindOf(node, { disabled, swipe: false }))} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...box, ...disabledPressLook(disabled, box.opacity) }} {...pressHandlers(disabled, press)}>
       {glyphSize === undefined ? (
         <span aria-hidden="true" style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', inlineSize: '1lh', blockSize: '1lh' }}>
           <Glyph name={icon} />

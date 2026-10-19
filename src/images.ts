@@ -6,7 +6,8 @@
  * behalf of its user: to a foreign host it carries the IP, the time and a `Referer` header. So
  * the rule is short and closed:
  *
- *  - by default only an absolute `https:` address. `http:`, `data:`, `blob:`, `javascript:`,
+ *  - by default only an absolute `https:` address with a public host name (the form of an
+ *    `openUrl` link: no IP literal, no `localhost`, no credentials). `http:`, `data:`, `blob:`, `javascript:`,
  *    `vbscript:`, `file:` and relative addresses get a placeholder and a report;
  *  - the host may say its own word through the `resolveImageUrl` prop: narrow to its own list of
  *    hosts, rewrite the address to its proxy, or allow `http://localhost` in development. Its
@@ -16,6 +17,7 @@
  *
  * Assets (`assets`) are outside this policy: their addresses come from the host itself.
  */
+import { HTTPS_URL_PATTERN } from './action-catalog'
 import { cssUrl, isHttpsUrl, MAX_DATA_IMAGE_URL_LENGTH, MAX_IMAGE_URL_LENGTH } from './sanitize'
 
 /**
@@ -49,7 +51,22 @@ export interface ImagePolicy {
   readonly css: (url: unknown, usage: ImageUrlContext['usage'], origin?: ImageOrigin) => string | undefined
 }
 
-const NEVER_AN_IMAGE = /^\s*(?:javascript|vbscript)\s*:/i
+const NEVER_AN_IMAGE = /^(?:javascript|vbscript):/i
+
+/** The address as the URL parser reads it: leading C0 controls and spaces stripped, tab / LF / CR removed everywhere. */
+function neverAnImage(url: string): boolean {
+  // eslint-disable-next-line no-control-regex
+  return NEVER_AN_IMAGE.test(url.replace(/^[\u0000-\u0020]+/, '').replace(/[\t\n\r]/g, ''))
+}
+
+/**
+ * The default rule: the same host form as the `openUrl` address (`x-actions.forms.httpsUrl`) - a host
+ * name with a letter top-level label, no credentials, no IP literal, no `localhost`. A host that needs
+ * such addresses (development, an intranet) allows them through `resolveImageUrl`.
+ */
+function publicHttpsImage(url: string): boolean {
+  return isHttpsUrl(url) && HTTPS_URL_PATTERN.test(url)
+}
 
 /** Why the address was rejected, for the report. The address itself goes into the report truncated. */
 export type ImageRefusal = (url: string, reason: string) => void
@@ -61,9 +78,9 @@ function judge(url: string, usage: ImageUrlContext['usage'], resolve: ResolveIma
   // A document literal address is bounded by the schema; an address from data by a ceiling, and without the host's word one over 2048 is not loaded at all.
   const ceiling = origin === 'data' && resolve !== undefined ? MAX_DATA_IMAGE_URL_LENGTH : MAX_IMAGE_URL_LENGTH
   if (url.length > ceiling) return refuse(origin === 'data' && resolve !== undefined ? 'the bound address is longer than the reader accepts' : 'the address is longer than the schema allows')
-  if (NEVER_AN_IMAGE.test(url)) return refuse('a script address is never an image')
-  const allowedByDefault = isHttpsUrl(url)
-  if (resolve === undefined) return allowedByDefault ? { kind: 'allowed', url } : refuse('only absolute https: image addresses are loaded by default')
+  if (neverAnImage(url)) return refuse('a script address is never an image')
+  const allowedByDefault = publicHttpsImage(url)
+  if (resolve === undefined) return allowedByDefault ? { kind: 'allowed', url } : refuse('only absolute https: addresses with a public host name are loaded by default')
 
   let answer: string | null | undefined
   try {
@@ -72,8 +89,18 @@ function judge(url: string, usage: ImageUrlContext['usage'], resolve: ResolveIma
     return refuse('resolveImageUrl threw')
   }
   if (typeof answer !== 'string' || answer === '') return refuse('refused by resolveImageUrl')
-  if (answer.length > (origin === 'data' ? MAX_DATA_IMAGE_URL_LENGTH : MAX_IMAGE_URL_LENGTH) || NEVER_AN_IMAGE.test(answer)) return refuse('resolveImageUrl returned an address that is never an image')
+  if (answer.length > (origin === 'data' ? MAX_DATA_IMAGE_URL_LENGTH : MAX_IMAGE_URL_LENGTH) || neverAnImage(answer)) return refuse('resolveImageUrl returned an address that is never an image')
   return { kind: 'allowed', url: answer }
+}
+
+/** What may be said about an address from host DATA: the scheme and host at most, never the path or query. */
+function safeOrigin(url: string): string {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? `${parsed.protocol}//${parsed.hostname.slice(0, 80)}` : parsed.protocol
+  } catch {
+    return 'unparsable'
+  }
 }
 
 export function imagePolicy(resolve: ResolveImageUrl | undefined, refused?: ImageRefusal): ImagePolicy {
@@ -81,7 +108,7 @@ export function imagePolicy(resolve: ResolveImageUrl | undefined, refused?: Imag
     if (typeof url !== 'string' || url === '') return undefined
     const verdict = judge(url, usage, resolve, origin)
     if (verdict.kind === 'allowed') return verdict.url
-    refused?.(url.slice(0, 120), verdict.reason)
+    refused?.(origin === 'data' ? safeOrigin(url) : url.slice(0, 120), verdict.reason)
     return undefined
   }
   return {

@@ -129,6 +129,18 @@ export function colorCss(ref: unknown, theme: Theme): string | undefined {
   return undefined
 }
 
+/**
+ * A colour reference as a LITERAL value (`#rrggbb[aa]` or `rgba()`), for the places that cannot read
+ * the variables of the page: an image drawn by the reader (the dashes of a border). The same three
+ * forms and the same rules as {@link colorCss}; a token is read off the theme, not off a variable.
+ * A tint and an own value are literals already.
+ */
+export function colorLiteral(ref: unknown, theme: Theme): string | undefined {
+  if (typeof ref !== 'string') return colorCss(ref, theme)
+  const token = declared(theme, 'color', ref)
+  return token === undefined ? undefined : safeColor(themeColorValue(theme, token))
+}
+
 function scaleCss(ref: unknown, theme: Theme, dictionary: 'spacing' | 'radius'): string | undefined {
   // A number is logical pixels; on the web that is CSS pixels one to one.
   if (typeof ref === 'number') {

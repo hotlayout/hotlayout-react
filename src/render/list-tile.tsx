@@ -26,6 +26,7 @@ import { hasIconBesideText, LIST_TILE_ICON_SIZES, LIST_TILE_TRAILING_COLOR } fro
 import { typographyToCss } from '../style'
 import type { TextStyleContext } from '../style'
 import { PRESSABLE_CLASS } from '../styles'
+import { pressFeedbackKindOf } from '../press-feedback'
 import { productVar } from '../theme'
 import { leadingTileOf, listTileLinesOf } from '../list-tile-parts'
 import { resolvePartStyle } from '../part-style'
@@ -33,7 +34,9 @@ import { BESIDE_GAP } from './buttons'
 import { Glyph, glyphBox } from './icon'
 import { ImageView } from './image'
 import { mathToken, useSpacing } from './prop-tokens'
+import { LongPressNote, withLongPress } from './use-long-press'
 import { useDocumentAction, usePress } from './use-press'
+import { pressFeedbackProps } from './use-press-feedback'
 import { usePartColor, usePartText, useText } from './use-text'
 import type { WidgetProps } from './widget-props'
 import { useWriteSemantics } from './choice'
@@ -46,7 +49,7 @@ function lineClamp(limit: unknown): CSSProperties {
   return lines === undefined ? {} : { display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
 }
 
-export const ListTileView = screenPart(function ListTileView({ node, props, css, text, mark, choice }: WidgetProps): ReactNode {
+export const ListTileView = screenPart(function ListTileView({ node, props, css, text, mark, choice, long }: WidgetProps): ReactNode {
   const title = useText(props.title, 'title')
   const subtitle = useText(props.subtitle, 'subtitle')
   const gap = useSpacing('sm', 'sm')
@@ -70,16 +73,23 @@ export const ListTileView = screenPart(function ListTileView({ node, props, css,
         }
       : undefined
 
-  const interactive: HTMLAttributes<HTMLDivElement> =
-    activate === undefined
+  // A row with only a long press is a control too (9.26.0): focusable and named; its click does nothing.
+  const interactive: HTMLAttributes<HTMLDivElement> & { readonly 'data-hl-feedback'?: string } =
+    activate === undefined && long === undefined
       ? {}
       : {
           className: PRESSABLE_CLASS,
           role: isOption ? 'radio' : 'button',
           tabIndex: 0,
-          onClick: activate,
+          onClick: (event) => {
+            // The click after a long press is not a press.
+            if (long?.swallowClick(event) === true) return
+            activate?.()
+          },
           onKeyDown: (event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return
+            // The context menu key and Shift+F10 are the long press, at once.
+            if (long?.runFromKey(event) === true) return
+            if (activate === undefined || (event.key !== 'Enter' && event.key !== ' ')) return
             event.preventDefault()
             // A held key is one press, not one per auto-repeat.
             if (event.repeat) return
@@ -87,11 +97,14 @@ export const ListTileView = screenPart(function ListTileView({ node, props, css,
           },
           // A row of a group keeps the role and the state of the group; a row that writes on its own is an option or a toggle (9.19.0).
           ...(isOption ? { 'aria-checked': choiceScope.selected === option } : semantics),
+          ...long?.attributes,
+          ...withLongPress(pressFeedbackProps(pressFeedbackKindOf(node, { disabled: false, swipe: false })), long),
         }
 
   // The gap between the slots — `sm` on BOTH sides of the body.
   return (
-    <div {...mark} {...interactive} style={{ display: 'flex', alignItems: 'center', gap, ...css }}>
+    <div {...mark} {...interactive} style={{ display: 'flex', alignItems: 'center', gap, ...long?.look, ...css }}>
+      <LongPressNote long={long} />
       <LeadingSlot slot={props.leading} text={text} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ ...titleCss, ...lineClamp(props.titleMaxLines) }}>{title}</div>

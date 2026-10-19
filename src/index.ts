@@ -9,6 +9,7 @@ export { HotlayoutScreen } from './HotlayoutScreen'
 export type { Collections, HotlayoutReport, HotlayoutScreenProps, NavigationEvent, ScreenInfo, ScreenShown } from './HotlayoutScreen'
 
 export type { ActionParamProblem, ActionSource, HotlayoutAction, InvalidActionParam, StandardAction, TrackEvent } from './actions'
+export type { HapticWord } from './haptic'
 export { ACTION_CATALOG, paramFormProblem } from './action-catalog'
 export type { CatalogAction, CatalogParam } from './action-catalog'
 export { openInNewTab, runStandardAction } from './standard-actions'

@@ -9,6 +9,7 @@ import { useMemo } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 
 import type { ActionSource, HotlayoutAction, TrackEvent } from './actions'
+import type { HapticWord } from './haptic'
 import type { DataScope } from './data'
 import type { TextDirection } from './direction'
 import { directionOf } from './direction'
@@ -19,9 +20,13 @@ import type { ScreenShownCause } from './screen-shown'
 import { resolveDocumentLocale } from './localization'
 import type { ScreenLabels } from './runtime'
 import { isRecord } from './sanitize'
+import { isPinnedNow } from './countdown'
 import { anatomyOf } from './render/anatomy'
+import { ShowContext } from './render/contexts'
+import { safeRecordOf } from './render/host-boundary'
 import { DEFAULT_LABELS } from './runtime'
 import { infoOf, startOf } from './screen/flow'
+import { useLiveRecords } from './screen/live-flow'
 import { actionHandlerOf } from './screen/navigation'
 import { ROOT_CONTAINMENT, ROOT_TEXT_RESET } from './screen/root-style'
 import { incompatibleRoot, stackLayer } from './screen/stack-views'
@@ -212,7 +217,7 @@ export interface HotlayoutScreenProps {
    * carries a verdict on its parameters (`standard` or `invalid`); performing
    * it is yours — call `runStandardAction(action, …)` from this handler.
    */
-  readonly onAction?: ((action: HotlayoutAction, source: ActionSource) => void) | undefined
+  readonly onAction?: ((action: HotlayoutAction, source: ActionSource) => unknown) | undefined
   /**
    * The analytics event of a press (`action.track`). Called exactly once per
    * press of a node whose action carries `track`, BEFORE anything else: before
@@ -221,6 +226,15 @@ export interface HotlayoutScreenProps {
    * Forward it to your analytics; the renderer sends nothing anywhere itself.
    */
   readonly onTrack?: ((event: TrackEvent, source: ActionSource) => void) | undefined
+  /**
+   * A request for a tactile response (`action.haptic`): one of `light`, `medium`, `heavy`,
+   * `selection`, `success`, `warning`. Called exactly once per press of a node whose action
+   * names a word, BEFORE `onTrack` and the action of the same press, and for `none` too. A
+   * disabled button, a held key's auto-repeat and an unknown word call nothing. The renderer
+   * never vibrates by itself: map the word to the haptics of your platform here (for a web
+   * page, `navigator.vibrate` where it exists), or leave the prop out for no response.
+   */
+  readonly onHaptic?: ((kind: HapticWord, source: ActionSource) => void) | undefined
   /**
    * Called BEFORE the renderer changes screens by itself (`navigate` to a
    * screen of this document, `navigate.back`). Return `false` to cancel — the
@@ -349,6 +363,14 @@ export interface HotlayoutScreenProps {
    */
   readonly stickyBottomOffset?: number | string | undefined
   /**
+   * Keep Tab inside a modal layer at all times (default `false`). By default a layer the person can
+   * dismiss (Esc, the scrim) cycles Tab inside it, while a layer that waits for an action, or has
+   * nothing to focus, lets Tab leave the package so a keyboard user can never be locked out of your
+   * page by a document. Set it when the reader fills the viewport and nothing else on the page
+   * should be reachable.
+   */
+  readonly trapFocus?: boolean | undefined
+  /**
    * The width class to draw until the root has been measured (9.18.0): `'compact'`
    * (default), `'medium'` or `'expanded'`. The reader measures the width of its own
    * root element and switches to the real class after the first layout; a host that
@@ -375,7 +397,7 @@ export interface HotlayoutScreenProps {
  */
 export function HotlayoutScreen(props: HotlayoutScreenProps): ReactNode {
   const { theme: themeContract, themeId, data = NO_DATA, collections, locale, timeZone, now, dir, entry, assets, labels } = props
-  const { onAction, onTrack, onNavigate, onScreenChange, onWrite, onReport, renderIncompatible, renderError, injectStyles = true, className, style } = props
+  const { onAction, onTrack, onHaptic, onNavigate, onScreenChange, onWrite, onReport, renderIncompatible, renderError, injectStyles = true, className, style } = props
   const { writablePaths, resolveImageUrl, autofill } = props
   const anatomy = anatomyOf(props)
   // The document comes from the network: `null`, a string or an array in its place means a document with no version and no screens.
@@ -399,13 +421,15 @@ export function HotlayoutScreen(props: HotlayoutScreenProps): ReactNode {
   // Width class (schema 9.18.0): measured from the package ROOT box; before the first measurement it is the host's word or `compact`.
   const [widthClass, measureRoot] = useWidthClass(props.initialWidthClass)
   const flowKey = `${document.documentId}\u0000${entry ?? ''}`
-  const { current, setFlow, screens } = useScreenFlow(document, flowKey, start)
+  const { current: given, setFlow, screens } = useScreenFlow(document, flowKey, start)
+  // The record of a page opened from a list row follows the data (9.27.0); the stack and the events stay as they are.
+  const current = useLiveRecords({ current: given, setFlow, collections, screens, safe: (record) => (record === undefined ? undefined : safeRecordOf(record, noteIssue, 'record of a screen')) })
   const { session, writeSessionValue } = useInputSession(flowKey, data)
 
   // Stack frames whose screen survives in the current document version, each with its own record.
   const shownFrames = current.stack.flatMap((frame) => {
     const screen = screens.find((entry) => entry.screenId === frame.screenId)
-    return screen === undefined ? [] : [{ screen, record: frame.record }]
+    return screen === undefined ? [] : [{ screen, record: frame.record, links: frame.links }]
   })
   const frames = shownFrames.map((frame) => frame.screen)
   const top = frames[frames.length - 1]
@@ -435,7 +459,7 @@ export function HotlayoutScreen(props: HotlayoutScreenProps): ReactNode {
   const direction = dir ?? directionOf(shown.directionLocale)
   const lang = normalizeLocaleTag(shown.directionLocale)
   const screenLabels: ScreenLabels = { ...DEFAULT_LABELS, ...labels }
-  const handleAction = actionHandlerOf({ issues, deliver, onTrack, onAction, onNavigate, screens, frames, topInfo, current, setFlow })
+  const handleAction = actionHandlerOf({ issues, deliver, onTrack, onHaptic, onAction, onNavigate, screens, frames, topInfo, current, setFlow })
 
   /*
    * WHAT IS SHOWN. `presentation: 'modal'` promises exactly one thing: the previous screen stays
@@ -471,6 +495,7 @@ export function HotlayoutScreen(props: HotlayoutScreenProps): ReactNode {
     shown,
     timeZone,
     now: moment,
+    nowPinned: isPinnedNow(now),
     direction,
     onAction: handleAction,
     onWrite,
@@ -489,7 +514,7 @@ export function HotlayoutScreen(props: HotlayoutScreenProps): ReactNode {
   return (
     <div {...{ [ROOT_ATTRIBUTE]: '' }} ref={measureRoot} className={className} dir={direction} lang={lang} style={rootStyle}>
       {injectStyles ? <style dangerouslySetInnerHTML={{ __html: HOTLAYOUT_CSS }} /> : null}
-      {visible.map((frame, offset) => stackLayer(env, frame, offset))}
+      <ShowContext.Provider value={current.show}>{visible.map((frame, offset) => stackLayer(env, frame, offset))}</ShowContext.Provider>
     </div>
   )
 }

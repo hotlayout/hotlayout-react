@@ -35,13 +35,18 @@ import { DEFAULT_IMAGES } from './images'
 import type { ImagePolicy } from './images'
 import type { LocaleResolution } from './locale'
 import { resolveDocumentLocale } from './localization'
+import type { RecordChain } from './live-record'
 import { overlayRecord } from './record-scope'
 import { AnatomyContext, CollectionsContext, DEFAULT_ANATOMY, DataContext, ImageContext, IssueContext, NO_RECORD, PlaceContext, RecordContext, TextContext, ThemeContext, WidthClassContext } from './render/contexts'
 import type { RecordPlace, ScreenAnatomy } from './render/contexts'
 import { hostWriters, safeRecordOf } from './render/host-boundary'
+import { isPinnedNow } from './countdown'
+import { CountdownClock } from './render/countdown-clock'
 import { NodeView } from './render/node-view'
 import { ActionContext, AssetContext, AutofillContext, DEFAULT_LABELS, DirectionContext, FormContext, InputWriteContext, LabelsContext, WriteContext } from './runtime'
-import type { ActionHandler, ScreenLabels, WriteHandler } from './runtime'
+import type { ActionHandler, PressOutcome, ScreenLabels, WriteHandler } from './runtime'
+import { promiseOf } from './swipe-busy'
+import type { SwipeActionRunner } from './swipe-busy'
 import { isRecord } from './sanitize'
 import { shapeRoot } from './shape'
 import type { IssueSink } from './shape'
@@ -78,6 +83,8 @@ export interface ScreenViewProps {
    * The strongest data layer of the screen; without it, as before.
    */
   readonly record?: DataScope | undefined
+  /** The links that record is made of (9.27.0): the lists it came from, so a press inside the page hands them on. Without them the record never follows the data. */
+  readonly links?: RecordChain | undefined
   readonly collections?: Readonly<Record<string, readonly Readonly<Record<string, unknown>>[]>> | undefined
   readonly localization?: LocalizationSection | undefined
   /**
@@ -91,13 +98,20 @@ export interface ScreenViewProps {
   readonly timeZone?: string | undefined
   /**
    * The reader's "now": epoch milliseconds or a `Date` (`readerClock`). `daysUntil` is counted
-   * from it. Without it, the clock of whoever draws, read at draw time; the screen does not
-   * redraw itself as time passes.
+   * from it. Without it, the clock of whoever draws, read at draw time; a screen that shows a
+   * countdown part (9.21.0) then draws itself again as time passes. A moment given by the host is
+   * the host's clock: nothing ticks.
    */
   readonly now?: number | Date | undefined
+  /**
+   * Whether `now` is the host's moment (the screen stack passes ONE instant to all its layers, so a
+   * number here does not say who chose it). Without it, a valid `now` counts as the host's.
+   */
+  readonly nowPinned?: boolean | undefined
   /** Writing direction. Without it, from the language the document is SHOWN in. */
   readonly direction?: TextDirection | undefined
-  readonly onAction?: ActionHandler | undefined
+  /** The handler of the screen stack returns what the press learned (`PressOutcome`); a plain handler may return anything. */
+  readonly onAction?: ((...args: Parameters<ActionHandler>) => unknown) | undefined
   readonly onWrite?: WriteHandler | undefined
   readonly assets?: Readonly<Record<string, string>> | undefined
   readonly labels?: ScreenLabels | undefined
@@ -135,6 +149,13 @@ const NO_ISSUES: IssueSink = () => undefined
 const NO_ASSETS: Readonly<Record<string, string>> = {}
 const NO_ACTION: ActionHandler = () => undefined
 
+/** What a press learned, or nothing: a handler that is not the screen stack returns whatever it likes, and only the exact shape counts. */
+function outcomeOf(value: unknown): PressOutcome | undefined {
+  if (!isRecord(value) || !SWIPE_RUNNERS.includes(value.runner as SwipeActionRunner)) return undefined
+  return { runner: value.runner as SwipeActionRunner, answer: promiseOf(value.answer) }
+}
+const SWIPE_RUNNERS: readonly SwipeActionRunner[] = ['reader', 'host', 'none', 'invalid']
+
 /**
  * THE SCREEN ROOT HAS NO `showOn` FIELD (`widthClass.showOn.on: 'every-node-but-the-screen-root'`):
  * what is not in the contract the reader does not read. The screen is shown because it was
@@ -157,12 +178,14 @@ export const ScreenView = screenPart(function ScreenView({
   theme,
   data,
   record,
+  links,
   collections = {},
   localization,
   locale,
   shown: shownByParent,
   timeZone,
   now,
+  nowPinned,
   direction,
   onAction = NO_ACTION,
   onWrite,
@@ -214,7 +237,7 @@ export const ScreenView = screenPart(function ScreenView({
     },
     [data, collections, record, session],
   )
-  const recordPlace = useMemo<RecordPlace>(() => (isRecord(record) ? { record, insideListItem: false } : NO_RECORD), [record])
+  const recordPlace = useMemo<RecordPlace>(() => (isRecord(record) ? { record, insideListItem: false, links } : NO_RECORD), [record, links])
   const shown = shownByParent ?? resolveDocumentLocale(localization, locale)
   // One instant per screen: two labels of the same screen cannot count days from different "nows".
   const moment = readerNow(now)
@@ -229,7 +252,7 @@ export const ScreenView = screenPart(function ScreenView({
   const dispatch: ActionHandler = (action, source, insideListItem, extras) => {
     const carried = safeRecordOf(source.record, onIssue, `node “${source.nodeId}”: record`)
     const safeSource: ActionSource = carried === undefined ? { nodeId: source.nodeId, screenId: source.screenId } : { nodeId: source.nodeId, screenId: source.screenId, record: carried }
-    onAction(action, safeSource, insideListItem === true, extras)
+    return outcomeOf(onAction(action, safeSource, insideListItem === true, extras))
   }
   const { write, writeInput } = hostWriters({ onWrite, writablePaths, onSessionWrite, onWriteRefused, onIssue })
   // Form of the SCREEN (9.14.0): the root of this `screens[]` entry and the data layers it was opened with. Only a button that asks will compute it.
@@ -257,7 +280,9 @@ export const ScreenView = screenPart(function ScreenView({
                           <TextContext.Provider value={ROOT_TEXT_STYLE}>
                             <AnatomyContext.Provider value={anatomy}>
                               <WidthClassContext.Provider value={klass}>
-                                <NodeView node={safeRoot} />
+                                <CountdownClock root={safeRoot} pinned={nowPinned ?? isPinnedNow(now)}>
+                                  <NodeView node={safeRoot} />
+                                </CountdownClock>
                               </WidthClassContext.Provider>
                             </AnatomyContext.Provider>
                           </TextContext.Provider>

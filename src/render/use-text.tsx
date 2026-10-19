@@ -3,6 +3,7 @@ import { useContext } from 'react'
 import type { CSSProperties } from 'react'
 
 import { readBindable } from '../data'
+import type { DataScope } from '../data'
 import { translate, translationKey } from '../localization'
 import { typographyCss } from '../resolve'
 import { isRecord } from '../sanitize'
@@ -13,6 +14,7 @@ import type { TemplateLanguage, TemplateRun } from '../text-template'
 import { productVar } from '../theme'
 import type { BindableString } from '../types'
 import { IssueContext, PlaceContext, useData, useTheme } from './contexts'
+import { ClockContext } from './countdown-clock'
 import { asCss } from './prop-tokens'
 
 export function asBindable(value: unknown): BindableString | undefined {
@@ -46,10 +48,14 @@ export function useText(value: unknown, field?: string): string {
  * the substitution, so the text and the pieces cannot diverge. For a non-template there are no
  * `runs`.
  */
-export function useTextParts(value: unknown, field?: string): { readonly text: string; readonly runs: readonly TemplateRun[] | undefined } {
-  const scope = useData()
+export function useTextParts(value: unknown, field?: string, shownScope?: DataScope): { readonly text: string; readonly runs: readonly TemplateRun[] | undefined } {
+  const ownScope = useData()
+  // A node that leads a number to a new value (`animateChanges`) reads the data with that number at the frame being shown.
+  const scope = shownScope ?? ownScope
   const place = useContext(PlaceContext)
   const report = useContext(IssueContext)
+  // A screen with a countdown draws against a clock that ticks (9.21.0); otherwise against the moment of the render.
+  const now = useContext(ClockContext)?.now ?? place.now
 
   if (isRecord(value) && value.kind === 'template') {
     const { localization, shown } = place
@@ -62,7 +68,7 @@ export function useTextParts(value: unknown, field?: string): { readonly text: s
     const runs = templateRuns(
       value,
       language,
-      { scope, formattingLocale: shown.formatting, fallbackLocale: shown.directionLocale, timeZone: place.timeZone, now: place.now },
+      { scope, formattingLocale: shown.formatting, fallbackLocale: shown.directionLocale, timeZone: place.timeZone, now },
       report,
       `node “${place.nodeId}”: ${field ?? 'text'}`,
     )
@@ -77,7 +83,7 @@ export function useTextParts(value: unknown, field?: string): { readonly text: s
 
   // The format (`binding.format`) uses the requested locale if a translation was found, otherwise the source language (`formattingLocale`).
   // A locale the engine did not accept falls back to the language of the shown text, not to an ISO string.
-  return { text: readBindable(bindable, scope, place.shown.formatting, place.timeZone, place.shown.directionLocale, place.now), runs: undefined }
+  return { text: readBindable(bindable, scope, place.shown.formatting, place.timeZone, place.shown.directionLocale, now), runs: undefined }
 }
 
 /**

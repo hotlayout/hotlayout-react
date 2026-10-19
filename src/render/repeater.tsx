@@ -3,11 +3,14 @@ import { useContext } from 'react'
 import type { ReactNode } from 'react'
 
 import { carouselOf } from '../carousel'
-import { itemScope, withItemScope } from '../data'
+import { itemScope, valueAt, withItemScope } from '../data'
 import type { DataScope } from '../data'
+import { drawnRecords, listWhereOf } from '../list-filter'
+import { chainWith } from '../live-record'
 import { listInstanceNumbers, listMarkerOf } from '../list-marker'
 import { PROP_BOUNDS, lookup, safeInteger } from '../sanitize'
 import { makesTightSlots } from '../layout-rules'
+import { GROUP_HEADER_INDEX, groupStartsOf, readGroupBy } from '../repeater-group'
 import { CarouselRow } from './carousel-row'
 import { CollectionsContext, DataContext, InstancePathContext, ListNumberContext, MAX_COLLECTION_ITEMS, RecordContext, TightSlotContext, WidthClassContext, useData } from './contexts'
 import type { ListNumber } from './contexts'
@@ -19,6 +22,23 @@ import type { WidgetProps } from './widget-props'
 import { screenPart } from './screen-part'
 
 const NO_FIELDS: DataScope = {}
+
+/**
+ * The header of a group and the numbers of the drawn records it stands before (9.26.0). A grid or a row is drawn without
+ * headers (the document would not be published); so is a list whose `groupBy` is not a path or that has no second child.
+ */
+function groupingOf(
+  node: WidgetProps['node'],
+  props: Readonly<Record<string, unknown>>,
+  notAColumn: boolean,
+  records: readonly Readonly<Record<string, unknown>>[],
+  itemPrefix: string,
+): { readonly header: WidgetProps['node'] | undefined; readonly groupStarts: ReadonlySet<number> | undefined } {
+  const groupBy = readGroupBy(props)
+  const header = groupBy === undefined || notAColumn ? undefined : node.children?.[GROUP_HEADER_INDEX]
+  if (header === undefined || groupBy === undefined) return { header: undefined, groupStarts: undefined }
+  return { header, groupStarts: groupStartsOf(records.map((record) => valueAt(itemScope(itemPrefix, record), groupBy))) }
+}
 
 /**
  * The list: ONE template drawn once per record of the collection.
@@ -33,7 +53,7 @@ const NO_FIELDS: DataScope = {}
 export const RepeaterView = screenPart(function RepeaterView({ node, props, css, mark }: WidgetProps): ReactNode {
   const collections = useContext(CollectionsContext)
   const outer = useData()
-  const outerRecord = useContext(RecordContext).record
+  const { record: outerRecord, links: outerLinks } = useContext(RecordContext)
   const instancePath = useContext(InstancePathContext)
   const widthClass = useContext(WidthClassContext)
   const gap = useSpacing(props.gap, 'sm')
@@ -44,7 +64,13 @@ export const RepeaterView = screenPart(function RepeaterView({ node, props, css,
   // `limit` is an integer 1…50; beyond `MAX_COLLECTION_ITEMS` the reader draws nothing, however many the backend returned.
   const limit = safeInteger(props.limit, PROP_BOUNDS.repeaterLimit[0], PROP_BOUNDS.repeaterLimit[1]) ?? MAX_COLLECTION_ITEMS
   const listed: unknown = lookup(collections, source)
-  const records = (Array.isArray(listed) ? (listed as readonly Readonly<Record<string, unknown>>[]) : []).slice(0, limit)
+  // The filter first, the bound after (9.23.0): the first `limit` records that PASSED. A record that did not pass does not exist for the layout.
+  const drawn = drawnRecords(
+    Array.isArray(listed) ? (listed as readonly Readonly<Record<string, unknown>>[]) : [],
+    { outer, item: itemPrefix, where: listWhereOf(props.where) },
+    limit,
+  )
+  const records = drawn.map((entry) => entry.record)
 
   if (template === undefined) return null
 
@@ -78,31 +104,47 @@ export const RepeaterView = screenPart(function RepeaterView({ node, props, css,
   }
 
   /*
+   * ONE INSTANCE: the scopes of a record laid over the outer ones. The record scope also carries the LINK of
+   * the instance (the collection, the entity, the raw fields; 9.27.0): a page opened from this row keeps it,
+   * so its record follows the data. `content` is what is drawn in the scope: the template, or the header of a group.
+   */
+  const scoped = (record: Readonly<Record<string, unknown>>, index: number, content: ReactNode, key: string): ReactNode => {
+    const item = itemScope(itemPrefix, record)
+    return (
+      <DataContext.Provider key={key} value={withItemScope(outer, item)}>
+        {/* Whose row this is: an action of a node inside carries exactly this record (over the outer one). */}
+        <RecordContext.Provider value={{ record: withItemScope(outerRecord ?? NO_FIELDS, item), insideListItem: true, links: chainWith(outerLinks, [{ source, item: itemPrefix, fields: record }]) }}>
+          {/* A tight slot only when `columns` is set (`x-style.layout.tightSlots`). */}
+          <InstancePathContext.Provider value={[...instancePath, index]}>
+            <TightSlotContext.Provider value={makesTightSlots(node)}>{content}</TightSlotContext.Provider>
+          </InstancePathContext.Provider>
+        </RecordContext.Provider>
+      </DataContext.Provider>
+    )
+  }
+
+  /*
    * CAROUSEL (schema 9.11.0): the only place where a field TURNS ON scrolling: a list in a row with
    * `carousel` scrolls (without the field it stays an ordinary row). The cards are instances of the
    * template, one per record, each with its own record scope.
    */
   const carousel = carouselOf(node)
-  const instance = (record: Readonly<Record<string, unknown>>, index: number): { readonly key: string; readonly content: ReactNode } => {
-    const item = itemScope(itemPrefix, record)
-    return {
-      key: String(index),
-      content: (
-        <DataContext.Provider value={withItemScope(outer, item)}>
-          <RecordContext.Provider value={{ record: withItemScope(outerRecord ?? NO_FIELDS, item), insideListItem: true }}>
-            <InstancePathContext.Provider value={[...instancePath, index]}>
-              <TightSlotContext.Provider value={makesTightSlots(node)}>
-                {templateView(index)}
-              </TightSlotContext.Provider>
-            </InstancePathContext.Provider>
-          </RecordContext.Provider>
-        </DataContext.Provider>
-      ),
-    }
-  }
   if (carousel !== undefined) {
-    return <CarouselRow node={node} mark={mark} css={css} gap={gap} align="center" carousel={carousel} cards={records.map((record, index) => ({ ...instance(record, index), node: template }))} />
+    const cards = records.map((record, index) => {
+      const key = String(drawn[index]?.index ?? index)
+      return { key, content: scoped(record, index, templateView(index), key), node: template }
+    })
+    return <CarouselRow node={node} mark={mark} css={css} gap={gap} align="center" carousel={carousel} cards={cards} />
   }
+
+  /*
+   * GROUPS (schema 9.26.0, `x-repeaterGroup`): the second child is the header of a group. The groups are formed from the
+   * records that are DRAWN (after `where` and `limit`), in the order of the data, by the value under the path of the
+   * RECORD; the header is drawn before the first record of each group, in the scope of that record. A grid or a row
+   * is not grouped (the document would not be published): it is drawn as without the field. A header hidden by its
+   * condition takes no place - it is an ordinary node of the flow, with the same `gap` as the records.
+   */
+  const { header, groupStarts } = groupingOf(node, props, columns !== undefined || isRow, records, itemPrefix)
 
   return (
     <div
@@ -118,21 +160,10 @@ export const RepeaterView = screenPart(function RepeaterView({ node, props, css,
         ...css,
       }}
     >
-      {records.map((record, index) => {
-        const item = itemScope(itemPrefix, record)
-        return (
-          <DataContext.Provider key={index} value={withItemScope(outer, item)}>
-            {/* Whose row this is: an action of a node inside carries exactly this record (over the outer one). */}
-            <RecordContext.Provider value={{ record: withItemScope(outerRecord ?? NO_FIELDS, item), insideListItem: true }}>
-              {/* A tight slot only when `columns` is set (`x-style.layout.tightSlots`). */}
-              <InstancePathContext.Provider value={[...instancePath, index]}>
-                <TightSlotContext.Provider value={makesTightSlots(node)}>
-                  {templateView(index)}
-                </TightSlotContext.Provider>
-              </InstancePathContext.Provider>
-            </RecordContext.Provider>
-          </DataContext.Provider>
-        )
+      {records.flatMap((record, index) => {
+        const key = String(drawn[index]?.index ?? index)
+        const row = scoped(record, index, templateView(index), key)
+        return header !== undefined && groupStarts?.has(index) === true ? [scoped(record, index, <NodeView node={header} />, `header-${key}`), row] : [row]
       })}
     </div>
   )

@@ -34,6 +34,9 @@
  */
 
 import { FREE_GAP_VAR } from './alignment'
+import { motionCss } from './motion'
+import { pressFeedbackCss } from './press-feedback'
+import { readerMotionCss } from './reader-motion'
 
 /** The screen root's attribute: the boundary inside which the package's stylesheet applies. */
 export const ROOT_ATTRIBUTE = 'data-hotlayout'
@@ -118,5 +121,10 @@ export const HOTLAYOUT_CSS = [
    * (`scroll-margin-block-end`, since 9.12.0) is the same for the bottom zone: its height plus
    * `stickyBottomOffset` (`--hl-sticky-clear-end`).
    */
+  // Motion of a node (since 9.20.0): the animation of the phase and the pose computed from it.
+  ...motionCss(SCOPE),
+  ...pressFeedbackCss(SCOPE),
+  // The ring of the busy swipe button and the dot of a navigation item (since 9.24.0).
+  ...readerMotionCss(SCOPE),
   `${[`.${PRESSABLE_CLASS}`, `.${FOCUSABLE_CLASS}`, '[tabindex]', 'a', 'button', 'input', 'select', 'textarea'].map((target) => `${SCOPE} [data-hl-zone="body"] ${target}`).join(',')}{scroll-margin-block-start:var(--hl-sticky-clear,0px);scroll-margin-block-end:var(--hl-sticky-clear-end,0px)}`,
 ].join('\n')

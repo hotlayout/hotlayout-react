@@ -5,6 +5,7 @@ import type { TextStyleContext } from '../style'
 import type { NodeStyle, UiNode } from '../types'
 import type { ChoicePlace } from '../write-action'
 import type { PressAttributes } from './press-host'
+import type { LongPressWiring } from './use-long-press'
 
 /**
  * Marks of a node on its box. They give the host an address of the node in the DOM (tests,
@@ -14,6 +15,11 @@ import type { PressAttributes } from './press-host'
 export interface NodeMark extends PressAttributes {
   readonly 'data-hl-node': string
   readonly 'data-hl-type': string
+  /** A moving node (since 9.20.0): the kind of motion the style sheet selects by. */
+  readonly 'data-hl-motion'?: string
+  readonly 'data-hl-motion-fade'?: string
+  /** A node with a dashed border (since 9.22.0): the probe that measures its box finds it by this mark. */
+  readonly 'data-hl-dashed'?: string
 }
 
 export interface WidgetProps {
@@ -34,4 +40,6 @@ export interface WidgetProps {
   readonly mark: NodeMark
   /** The place of the node in its group of options (9.19.0); absent for a node that is not an option of a group. */
   readonly choice?: ChoicePlace | undefined
+  /** The long press of the node (9.26.0), when it has one that does something. */
+  readonly long?: LongPressWiring | undefined
 }

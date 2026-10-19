@@ -13,6 +13,7 @@ export interface AnatomyHostProps {
   readonly stickyBottomOffset?: unknown
   readonly safeAreaBottom?: unknown
   readonly safeAreaTop?: unknown
+  readonly trapFocus?: unknown
 }
 
 export function anatomyOf(host: AnatomyHostProps): ScreenAnatomy {
@@ -22,6 +23,7 @@ export function anatomyOf(host: AnatomyHostProps): ScreenAnatomy {
     scroll: host.scroll === 'screen' ? 'screen' : 'page',
     chrome: host.chrome === 'static' ? 'static' : 'sticky',
     modal: false,
+    trapFocus: host.trapFocus === true,
     safeBottom: safeBottomInset(host.safeAreaBottom),
     safeTop: safeTopInset(host.safeAreaTop),
     ...(offset === undefined ? {} : { stickyOffset: offset }),

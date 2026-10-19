@@ -10,6 +10,8 @@
  * No React and no DOM in this file: the server graph of the entry point reads it too.
  */
 
+import { screenTopPinnedOf } from './top-zone'
+
 /* ───────────────────────────── the `pin` field ───────────────────────────── */
 
 /** The edge a node is pinned to. There is one word; an older reader treats any later word as "no field". */
@@ -70,14 +72,23 @@ export function navWidePlacementOf(value: unknown): NavWidePlacement {
 /** Root children by zone: the one place where the three rules ("first is the app bar", "last is the bar", "the one before it with `pin`") are combined. */
 export function screenChildrenByZone<T extends RootChild>(
   children: readonly T[],
-): { readonly appBar: T | undefined; readonly body: readonly T[]; readonly pinned: T | undefined; readonly navBar: T | undefined } {
+  rootProps?: unknown,
+): {
+  readonly appBar: T | undefined
+  /** Pinned to the TOP (9.24.0, `screenTopPinnedOf`): a run right after the app bar zone. */
+  readonly topPinned: readonly T[]
+  readonly body: readonly T[]
+  readonly pinned: T | undefined
+  readonly navBar: T | undefined
+} {
   const first = children[0]
   const appBar = first?.type === 'AppBar' ? first : undefined
+  const topPinned = screenTopPinnedOf(children, rootProps)
   const navBar = screenNavBarOf(children)
   const pinned = screenPinnedOf(children)
-  const from = appBar === undefined ? 0 : 1
+  const from = (appBar === undefined ? 0 : 1) + topPinned.length
   const to = children.length - (navBar === undefined ? 0 : 1) - (pinned === undefined ? 0 : 1)
-  return { appBar, body: children.slice(from, Math.max(from, to)), pinned, navBar }
+  return { appBar, topPinned, body: children.slice(from, Math.max(from, to)), pinned, navBar }
 }
 
 /* ───────────────────────────── navigation bar ───────────────────────────── */

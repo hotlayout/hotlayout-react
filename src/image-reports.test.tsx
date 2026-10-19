@@ -37,7 +37,7 @@ function draw(children: readonly unknown[], data: Record<string, unknown> = {}):
   return { reports, node: (id) => view.container.querySelector(`[data-hl-node="${id}"]`) }
 }
 
-const REFUSED = 'only absolute https: image addresses are loaded by default; a placeholder is drawn'
+const REFUSED = 'only absolute https: addresses with a public host name are loaded by default; a placeholder is drawn'
 
 describe('an address the policy refused: a placeholder AND a report', () => {
   it.each([
@@ -53,14 +53,15 @@ describe('an address the policy refused: a placeholder AND a report', () => {
     expect(reports).toEqual([{ kind: 'ignored-input', where: `image address “${url}”`, reason: REFUSED }])
   })
 
+  // Changed in 0.25.0: an address from DATA is reported as scheme and host at most, never the path or query.
   it.each([
-    ['http:', 'http://cdn.example/a.png'],
-    ['data:', 'data:image/png;base64,AAAA'],
-    ['relative', 'images/a.png'],
-  ])('%s in the data', (_name, url) => {
+    ['http:', 'http://cdn.example/a.png', 'http://cdn.example'],
+    ['data:', 'data:image/png;base64,AAAA', 'data:'],
+    ['relative', 'images/a.png', 'unparsable'],
+  ])('%s in the data', (_name, url, said) => {
     const { reports, node } = draw([bound('pic', 'item.image')], { 'item.image': url })
     expect(node('pic')?.getAttribute('role')).toBe('img')
-    expect(reports).toEqual([{ kind: 'ignored-input', where: `image address “${url}”`, reason: REFUSED }])
+    expect(reports).toEqual([{ kind: 'ignored-input', where: `image address “${said}”`, reason: REFUSED }])
   })
 
   it('a script address is refused whatever the host allows', () => {
