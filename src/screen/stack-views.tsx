@@ -136,6 +136,7 @@ export function stackLayer(env: LayerEnv, { screen, record, links }: ShownFrame,
       placement={modalPlacementOf(screen.modalPlacement)}
       shape={shape}
       theme={resolved.theme}
+      safeTop={anatomy.safeTop}
       ownHeight={anatomy.scroll === 'screen'}
       backdropBlur={screen.backdropBlur}
       dismissible={isDismissible(screen)}

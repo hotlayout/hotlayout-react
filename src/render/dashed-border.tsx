@@ -13,7 +13,7 @@
  * which is also what a reader without a `ResizeObserver` shows.
  */
 import { useRef } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 import { dashedLineOf, dashedPathOf } from '../border-dash'
 import { cssDashedBorderImage } from '../sanitize'
@@ -95,8 +95,16 @@ export const DashProbe = screenPart(function DashProbe({ nodeId, radius, theme, 
     observer?.observe(element)
     return () => observer?.disconnect()
   }, [nodeId, radius, theme, onMeasure])
-  return <span ref={ref} hidden aria-hidden="true" />
+  return <span ref={ref} hidden aria-hidden="true" style={PROBE_STYLE} />
 })
+
+/**
+ * `display: none` written inline. The `hidden` attribute alone does not hide the probe: the browser
+ * treats it as a presentational hint, and the package reset (`all: unset; display: revert`) removes
+ * it. A displayed probe is one more item of its parent's flex, so the parent's `gap` was added once
+ * more after every dashed node and `center` / `end` / `between` shifted its siblings.
+ */
+const PROBE_STYLE: CSSProperties = { display: 'none' }
 
 /**
  * The border image of a dashed node: the dashes laid one to one over its border box. A slice and a

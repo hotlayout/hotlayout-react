@@ -24,8 +24,12 @@ function pictureCell(child: UiNode): CSSProperties {
 /**
  * The stack: layers at one point, the FIRST in the list is the lowest.
  *
- * The DOM order equals the document order, so no separate `z-index` is needed and none should be
- * added: it would diverge from Flutter, where the order also decides everything.
+ * The DOM order equals the document order. Each layer cell is its OWN stacking context
+ * (`isolation: isolate`), so painting follows that order whatever the descendants do: without it, a
+ * positioned node inside an earlier layer (a shadow, a motion, an offset) is painted above a later,
+ * non-positioned layer, because CSS paints positioned boxes over in-flow ones. Isolated cells are
+ * painted in tree order, and nothing inside one can climb above its later siblings. No `z-index`
+ * is added: it would need `position` on the cell and would diverge from Flutter.
  */
 export const StackView = screenPart(function StackView({ node, props, css, mark }: WidgetProps): ReactNode {
   const align = (value: unknown): string => (value === 'start' || value === 'end' ? value : 'center')
@@ -69,6 +73,7 @@ export const StackView = screenPart(function StackView({ node, props, css, mark 
                 justifyItems: place.alignHorizontal ?? 'inherit',
                 alignItems: place.alignVertical ?? 'inherit',
                 contain: 'size',
+                isolation: 'isolate',
                 minInlineSize: 0,
                 minBlockSize: 0,
                 pointerEvents: 'none',
@@ -86,7 +91,7 @@ export const StackView = screenPart(function StackView({ node, props, css, mark 
         }
         return (
           // All layers share one cell; a stretched one (`fill`) leaves the flow by itself.
-          <div key={child.id} style={{ gridArea: '1 / 1', display: 'grid', minInlineSize: 0, maxInlineSize: '100%', ...pictureCell(child) }}>
+          <div key={child.id} style={{ gridArea: '1 / 1', display: 'grid', isolation: 'isolate', minInlineSize: 0, maxInlineSize: '100%', ...pictureCell(child) }}>
             <FillIgnoredContext.Provider value={allFilled}>
               <StackLayerContext.Provider value>
                 {numbered(numbers, child, <NodeView node={child} />)}

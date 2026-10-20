@@ -533,7 +533,8 @@ describe('modal layer: sheet and window', () => {
    * markup must carry exactly these conditions.
    */
   it.each(named(TABLE.modalCases))('real screen: %s', (_name, row) => {
-    const view = render(<HotlayoutScreen document={modalDocument(row.placement === undefined ? {} : { modalPlacement: row.placement })} onReport={quiet} />)
+    // The rows give the area the host gave the screen: no top inset of the reader (that is `safeTopModalCases`).
+    const view = render(<HotlayoutScreen document={modalDocument(row.placement === undefined ? {} : { modalPlacement: row.placement })} safeAreaTop={0} onReport={quiet} />)
     fireEvent.click(view.container.querySelector('[data-hl-node="go"]')!)
     const layer = view.container.querySelector<HTMLElement>('[data-hl-presentation="modal"]')!
     const sheet = layer.querySelector<HTMLElement>('[role="dialog"]')!
@@ -561,8 +562,8 @@ describe('modal layer: sheet and window', () => {
     expect(area).toEqual(row.area)
     const box = modalBoxOf({ placement: 'center', viewport: area, contentHeight: row.contentHeight, margin: row.margin })
     expect({ x: box.x, y: area.y + box.y, width: box.width, height: box.height, centerY: area.y + box.y + box.height / 2 }).toEqual(row.expect)
-    // The package adds no safe area: the layer takes the WHOLE root the host gave (`inset: 0`) and has no own insets from the edges.
-    const view = render(<HotlayoutScreen document={modalDocument({ modalPlacement: 'center' })} onReport={quiet} />)
+    // A host that cut the area itself gives the reader no top inset: the layer takes the WHOLE root (`inset: 0`) and has no own insets from the edges.
+    const view = render(<HotlayoutScreen document={modalDocument({ modalPlacement: 'center' })} safeAreaTop={0} onReport={quiet} />)
     fireEvent.click(view.container.querySelector('[data-hl-node="go"]')!)
     const layer = view.container.querySelector<HTMLElement>('[data-hl-presentation="modal"]')!
     expect(layer.style.inset).toBe('0px')

@@ -2,7 +2,7 @@
  * THE TOP OF A SCREEN THROUGH THE PACKAGE `@hotlayout/react` (schema 9.19.0,
  * theme 3) — the groups
  * `bodyTopCases`, `topZoneCases`, `screenTopZoneCases`, `screenTopPressCases`,
- * `screenTopRuleCases`, `screenTopDocumentCases` and `safeTopValueCases` of
+ * `screenTopRuleCases`, `screenTopDocumentCases`, `safeTopValueCases` and `safeTopModalCases` of
  * `contract/fixtures/media-chrome/media-chrome-cases.json`.
  *
  * The reference implementation is checked against the same table elsewhere;
@@ -15,14 +15,14 @@
  *
  * NO ROW IS SKIPPED.
  */
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { HotlayoutScreen } from '../src/index'
 import type { UiDocument, UiNode } from '../src/index'
-import { screenZonesOf } from '../src/media-chrome'
+import { modalBoxOf, screenZonesOf } from '../src/media-chrome'
 import { BODY_TOP_RULES, bodyStartsAtScreenTop, bodyTopOf, SAFE_TOP_RULES, safeTopInset, safeTopOf, screenPressZoneAt, screenTopZonesOf, topZoneOwnerIn } from '../src/screen-top'
 import type { ScreenTopInput } from '../src/screen-top'
 import type { WidthClass } from '../src/width-class'
@@ -53,6 +53,15 @@ interface Table {
   }[]
   readonly screenTopZoneCases: readonly ZoneCase[]
   readonly safeTopValueCases: readonly { readonly name: string; readonly safeTop: unknown; readonly height: number; readonly effective: number }[]
+  readonly safeTopModalCases: readonly {
+    readonly name: string
+    readonly placement: 'bottom' | 'center'
+    readonly frame: { readonly width: number; readonly height: number }
+    readonly safeTop: number
+    readonly contentHeight: number
+    readonly margin: number
+    readonly expect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number; readonly scrolls: boolean; readonly centerY: number }
+  }[]
   readonly screenTopPressCases: readonly PressCase[]
   readonly screenTopRuleCases: readonly { readonly name: string; readonly rule: string; readonly expect: unknown }[]
   readonly screenTopDocumentCases: readonly {
@@ -96,6 +105,8 @@ describe('the top of a screen: the table', () => {
     for (const group of [TABLE.bodyTopCases, TABLE.topZoneCases, TABLE.screenTopZoneCases, TABLE.screenTopPressCases, TABLE.screenTopRuleCases, TABLE.screenTopDocumentCases, TABLE.safeTopValueCases]) {
       expect(new Set(group.map((row) => row.name)).size).toBe(group.length)
     }
+    expect(TABLE.safeTopModalCases).toHaveLength(9)
+    expect(new Set(TABLE.safeTopModalCases.map((row) => row.name)).size).toBe(9)
   })
 })
 
@@ -379,5 +390,59 @@ describe('the top safe inset the reader adds', () => {
       expect(root.querySelector('header')!.getAttribute('style') ?? '', JSON.stringify(bad)).not.toContain('color:red')
       expect(root.querySelector<HTMLElement>('header')!.style.paddingBlockStart).toBe('')
     }
+  })
+})
+
+/** A page with a button that opens a modal screen with the given placement. */
+const modalDocumentOf = (placement: 'bottom' | 'center'): UiDocument =>
+  ({
+    schemaVersion: '9.19.0',
+    documentId: 'screen-top-modal',
+    name: 'top',
+    initialScreenId: 'a',
+    screens: [
+      { screenId: 'a', name: 'a', root: { ...node('root', 'Screen'), children: [node('go', 'Button', { label: lit('open'), variant: 'primary', action: { type: 'navigate', params: { screenId: 'layer' } } })] } },
+      { screenId: 'layer', name: 'layer', presentation: 'modal', modalPlacement: placement, root: { ...node('layer-root', 'Screen'), children: [text('m')] } },
+    ],
+  }) as unknown as UiDocument
+
+describe('a modal layer under the top inset', () => {
+  it.each(named(TABLE.safeTopModalCases))('function: %s', (_name, row) => {
+    // The layer area is the frame below the inset; the layer is computed by the same function as without it.
+    const inset = safeTopOf(row.safeTop, row.frame.height)
+    const box = modalBoxOf({ placement: row.placement, viewport: { width: row.frame.width, height: row.frame.height - inset }, contentHeight: row.contentHeight, margin: row.margin })
+    const y = inset + box.y
+    expect({ x: box.x, y, width: box.width, height: box.height, scrolls: box.scrolls, centerY: y + box.height / 2 }).toEqual(row.expect)
+    expect(at(SAFE_TOP_RULES, `modal.${row.placement === 'center' ? 'window' : 'sheet'}`)).toBe(at(LAYOUT, `safeTop.modal.${row.placement === 'center' ? 'window' : 'sheet'}`))
+  })
+
+  /*
+   * jsdom computes no layout, so the markup is checked by structure: the scrim covers the whole
+   * root (inset included), and the inset is padding at the top of the layer AREA, so the sheet stops
+   * below it and the window is centred in what is left. Pixels are checked in Chrome.
+   */
+  it.each(named(TABLE.safeTopModalCases))('real screen: %s', (_name, row) => {
+    const view = render(<HotlayoutScreen document={modalDocumentOf(row.placement)} scroll="screen" safeAreaTop={row.safeTop} onReport={quiet} />)
+    fireEvent.click(view.container.querySelector('[data-hl-node="go"]')!)
+    const layer = view.container.querySelector<HTMLElement>('[data-hl-presentation="modal"]')!
+    expect(layer.querySelector<HTMLElement>('[data-hl-scrim]')?.style.inset).toBe('0px')
+    const area = layer.querySelector<HTMLElement>('[data-hl-layer-area]')!
+    const inset = `${String(row.safeTop)}px`
+    if (row.placement === 'center') {
+      expect([area.style.alignItems, area.style.justifyContent]).toEqual(['center', 'center'])
+      if (row.safeTop === 0) {
+        expect(area.style.padding).toBe('var(--product-space-xl)')
+      } else {
+        // The `xl` margin plus the inset (jsdom folds the sum of two pixel lengths into one).
+        expect(area.style.paddingBlockStart).toBe(`calc(${String(row.margin + row.safeTop)}px)`)
+        expect(area.style.paddingBlockEnd).toBe('var(--product-space-xl)')
+        expect(area.style.paddingInline).toBe('var(--product-space-xl)')
+      }
+    } else {
+      expect(area.style.justifyContent).toBe('flex-end')
+      expect(area.style.paddingBlockStart).toBe(row.safeTop === 0 ? '' : inset)
+    }
+    // Inside the layer there is no inset (`safeTop.modal.inside`): its screen root has no inset zone.
+    expect(layer.querySelector('[data-hl-zone="safeTop"]')).toBeNull()
   })
 })

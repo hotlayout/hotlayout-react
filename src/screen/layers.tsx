@@ -5,6 +5,7 @@ import type { CSSProperties, KeyboardEvent, ReactNode, RefObject } from 'react'
 import { backdropFilterCss } from '../backdrop-blur'
 import { MODAL_WINDOW_MAX_WIDTH } from '../media-chrome'
 import { spacingMathCss } from '../resolve'
+import { NO_SAFE_TOP } from '../screen-top'
 import { productVar } from '../theme'
 import type { Theme } from '../theme'
 import { useSheetDrag } from './use-sheet-drag'
@@ -87,8 +88,11 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select
  *    both axes; height follows the content, at most the available height (area minus the same
  *    margin top and bottom).
  *
- * The area is the one the host gave the screen (the package root): the reader neither adds nor
- * subtracts a safe area. Content is measured at the width of the LAYER, not the area. The layer has
+ * The area is the one the host gave the screen (the package root), less the top safe inset the reader
+ * adds (`safeTop.modal`, since 9.19.0): the scrim covers the inset, the sheet is no taller than the
+ * area below it and the window is centred in that area. Inside the layer there is no inset. The
+ * bottom inset is not taken from the area: a sheet carries it inside, a window has none
+ * (`bottomZone.safeArea`). Content is measured at the width of the LAYER, not the area. The layer has
  * no built-in look (`modalLayerLook`): background, radius, shadow and margins come from the `style`
  * of the screen root, and a root without a background gives a transparent layer. Content taller than
  * the available height scrolls in the layer BODY; the layer's app bar stays put (`ScreenRootView`).
@@ -111,6 +115,7 @@ export function ModalLayer({
   placement,
   shape,
   theme,
+  safeTop,
   ownHeight,
   backdropBlur,
   dismissible,
@@ -125,6 +130,8 @@ export function ModalLayer({
   readonly shape: ModalShape
   /** Theme: the margins of a sheet-window are computed from its numbers (CSS math). */
   readonly theme: Theme
+  /** The top safe inset as a ready CSS value (`safeTopInset`): the layer area starts below it. */
+  readonly safeTop: string
   /** `scroll="screen"`: the host gave the block a height, so the layer area is the whole block. Otherwise it is the visible part of the block. */
   readonly ownHeight: boolean
   /** Blur of everything under the layer (since 9.20.0), a validated radius; absent means only the scrim. */
@@ -195,7 +202,7 @@ export function ModalLayer({
       {backdropBlur === undefined ? null : <div aria-hidden="true" data-hl-backdrop-blur={String(backdropBlur)} style={{ ...MODAL_BLUR_STYLE, ...backdropFilterCss(backdropBlur) }} />}
       <div aria-hidden="true" data-hl-scrim="" style={MODAL_SCRIM_STYLE} onClick={dismissible ? onDismiss : undefined} />
       {/* Layer area: the whole block (own height) or its VISIBLE part, sticky, without `position: fixed`. */}
-      <div data-hl-layer-area={ownHeight ? 'block' : 'visible'} style={{ ...(ownHeight ? MODAL_AREA_BLOCK : MODAL_AREA_VISIBLE), ...(shape === 'sheet' ? MODAL_AREA_BOTTOM : MODAL_AREA_CENTER) }}>
+      <div data-hl-layer-area={ownHeight ? 'block' : 'visible'} style={{ ...(ownHeight ? MODAL_AREA_BLOCK : MODAL_AREA_VISIBLE), ...modalAreaPlacement(shape, safeTop, theme) }}>
         <div ref={sheet} role="dialog" aria-modal="true" aria-label={name} tabIndex={-1} style={shape === 'window' ? MODAL_WINDOW : shape === 'sheetWindow' ? modalSheetWindow(theme) : MODAL_SHEET}>
           {children}
         </div>
@@ -232,6 +239,20 @@ const MODAL_AREA_VISIBLE: CSSProperties = { position: 'sticky', insetBlockStart:
 const MODAL_AREA_BOTTOM: CSSProperties = { justifyContent: 'flex-end' }
 /** Window: `xl` margin on all sides (`modalLayer.center.margin`), centred on both axes. */
 const MODAL_AREA_CENTER: CSSProperties = { alignItems: 'center', justifyContent: 'center', padding: productVar('spacing', 'xl') }
+/**
+ * How the layer area places the sheet or window. The top safe inset is padding on the area: the
+ * sheet stops below it and the window is centred in what is left. With an inset the `xl` margin of
+ * a window is written per side, the top one as a theme NUMBER (the `--product-space-xl` variable is
+ * invalid inside `calc()` when the token is a bare `0`).
+ */
+function modalAreaPlacement(shape: ModalShape, safeTop: string, theme: Theme): CSSProperties {
+  const inset = safeTop !== NO_SAFE_TOP
+  if (shape === 'sheet') return inset ? { ...MODAL_AREA_BOTTOM, paddingBlockStart: safeTop } : MODAL_AREA_BOTTOM
+  if (!inset) return MODAL_AREA_CENTER
+  const margin = productVar('spacing', 'xl')
+  const marginMath = spacingMathCss('xl', theme) ?? '0px'
+  return { alignItems: 'center', justifyContent: 'center', paddingInline: margin, paddingBlockEnd: margin, paddingBlockStart: `calc(${marginMath} + ${safeTop})` }
+}
 /** The blur layer has the area of the scrim and catches nothing: a tap beside the layer lands on the scrim above it. */
 const MODAL_BLUR_STYLE: CSSProperties = { position: 'absolute', inset: 0, pointerEvents: 'none' }
 const MODAL_SCRIM_STYLE: CSSProperties = { position: 'absolute', inset: 0, backgroundColor: MODAL_SCRIM }

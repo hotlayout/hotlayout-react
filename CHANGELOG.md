@@ -10,6 +10,25 @@ are listed under **Changed** or **Removed**.
 The package version is independent of the contract versions. Which documents
 and themes a release reads is stated in every entry.
 
+## [0.26.2] - 2026-10-20
+
+Reads the same documents and themes as 0.26.1.
+
+### Fixed
+
+- Layers of a `Stack` now always paint in document order (the first is the lowest). Each layer
+  cell is its own stacking context, so a positioned node inside an earlier layer (a shadow, an
+  offset, a motion) can no longer be painted above a later layer.
+
+## [0.26.1] - 2026-10-20
+
+**Reads:** unchanged (schema 9.28.x, theme contract 4.0.x, icon set 1.0.0).
+
+### Fixed
+
+- **A modal layer under the top safe inset.** The layer area now starts below the inset given by `safeAreaTop` (`env(safe-area-inset-top)` by default): a `center` window is centred in the area below it, a sheet is no taller than that area, and the scrim still covers the inset. Before, the window was centred in the whole root and stood half the inset higher than in the other readers. A host that cut the area itself and passes `safeAreaTop={0}` sees no change.
+- **A dashed border no longer adds a gap to its parent.** The hidden element that measures a dashed node was displayed by the package style reset, so it became one more item of the parent's flex: one more `gap` after every dashed node, and `justify: 'center'` / `'end'` / `'between'` placed the siblings off by that gap. It is now `display: none` inline.
+
 ## [0.26.0] - 2026-10-19
 
 **Reads:** schema 9.28.x (theme contract 4.0.x, icon set 1.0.0).
