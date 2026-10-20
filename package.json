@@ -1,6 +1,6 @@
 {
   "name": "@hotlayout/react",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "description": "React renderer for HotLayout server-driven UI documents",
   "license": "Apache-2.0",
   "author": "The HotLayout Authors",
@@ -69,7 +69,7 @@
     "test": "vitest run"
   },
   "hotlayout": {
-    "schemaVersion": "9.27.0",
+    "schemaVersion": "9.28.0",
     "themeContractVersion": "4.0.1",
     "iconSetVersion": "1.0.0"
   }

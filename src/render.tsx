@@ -39,6 +39,7 @@ import type { RecordChain } from './live-record'
 import { overlayRecord } from './record-scope'
 import { AnatomyContext, CollectionsContext, DEFAULT_ANATOMY, DataContext, ImageContext, IssueContext, NO_RECORD, PlaceContext, RecordContext, TextContext, ThemeContext, WidthClassContext } from './render/contexts'
 import type { RecordPlace, ScreenAnatomy } from './render/contexts'
+import { ListBudgetContext, useListBudget } from './render/list-budget'
 import { hostWriters, safeRecordOf } from './render/host-boundary'
 import { isPinnedNow } from './countdown'
 import { CountdownClock } from './render/countdown-clock'
@@ -238,6 +239,11 @@ export const ScreenView = screenPart(function ScreenView({
     [data, collections, record, session],
   )
   const recordPlace = useMemo<RecordPlace>(() => (isRecord(record) ? { record, insideListItem: false, links } : NO_RECORD), [record, links])
+  /*
+   * THE LIST BUDGET OF THE SCREEN (9.28.0, `x-listBudget`): at most 2500 instances of list templates, nested ones included,
+   * in document order depth first. Planned once over the tree of the screen; each list asks the plan how many it may draw.
+   */
+  const budget = useListBudget(classRoot, scope, collections, screenId, onIssue)
   const shown = shownByParent ?? resolveDocumentLocale(localization, locale)
   // One instant per screen: two labels of the same screen cannot count days from different "nows".
   const moment = readerNow(now)
@@ -275,6 +281,7 @@ export const ScreenView = screenPart(function ScreenView({
                   <ImageContext.Provider value={images}>
                     <LabelsContext.Provider value={labels}>
                       <DataContext.Provider value={scope}>
+                        <ListBudgetContext.Provider value={budget}>
                         <RecordContext.Provider value={recordPlace}>
                           {/* Inheritance starts at the SCREEN root: a modal does not take the color of the screen under it. */}
                           <TextContext.Provider value={ROOT_TEXT_STYLE}>
@@ -287,6 +294,7 @@ export const ScreenView = screenPart(function ScreenView({
                             </AnatomyContext.Provider>
                           </TextContext.Provider>
                         </RecordContext.Provider>
+                        </ListBudgetContext.Provider>
                       </DataContext.Provider>
                     </LabelsContext.Provider>
                   </ImageContext.Provider>

@@ -8,6 +8,7 @@ import { APP_BAR_LEADING_MAX_SHARE } from '../media-chrome'
 import { mathLength } from '../resolve'
 import { DirectionContext } from '../runtime'
 import { cssNumber } from '../sanitize'
+import { silentMark } from '../silent-paint'
 import { ROLE_STYLE_KEYS, ROLE_WIDGETS } from '../style-roles'
 import { acceptsWeightedChildren, columnAlignOf } from '../layout-rules'
 import { boxCss } from '../style-box'
@@ -154,7 +155,7 @@ export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): R
                       own={own}
                       dropped={dropped}
                       text={text}
-                      mark={{ 'data-hl-node': node.id, 'data-hl-type': node.type, ...(motion === undefined ? {} : motionMarks(motion)), ...dashed.mark }}
+                      mark={{ 'data-hl-node': node.id, 'data-hl-type': node.type, ...(motion === undefined ? {} : motionMarks(motion)), ...dashed.mark, ...silentMark(node, own) }}
                       choice={choice}
                     />
                    </SiblingNodesContext.Provider>

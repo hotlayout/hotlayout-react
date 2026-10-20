@@ -166,7 +166,14 @@ import { ICON_SET_VERSION } from './icon-set'
  * 9.27.0: PERFORMED. The record of a frame of the stack is a chain of links that follows the
  * collections the host gives (`live-record.ts`, `screen/live-flow.ts`).
  */
-export const READER_SCHEMA_VERSION = '9.27.0'
+/*
+ * 9.28.0: PERFORMED. No new document field; reader rules the contract now states: the default
+ * picture address and network limits (`images.ts`), the list budget of a screen
+ * (`render/list-budget.ts`), theme numbers out of bounds (`theme-shape.ts`), transparent text out
+ * of the name of a card (`silent-paint.ts`), focus of a layer that cannot be dismissed
+ * (`screen/layers.tsx`).
+ */
+export const READER_SCHEMA_VERSION = '9.28.0'
 
 /**
  * The THEME contract version this renderer is written for. The theme is versioned separately

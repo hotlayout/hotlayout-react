@@ -7,6 +7,7 @@ import { listMarkerGeometry, listMarkerOf, listMarkerText } from '../list-marker
 import { PROP_BOUNDS, cssNumber, safeEnum, safeInteger } from '../sanitize'
 import { textCss } from '../style'
 import { textGradientPaint } from '../text-gradient'
+import { silentText } from '../silent-paint'
 import { ListNumberContext, PlaceContext, useTheme } from './contexts'
 import { ClockContext } from './countdown-clock'
 import { asCss } from './prop-tokens'
@@ -21,23 +22,6 @@ import { screenPart } from './screen-part'
  * foreground: the node's own `style` or that of the nearest ancestor that named one; if nobody named
  * one, `onSurface` and `bodyM` from the theme core.
  */
-/**
- * A text that shows nothing says nothing: fully transparent (`opacity` 0) or painted in a colour with
- * zero alpha. Otherwise a screen reader would announce words the person never sees.
- */
-function paintsNothing(css: CSSProperties, paragraph: CSSProperties): true | undefined {
-  return paintsNothingValue(css, css.color ?? paragraph.color) ? true : undefined
-}
-
-function paintsNothingValue(css: CSSProperties, color: unknown): boolean {
-  if (Number(css.opacity) === 0 && css.opacity !== undefined && css.opacity !== '') return true
-  if (typeof color !== 'string') return false
-  const value = color.trim().toLowerCase()
-  if (value === 'transparent') return true
-  if (/^#[0-9a-f]{6}00$/.test(value) || /^#[0-9a-f]{3}0$/.test(value)) return true
-  return /^rgba?\([^)]*[,/]\s*0(?:\.0+)?%?\s*\)$/.test(value)
-}
-
 export const TextView = screenPart(function TextView({ node, props, css, own, text, mark }: WidgetProps): ReactNode {
   const theme = useTheme()
   const place = useContext(PlaceContext)
@@ -73,7 +57,8 @@ export const TextView = screenPart(function TextView({ node, props, css, own, te
   const paragraphClamp = paint === undefined ? clamp : {}
   const body = gradientBlock(rich === undefined ? content : rich.runs, paint, clamp)
 
-  const silent = paintsNothing(css, paragraph)
+  // A text that paints nothing says nothing (`x-silentText`): its own opacity 0, or a colour (own or inherited) with opacity 0.
+  const silent = silentText(own, text.color, theme)
   if (marker === undefined) {
     return (
       <span key={remount} suppressHydrationWarning={countdown || undefined} aria-hidden={silent} {...mark} style={{ ...paragraph, ...paragraphClamp, ...css }}>

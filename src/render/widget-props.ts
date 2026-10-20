@@ -20,6 +20,8 @@ export interface NodeMark extends PressAttributes {
   readonly 'data-hl-motion-fade'?: string
   /** A node with a dashed border (since 9.22.0): the probe that measures its box finds it by this mark. */
   readonly 'data-hl-dashed'?: string
+  /** A node that paints nothing (since 9.28.0, `x-silentText`): out of the name of a card and of the accessibility tree. */
+  readonly 'aria-hidden'?: true
 }
 
 export interface WidgetProps {

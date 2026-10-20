@@ -610,12 +610,13 @@ describe('tree shape', () => {
       }),
     ) as ThemeContract
     const { theme, reports } = resolveTheme(contract)
-    expect(reports).toEqual([{ kind: 'invalid-theme-values', paths: ['spacing.md', 'color.primary', 'color.x;y'] }])
+    expect(reports).toEqual([{ kind: 'invalid-theme-values', paths: ['spacing.md', 'spacing.xl (out of bounds: built-in value)', 'color.primary', 'color.x;y'] }])
     const dark = THEME_ARTIFACT.contract.themes.dark
     expect(theme.color.primary).toBe(dark?.color.primary)
     expect(theme.color.brandCoral).toBe('#ff7f50')
     expect(theme.spacing.md).toBe(dark?.spacing.md)
-    expect(theme.spacing.xl).toBe(128)
+    // Out of bounds (`x-themeNumbers`): the same token of the built-in theme of the same brightness, not the bound.
+    expect(theme.spacing.xl).toBe(dark?.spacing.xl)
     expect(Object.keys(theme.color)).not.toContain('x;y')
   })
 

@@ -29,7 +29,9 @@ export type ThemeReport =
    * Some theme entries do not have the shape the theme schema promises (a colour
    * that is not `#rrggbb`, a number that is not a number, a token name that is
    * not a name) and were ignored: core tokens fall back to the built-in theme of
-   * the same brightness, custom tokens become unknown. `paths` lists up to 20.
+   * the same brightness, custom tokens become unknown. A number outside the bounds
+   * of the theme schema was replaced (`x-themeNumbers`): its path ends with
+   * `(out of bounds: built-in value)` or `(out of bounds: nearest bound)`. `paths` lists up to 20.
    */
   | { readonly kind: 'invalid-theme-values'; readonly paths: readonly string[] }
 
@@ -48,7 +50,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
  * same brightness. An entry of the wrong shape is an entry that does not exist.
  */
 function completed(raw: Readonly<Record<string, unknown>>, id: string, reports: ThemeReport[]): Theme {
-  const { theme, dropped } = sanitizeTheme(raw, id)
+  const { theme, dropped } = sanitizeTheme(raw, id, BUILT_IN_THEME_CONTRACT)
   if (dropped.length > 0) reports.push({ kind: 'invalid-theme-values', paths: dropped })
   return resolveMissingToDefaults(theme, BUILT_IN_THEME_CONTRACT)
 }

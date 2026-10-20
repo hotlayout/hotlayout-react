@@ -10,6 +10,20 @@ are listed under **Changed** or **Removed**.
 The package version is independent of the contract versions. Which documents
 and themes a release reads is stated in every entry.
 
+## [0.26.0] - 2026-10-19
+
+**Reads:** schema 9.28.x (theme contract 4.0.x, icon set 1.0.0).
+
+### Added
+
+- **The list budget of a screen.** A screen draws at most 2550 instances of list templates, nested lists included, counted in document order depth first; what does not fit is not drawn and is reported once (`ignored-input`). The builder does not publish a screen over the budget, so this only cuts a document made elsewhere.
+
+### Changed
+
+- **Theme numbers out of bounds.** A number of the theme outside the bounds of the theme schema, or infinite, is replaced by the value of the same token and field in the built-in theme of the same brightness (spacing, radius, typography), otherwise by the nearest bound, and listed in the `invalid-theme-values` report. Before, it was clamped to the bound without a word.
+- **Transparent content is not part of the name of a card.** A node whose own opacity is 0 is `aria-hidden` together with what it holds; a text whose colour (own or inherited) resolves with opacity 0 is too. The colour is judged on the resolved value, not on the CSS string.
+- The default picture rule, the network limits and the focus of a modal layer of 0.25.0 are now rules of the contract (schema 9.28.0); their behaviour is unchanged.
+
 ## [0.25.0] - 2026-10-19
 
 **Reads:** unchanged (schema 9.27.x, theme contract 4.0.x, icon set 1.0.0). A hardening release.

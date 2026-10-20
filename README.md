@@ -1754,7 +1754,7 @@ not say.
 
 ## Versions
 
-This version reads layout documents of schema **9.27.x** and themes of theme
+This version reads layout documents of schema **9.28.x** and themes of theme
 contract **4.0.x**, and embeds icon set 1.0.0. Any 9.x document and any 4.x
 theme is drawn; React 18 and 19 are supported by every release.
 
@@ -1815,7 +1815,8 @@ When the builder moves to a new schema major, update this package in your app
 
 | Package | Document schema |
 |---|---|
-| 0.24.x | 9.27.x |
+| 0.26.x | 9.28.x |
+| 0.24.x, 0.25.x | 9.27.x |
 | 0.23.x | 9.25.x |
 | 0.22.x | 9.24.x |
 | 0.21.x | 9.23.x |
@@ -1882,6 +1883,7 @@ package version otherwise.
 | 9.25 | The steps of a bar that fill smoothly, the glow of a scale (`glow`), a shadow in the colour of the background (`style.shadowColor`), the press feedback of a pressable node, a haptic request (`haptic`) | [below](#live-feedback-steps-glow-shadow-colour-press-and-haptic-925) |
 | 9.26 | A long press (`longPress`, `longPressLabel`), grouped lists (`Repeater.groupBy`), a sheet that follows the finger down, a modal screen that waits for an action (`dismissible: false`) | [Long press](#long-press); [below](#long-press-groups-and-sheets-926) |
 | 9.27 | A page opened from a list row follows the data | [A page follows the data](#a-page-follows-the-data) |
+| 9.28 | No new field: the rules of a reader the contract now states — the default picture address and its network limits, at most 2550 list instances per screen, theme numbers out of bounds, transparent text out of the name of a card, focus of a layer that cannot be dismissed | changelog 0.26.0 |
 
 #### Layout and text additions of 9.15–9.17
 

@@ -5,16 +5,15 @@ import type { ReactNode } from 'react'
 import { carouselOf } from '../carousel'
 import { itemScope, valueAt, withItemScope } from '../data'
 import type { DataScope } from '../data'
-import { drawnRecords, listWhereOf } from '../list-filter'
 import { chainWith } from '../live-record'
 import { listInstanceNumbers, listMarkerOf } from '../list-marker'
-import { PROP_BOUNDS, lookup, safeInteger } from '../sanitize'
 import { makesTightSlots } from '../layout-rules'
 import { GROUP_HEADER_INDEX, groupStartsOf, readGroupBy } from '../repeater-group'
 import { CarouselRow } from './carousel-row'
-import { CollectionsContext, DataContext, InstancePathContext, ListNumberContext, MAX_COLLECTION_ITEMS, RecordContext, TightSlotContext, WidthClassContext, useData } from './contexts'
+import { CollectionsContext, DataContext, InstancePathContext, ListNumberContext, RecordContext, TightSlotContext, WidthClassContext, useData } from './contexts'
 import type { ListNumber } from './contexts'
 import { columnsOf, gridColumns } from './grid'
+import { ListBudgetContext, listRecordsOf } from './list-budget'
 import { NodeView } from './node-view'
 import { useSpacing } from './prop-tokens'
 import { nodeShown } from './siblings'
@@ -58,18 +57,16 @@ export const RepeaterView = screenPart(function RepeaterView({ node, props, css,
   const widthClass = useContext(WidthClassContext)
   const gap = useSpacing(props.gap, 'sm')
 
+  const budget = useContext(ListBudgetContext)
   const source = typeof props.source === 'string' ? props.source : ''
   const itemPrefix = typeof props.item === 'string' ? props.item : ''
   const template = node.children?.[0]
-  // `limit` is an integer 1…50; beyond `MAX_COLLECTION_ITEMS` the reader draws nothing, however many the backend returned.
-  const limit = safeInteger(props.limit, PROP_BOUNDS.repeaterLimit[0], PROP_BOUNDS.repeaterLimit[1]) ?? MAX_COLLECTION_ITEMS
-  const listed: unknown = lookup(collections, source)
-  // The filter first, the bound after (9.23.0): the first `limit` records that PASSED. A record that did not pass does not exist for the layout.
-  const drawn = drawnRecords(
-    Array.isArray(listed) ? (listed as readonly Readonly<Record<string, unknown>>[]) : [],
-    { outer, item: itemPrefix, where: listWhereOf(props.where) },
-    limit,
-  )
+  /*
+   * The filter first, the bound after (9.23.0): the first `limit` (1…50, at most `MAX_COLLECTION_ITEMS`) records that PASSED.
+   * Then the budget of the screen (9.28.0, `x-listBudget`): the lists before this one and around it may have used it up.
+   */
+  const passed = listRecordsOf(props, collections, outer)
+  const drawn = budget === undefined ? passed : passed.slice(0, budget.allowed(node.id, instancePath))
   const records = drawn.map((entry) => entry.record)
 
   if (template === undefined) return null
