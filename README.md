@@ -1,6 +1,6 @@
 # @hotlayout/react
 
-React renderer for [HotLayout](https://hotlayout.com) — server-driven UI.
+React renderer for [HotLayout](https://hotlayout.com) — server-driven UI (SDUI).
 A screen is assembled in a visual builder and published as JSON; your app draws
 it with one component, and the next publish changes the screen without a
 release.
@@ -75,6 +75,7 @@ The builder and the product: [hotlayout.com](https://hotlayout.com).
 - [Security model](#security-model)
 - [Accessibility](#accessibility)
 - [Versions](#versions) — what each schema minor added
+- [Placements](#placements) — named places that show what the admin chose
 - [Updating a screen without a release](#updating-a-screen-without-a-release)
 - [Limitations](#limitations)
 
@@ -236,6 +237,8 @@ server rendering.
 | `runStandardAction(action, handlers)` | The optional helper that performs `openUrl`, `deeplink` and `close` — only those that passed the check, only with the handlers and app-link schemes you give it. Returns `true` when it did. See [Actions and navigation](#actions-and-navigation). |
 | `openInNewTab(url)` | A ready `openUrl` handler: `window.open(url, '_blank', 'noopener,noreferrer')`. The renderer never calls it; you pass it to `runStandardAction`. |
 | `paramFormProblem(form, value)`, `ACTION_CATALOG` | The contract's check of an action parameter and the catalog of named actions — plain data and a plain function, no React, usable on the server. |
+| `HotlayoutPlacement`, `usePlacement(name, options)` | A named place of the app that shows the document the admin put there — see [Placements](#placements). |
+| `readPlacementMapText(text)`, `readPlacementMapBytes(bytes)`, `resolvePlacement(map, name)`, `pickPlacementMap(input)`, `placementShowing(resolution, document?)`, `placementEvent(previous, next)`, `loadPlacementMap(url, options?)` | The rules behind placements as plain functions — no React, usable on the server. |
 | `resolveTheme(contract, themeId?)` | The theme the renderer would draw with, plus the fallbacks it took. |
 | `resolveLocale(requested, available, source)` | Which language a document is shown in for a given user locale — the renderer's own rule, for the parts of your UI that must speak the same language as the screen. See [Languages](#languages-and-right-to-left). |
 | `BUILT_IN_THEME_CONTRACT` | The built-in light and dark themes. |
@@ -1815,7 +1818,7 @@ When the builder moves to a new schema major, update this package in your app
 
 | Package | Document schema |
 |---|---|
-| 0.26.x | 9.28.x |
+| 0.26.x, 0.27.x | 9.28.x |
 | 0.24.x, 0.25.x | 9.27.x |
 | 0.23.x | 9.25.x |
 | 0.22.x | 9.24.x |
@@ -2131,6 +2134,103 @@ drawings from Lucide (ISC) and ten of our own, licence texts in
 - A name outside the set draws an empty box of the same size.
 - The set version is independent of the schema version: a redrawn icon is a
   patch of the set.
+
+## Placements
+
+A *placement* is a named place of your app — `home.banner`, `promo.raffle-button`.
+Your code names the place once; which published document stands there is decided
+in the HotLayout admin (*Placements*) and can be changed without a release. The
+decision lives in one small file per project, `placements/published.json`, next
+to `theme/published.json`, readable without a token.
+
+<!-- example: placements.tsx#placement -->
+```tsx
+const PROJECT = 'https://firebasestorage.googleapis.com/v0/b/my-bucket/o/orgs%2Facme%2Fprojects%2Fshop%2F'
+
+const placements = {
+  mapUrl: `${PROJECT}placements%2Fpublished.json?alt=media`,
+  documentUrl: (documentId: string) => `${PROJECT}documents%2F${documentId}%2Fpublished.json?alt=media`,
+}
+
+export function HomeBanner() {
+  const [shown, setShown] = useState(true)
+  const onPlacementStatus = (event: PlacementStatusEvent) => {
+    // Collapse the frame while the placement draws nothing (empty, unknown, document gone…),
+    // and open it again when a document stands there. The placement stays mounted to hear it.
+    setShown(event.status === 'document')
+  }
+  return (
+    <section className="banner-frame" hidden={!shown}>
+      <HotlayoutPlacement name="home.banner" {...placements} onPlacementStatus={onPlacementStatus} locale="en" />
+    </section>
+  )
+}
+```
+
+`<HotlayoutPlacement>` takes `name`, `mapUrl` and `documentUrl` (how to turn a
+document id into its address — the id is always a safe path segment), and every
+prop of `<HotlayoutScreen>` except `document` and `entry` (theme, data, locale,
+actions…). `usePlacement(name, options)` is the same without the drawing:
+
+<!-- example: placements.tsx#hook -->
+```tsx
+export function PromoButton() {
+  const placement = usePlacement('promo.raffle-button', { ...placements, lastKnown: false })
+  if (placement.status !== 'document') return null
+  // `placement.document` and `placement.entry` go to <HotlayoutScreen> as they are.
+  return <p>{placement.document.documentId} starts at {placement.entry ?? 'its first screen'}</p>
+}
+```
+
+`placement.status` is `loading` (also all a server render sees), `document`
+(`document`, `documentId`, `entry` — the entry point to start from, or `null` for
+the first screen) or `nothing` (`report` says why).
+
+**What a placement draws, and what you are told.** Nothing is drawn when the place
+is `empty` (declared in the admin, no document), `unknown` (the map has no such
+name: usually a typo), `unreadable` (the map or this entry of it cannot be read),
+`documentMissing` (the document was unpublished) or `documentUnreadable` (no
+network, not a document, a schema major this build cannot read). `entryMissing`
+is different: the document IS drawn, from its first screen, because the entry
+point the admin named is gone — someone has to fix the setup.
+
+`onPlacementStatus({ name, status, report, mapStatus, documentId, entry })` is
+called on the first answer and on every change of any of these fields — including
+the way back: a document drawn again arrives as `status: 'document'` with
+`report: null`, so a frame you collapsed can open again. A refresh that changes
+nothing calls nothing; new content of the same document is not a change.
+
+**Where the map comes from.** The network first; if it gives nothing, the last
+good map this device saw (`lastKnown`, default `localStorage`; pass `false` to
+keep nothing, or `{ read, write }` for your own storage), then the copy you ship
+(`bundledMap`, the text of the file). `mapStatus` says which case it was:
+`fresh`, `offline` (no answer, a redirect, or no complete answer within 20 s),
+`corrupt` (not JSON, not UTF-8, more than 262 144 bytes or more than 32 nested
+levels; one leading byte order mark is fine), `unsupported` (another major
+version), `notPublished` (the project has no map yet — every name is then
+`unknown`). Your own `lastKnown` store gets the map address as a key
+(`read(key)`, `write(text, key)`): keep the maps of different projects apart. Only a fresh, readable map from the network becomes the last known
+one. A place missing from a fresh map is `unknown`, never taken from an older
+copy: a place removed in the admin must disappear from the phones.
+
+The map is re-read on mount, when the tab becomes visible again
+(`refreshOnVisible`, default on) and, if you set it, every `pollIntervalMs` (kept
+within 5000 … 2147483647; a value that is not a finite number means no polling).
+A newer read cancels an older one, and a new `name` or `mapUrl` starts again from
+`loading`. Redirects are not followed, and the map and the document each have 20 s
+from the start of the request to the end of the body. The browser revalidates the file with its ETag by itself, and the
+package sends no custom headers, for the reason given in
+[Updating a screen without a release](#updating-a-screen-without-a-release). To
+get documents from your own client or cache pass `loadDocument(documentId,
+signal)`; reject with a `HotlayoutLoadError` of status 404 for a document that is
+gone (and drop it from your cache). The same deadline applies, and a value that is
+not a document is `documentUnreadable`. `fetch` replaces the global `fetch` for the map and the default document
+loader.
+
+The file is untrusted input, like a document. Names are looked up among the
+file's own keys only (`constructor` is a place only if the map lists it,
+`__proto__` never is); a `documentId` that is not a plain path segment makes
+just its own place `unreadable` and never reaches `documentUrl`.
 
 ## Updating a screen without a release
 

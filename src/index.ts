@@ -32,6 +32,39 @@ export type { Theme, ThemeContract } from './theme'
 export { HotlayoutLoadError, loadDocument, loadTheme } from './load'
 export type { LoadOptions } from './load'
 
+export { HotlayoutPlacement, usePlacement } from './HotlayoutPlacement'
+export type { HotlayoutPlacementProps, PlacementStatusEvent, UsePlacementOptions } from './HotlayoutPlacement'
+export type { PlacementMapStore, PlacementSettings, PlacementState } from './placement-state'
+export { loadPlacementMap, PLACEMENT_REQUEST_DEADLINE_MS } from './placement-load'
+export type { LoadPlacementMapOptions } from './placement-load'
+export {
+  isPlacementName,
+  pickPlacementMap,
+  placementEvent,
+  placementShowing,
+  PLACEMENTS_READ_MAX_BYTES,
+  PLACEMENTS_READ_MAX_DEPTH,
+  readPlacementMap,
+  readPlacementMapBytes,
+  readPlacementMapText,
+  READER_PLACEMENTS_VERSION,
+  resolvePlacement,
+} from './placements'
+export type {
+  PlacementDocumentOutcome,
+  PlacementEvent,
+  PlacementSettled,
+  PlacementMapRead,
+  PlacementNetworkOutcome,
+  PlacementReport,
+  PlacementResolution,
+  PlacementShowing,
+  PlacementSourceDecision,
+  PlacementSourceInput,
+  PlacementSourceStatus,
+  PlacementStatus,
+} from './placements'
+
 export { HOTLAYOUT_CSS } from './styles'
 
 export type { LocalizationSection, ScreenEntry, UiDocument, UiNode } from './types'

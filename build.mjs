@@ -28,8 +28,8 @@ import { build } from 'vite'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-/** The only module that carries `"use client"`: the server/client graph boundary. */
-const CLIENT_BOUNDARY = /[\\/]src[\\/]HotlayoutScreen\.tsx$/
+/** The only two modules that carry `"use client"` (the screen and the placement hook): the server/client graph boundary. */
+const CLIENT_BOUNDARY = /[\\/]src[\\/](?:HotlayoutScreen|HotlayoutPlacement)\.tsx$/
 const dist = join(here, 'dist')
 
 rmSync(dist, { recursive: true, force: true })

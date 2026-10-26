@@ -10,6 +10,48 @@ are listed under **Changed** or **Removed**.
 The package version is independent of the contract versions. Which documents
 and themes a release reads is stated in every entry.
 
+## [0.27.0] - 2026-10-26
+
+Reads the same documents and themes as 0.26.2, plus the placement map 1.x.
+
+### Added
+
+- **Placements.** `<HotlayoutPlacement name="home.banner" mapUrl documentUrl … />` and
+  `usePlacement(name, options)` show the document that the admin put in a named place of the app.
+  The map (`placements/published.json`) is read from the network, then the last known copy, then the
+  copy the host bundles; the state tells why (`fresh`, `offline`, `corrupt`, `unsupported`,
+  `notPublished`). A place that is empty, unknown or unreadable, and a document that is gone or
+  cannot be read, draw nothing and call `onPlacementStatus` once; an entry point the document no
+  longer has starts at its first screen and reports `entryMissing`. The rules are also exported as
+  plain functions: `readPlacementMapText`, `resolvePlacement`, `pickPlacementMap`,
+  `placementShowing`, `loadPlacementMap`.
+- The build now marks `HotlayoutPlacement.js` with `"use client"` as well as `HotlayoutScreen.js`;
+  the pure placement functions stay in the server graph.
+- **Placement reader rules.** A map body is read as bytes: one leading byte order mark is skipped;
+  a body that is not strict UTF-8 (no replacement characters), longer than 262 144 bytes (reading
+  stops at the limit) or nesting more than 32 arrays and objects is `corrupt`. The major version is
+  compared as a string of digits, so no long number wraps to 1. Redirects are not followed (`offline`
+  for the map, `documentUnreadable` for the document), and the map and the document each have 20 s
+  from the start of the request to the end of the body (`PLACEMENT_REQUEST_DEADLINE_MS`).
+  `readPlacementMapBytes`, `placementEvent` and the limits are exported.
+- `onPlacementStatus` is called on the first answer and on every change of `status`, `report`,
+  `mapStatus`, `documentId` or `entry`, including a document drawn again (`status: 'document'`,
+  `report: null`); the event carries all five fields.
+- The `lastKnown` store gets the map address as a key: `read(key)`, `write(text, key)`; the default
+  store keeps one entry per map address.
+
+### Fixed
+
+- A placed document nested very deeply no longer crashes the host on the next refresh: states are
+  compared by identity or by the text of the answer, never by serialising the document.
+- A new `name` or `mapUrl` starts from `loading` instead of drawing the previous project's document;
+  a newer read cancels an older one, whose answer no longer overwrites the state or the last known
+  map.
+- `pollIntervalMs` that is not a finite number no longer polls without pause; finite values are kept
+  within 5000 … 2147483647.
+- A host `loadDocument` that resolves to something that is not a document is `documentUnreadable`
+  instead of leaving the placement loading.
+
 ## [0.26.2] - 2026-10-20
 
 Reads the same documents and themes as 0.26.1.

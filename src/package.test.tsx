@@ -996,7 +996,7 @@ describe('style isolation and the public entry', () => {
 
   it('the public entry is small and stable: exactly these names', () => {
     expect(Object.keys(publicApi).sort()).toEqual(
-      ['ACTION_CATALOG', 'BUILT_IN_THEME_CONTRACT', 'HOTLAYOUT_CSS', 'HotlayoutLoadError', 'HotlayoutScreen', 'READER_ICON_SET_VERSION', 'READER_SCHEMA_VERSION', 'READER_THEME_VERSION', 'checkDocumentVersion', 'loadDocument', 'loadTheme', 'openInNewTab', 'paramFormProblem', 'resolveLocale', 'resolveTheme', 'runStandardAction'].sort(),
+      ['ACTION_CATALOG', 'BUILT_IN_THEME_CONTRACT', 'HOTLAYOUT_CSS', 'HotlayoutLoadError', 'HotlayoutPlacement', 'HotlayoutScreen', 'PLACEMENTS_READ_MAX_BYTES', 'PLACEMENTS_READ_MAX_DEPTH', 'PLACEMENT_REQUEST_DEADLINE_MS', 'READER_ICON_SET_VERSION', 'READER_PLACEMENTS_VERSION', 'READER_SCHEMA_VERSION', 'READER_THEME_VERSION', 'checkDocumentVersion', 'isPlacementName', 'loadDocument', 'loadPlacementMap', 'loadTheme', 'openInNewTab', 'paramFormProblem', 'pickPlacementMap', 'placementEvent', 'placementShowing', 'readPlacementMap', 'readPlacementMapBytes', 'readPlacementMapText', 'resolveLocale', 'resolvePlacement', 'resolveTheme', 'runStandardAction', 'usePlacement'].sort(),
     )
   })
 
