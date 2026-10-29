@@ -1,5 +1,5 @@
 /** README examples: placements — named places of the app that show what the admin put there. */
-import { HotlayoutPlacement, usePlacement } from '@hotlayout/react'
+import { HotlayoutPlacement, nextPlacementBoundary, readPlacementMapText, resolvePlacementAt, usePlacement } from '@hotlayout/react'
 import type { PlacementStatusEvent } from '@hotlayout/react'
 import { useState } from 'react'
 
@@ -32,5 +32,25 @@ export function PromoButton() {
   if (placement.status !== 'document') return null
   // `placement.document` and `placement.entry` go to <HotlayoutScreen> as they are.
   return <p>{placement.document.documentId} starts at {placement.entry ?? 'its first screen'}</p>
+}
+// #endregion
+
+// #region schedule
+// A place may carry a schedule in the map: documents that stand there for a window of time
+// (`from` included, `until` excluded, UTC instants such as `2026-11-27T22:00:00Z`).
+// <HotlayoutPlacement> and usePlacement read the device clock themselves and switch on time,
+// without the network. To decide on your own, ask the same rule:
+export function whatStandsThere(mapText: string, name: string) {
+  const map = readPlacementMapText(mapText)
+  const now = Date.now()
+  return {
+    now: resolvePlacementAt(map, name, now), // { status, documentId, entry }; a pause is `empty`
+    changesAt: nextPlacementBoundary(map, name, now), // milliseconds since the epoch, or null
+  }
+}
+
+// In a test, give the placement your own clock (milliseconds since the epoch):
+export function BlackFridayBanner() {
+  return <HotlayoutPlacement name="home.banner" {...placements} clock={() => Date.parse('2026-11-28T10:00:00Z')} />
 }
 // #endregion

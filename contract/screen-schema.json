@@ -1224,6 +1224,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "styleScrolled": {
           "description": "Style of this app bar while the body is scrolled (9.21.0): «background», «color», «shadow» and «backdropBlur» only — nothing that changes the box. The layer lies LAST, over the state of «styleWhen»; the threshold and when it applies — «x-style.layout.appBarScrolled». No field — the bar does not change on scroll, exactly as before 9.21.0.",
           "$ref": "#/$defs/ScrolledBarStyle"
@@ -1953,6 +1959,18 @@
         "none"
       ]
     },
+    "NodeVisibilityTransition": {
+      "description": "When «visibleIf» changes on the shown screen (9.33.0): «fade» — the leaving node fades out in place, the appearing one fades in after it — «x-visibilityFade». No field — at once.",
+      "type": "string",
+      "enum": [
+        "fade"
+      ]
+    },
+    "NodeName": {
+      "description": "Editor-only name of the node in the document tree (9.29.0), like a layer name in a design tool: «Mission card» instead of «Container». Readers ignore it: it is not drawn, it is not part of the accessible name, it is not sent with events, and it is not translated. 1…80 code points after trimming the edges, not only spaces or invisible characters. Not on the screen root — the screen entry already names it. No field — the tree shows the widget name.",
+      "type": "string",
+      "minLength": 1
+    },
     "ScrolledBarStyle": {
       "type": "object",
       "properties": {
@@ -2031,6 +2049,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         },
         "propsOn": {
           "$ref": "#/$defs/ColumnPropsOn"
@@ -2290,6 +2314,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "propsOn": {
           "$ref": "#/$defs/RowPropsOn"
         },
@@ -2383,6 +2413,12 @@
             "dots",
             "none"
           ]
+        },
+        "stopPath": {
+          "description": "A NUMBER path of the data contract (a literal, never read from data) for the active snap stop, from 0 (9.32.0): written after a person swipes and the scroll settles, read at show and on change — the carousel moves to that stop. No field — nothing is written. Rules — «x-carouselStop».",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
         }
       },
       "additionalProperties": false
@@ -2496,6 +2532,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         },
         "propsOn": {
           "$ref": "#/$defs/ContainerPropsOn"
@@ -2662,6 +2704,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "propsOn": {
           "$ref": "#/$defs/GridPropsOn"
         },
@@ -2787,6 +2835,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "children": {
           "maxItems": 5,
           "type": "array",
@@ -2891,6 +2945,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "children": {
           "maxItems": 5,
           "type": "array",
@@ -2979,6 +3039,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "children": {
           "maxItems": 15,
           "type": "array",
@@ -3062,6 +3128,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         },
         "children": {
           "maxItems": 10,
@@ -3151,6 +3223,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         },
         "children": {
           "maxItems": 20,
@@ -3320,6 +3398,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "propsOn": {
           "$ref": "#/$defs/RepeaterPropsOn"
         },
@@ -3481,6 +3565,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -3572,6 +3662,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -3660,6 +3756,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -3866,6 +3968,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -4011,6 +4119,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -4455,6 +4569,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "zone": {
           "$ref": "#/$defs/NodeZone"
         }
@@ -4610,6 +4730,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "zone": {
           "$ref": "#/$defs/NodeZone"
         }
@@ -4734,6 +4860,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -5060,6 +5192,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -5253,6 +5391,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -5404,6 +5548,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -5504,6 +5654,12 @@
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
         },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
+        },
         "children": {
           "maxItems": 5,
           "type": "array",
@@ -5594,6 +5750,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -5687,6 +5849,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -5914,6 +6082,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -5997,6 +6171,12 @@
         },
         "pressFeedback": {
           "$ref": "#/$defs/NodePressFeedback"
+        },
+        "visibilityTransition": {
+          "$ref": "#/$defs/NodeVisibilityTransition"
+        },
+        "name": {
+          "$ref": "#/$defs/NodeName"
         }
       },
       "required": [
@@ -6088,7 +6268,7 @@
   },
   "$id": "https://hotlayout.com/schema/ui-document.json",
   "title": "UiDocument",
-  "x-schemaVersion": "9.28.0",
+  "x-schemaVersion": "9.33.0",
   "x-compatibility": {
     "policy": {
       "majorMustMatch": true,
@@ -6423,7 +6603,12 @@
       "listBudget": "9.28.0",
       "themeNumbers": "9.28.0",
       "silentText": "9.28.0",
-      "modalFocus": "9.28.0"
+      "modalFocus": "9.28.0",
+      "nodeName": "9.29.0",
+      "longPressWrite": "9.30.0",
+      "sheetSafeBottom": "9.31.0",
+      "carouselStop": "9.32.0",
+      "visibilityFade": "9.33.0"
     }
   },
   "x-budget": {
@@ -9204,6 +9389,39 @@
         "olderReader": "reads-the-word-as-no-field-the-nodes-scroll-with-the-body",
         "cases": "contract/fixtures/top-zone/top-zone-cases.json"
       },
+      "sheetSafeBottom": {
+        "refines": [
+          "x-style.layout.bottomZone.safeArea.withoutBottomZone",
+          "x-style.layout.modalLayer.area"
+        ],
+        "appliesTo": "modal-layer-shown-as-a-sheet",
+        "shape": "modalShapeOf-is-sheet-placement-bottom-or-absent-in-the-compact-width-class-of-the-area",
+        "adds": "reader",
+        "inset": "bottom-inset-of-the-platform-home-indicator-or-gesture-bar",
+        "host": "may-give-zero-when-it-accounted-for-the-inset-itself",
+        "box": "the-sheet-box-reaches-the-physical-bottom-of-the-area",
+        "where": {
+          "withoutBottomZone": "bottom-padding-inside-the-sheet-box-under-its-content",
+          "withBottomZone": "bottomZone.safeArea-under-the-content-of-the-zone"
+        },
+        "bottomZone": "the-shown-pinned-block-a-nav-bar-is-not-drawn-in-a-modal-layer",
+        "once": "never-under-the-root-and-under-the-zone-together",
+        "background": "the-sheet-root-background-and-radius-extend-under-the-inset",
+        "rootBottomPadding": "stays-above-the-inset",
+        "height": "content-plus-the-inset-not-taller-than-the-area",
+        "overflow": "the-body-of-the-sheet-scrolls-above-the-inset",
+        "window": "none",
+        "sheetWindow": "none-as-a-window",
+        "page": "unchanged-bottomZone.safeArea",
+        "value": {
+          "unit": "logical-pixels",
+          "notANumberOrNotFinite": "zero",
+          "negative": "zero"
+        },
+        "builder": "inset-of-the-device-frame-zero-without-a-frame",
+        "olderReader": "adds-nothing-the-last-node-of-the-sheet-stands-under-the-home-indicator-unless-the-host-pads-the-sheet",
+        "cases": "contract/fixtures/sheet-safe-bottom/sheet-safe-bottom-cases.json"
+      },
       "partStyle": {
         "keys": [
           "color",
@@ -11388,6 +11606,126 @@
     "focusOnShow": "unchanged: the focus moves to the layer when it appears and returns to the opener when it leaves",
     "why": "the document is not the one who decides that a keyboard user cannot reach the host page (WCAG 2.1.2 No Keyboard Trap applies to the host page as a whole)",
     "olderReader": "may cycle Tab inside a layer that cannot be dismissed: a keyboard trap for the host page"
+  },
+  "x-longPressWrite": {
+    "refines": [
+      "x-longPress.writeActions"
+    ],
+    "allowed": "a write action of «x-actions.write» (setValue, toggleValue) on «longPress» is published when the «action» of the same node is not a write action and the node is not an option of a ChoiceGroup",
+    "why": "the state of a choice or a toggle is said by the role of the control, and only «action» gives that role: a node whose press does not write is neither, so its role says nothing about the written value; the long press is a named action («longPressLabel»)",
+    "notAllowed": [
+      "the «action» of the node is a write action: two writes on one node, and its role speaks of one",
+      "the node is an option of a ChoiceGroup: its press already writes the choice of the group"
+    ],
+    "insideRepeater": "not published, as the write of «action»: the path is a literal, every row would write the same",
+    "execution": "the write of «x-actions.write»: the same session, «onWrite» under «writablePaths», the same equality — a value already held is not written again",
+    "order": "x-longPress.order: haptic, track, then the write",
+    "role": "unchanged: the role, the checked or pressed state and the choice group come from «action» only; a long press write makes no choice group and no twin",
+    "shown": "what changed is shown by the data: visibleIf, styleWhen, text — no state of its own",
+    "announcement": "none of its own: the same as for any long press action",
+    "keys": "x-longPress.accessibility.keys and the named action write the same, at once",
+    "olderReader": "9.26–9.29: a reader whose long press runs the one execution path of «action» (x-longPress.form) already writes; a reader that does not know the write actions treats the type as an unknown action",
+    "cases": "contract/fixtures/long-press/long-press-write-cases.json"
+  },
+  "x-carouselStop": {
+    "refines": [
+      "x-style.layout.carousel.active"
+    ],
+    "prop": "carousel.stopPath",
+    "path": {
+      "is": "a-literal-of-the-document-never-read-from-data",
+      "maxLength": 128,
+      "type": "number",
+      "typeMatch": "exactly-number-checked-by-the-builder-against-the-data-contract",
+      "unreadable": "no-path-the-carousel-writes-nothing-and-starts-at-the-first-stop",
+      "misplaced": "x-style.layout.carousel.misplaced"
+    },
+    "value": {
+      "is": "the-index-of-the-active-snap-stop-from-0",
+      "counts": "stops-of-x-style.layout.carousel.snap-not-cards",
+      "written": "an-integer-number"
+    },
+    "write": {
+      "when": "a-person-moved-the-carousel-and-the-scroll-settled-on-a-stop-after-snapping",
+      "notWhen": [
+        "during-the-gesture",
+        "the-reader-moved-it-the-show-or-following-the-value",
+        "no-gesture-at-all"
+      ],
+      "sameValue": "not-written-again-x-actions.write.sameValue.equality",
+      "mechanism": "the-write-of-an-input-x-style.layout.inputs.rules.write",
+      "to": "session-of-the-reader-and-the-host-at-the-same-moment",
+      "gate": "the-writable-paths-of-the-host-like-every-input",
+      "host": {
+        "onWrite": "path-and-the-number",
+        "onAction": "not-called"
+      },
+      "track": "none"
+    },
+    "read": {
+      "layers": "x-dataScope.layers-with-the-data-scope-of-the-node",
+      "number": "a-number-with-an-integer-value-1-and-1.0-alike",
+      "notANumber": "the-first-stop",
+      "fraction": "the-first-stop",
+      "outOfRange": "clamped-to-the-first-or-the-last-stop",
+      "atShow": "the-carousel-starts-at-the-stop-the-value-names-once-the-stops-are-laid-out-without-animation",
+      "onChange": "the-carousel-moves-to-the-stop-the-new-value-names",
+      "change": "a-change-of-the-number-the-value-names-not-a-comparison-at-draw-time",
+      "refusedWrite": "the-carousel-stays-where-the-person-left-it",
+      "duringGesture": "the-gesture-wins-the-change-is-not-applied",
+      "reducedMotion": "x-style.layout.carousel.accessibility.reducedMotion",
+      "fewerStops": "x-style.layout.carousel.active.fewerStops"
+    },
+    "state": "x-style.layout.carousel.active.heldBy-unchanged-the-field-tells-the-data-where-the-state-is",
+    "ownDots": "nodes-with-styleWhen-on-the-same-path-and-setValue-of-a-number-no-new-widget",
+    "insideRepeater": "not-published-every-row-would-write-the-same-path",
+    "builder": "the-preview-writes-and-follows-the-canvas-of-the-editor-neither",
+    "olderReader": "skips-the-field-the-carousel-scrolls-nothing-is-written-and-it-starts-at-the-first-stop",
+    "cases": "contract/fixtures/carousel/carousel-cases.json"
+  },
+  "x-visibilityFade": {
+    "field": "visibilityTransition",
+    "words": [
+      "fade"
+    ],
+    "value": "«fade» — the node fades when its «visibleIf» changes on the shown screen; no field — it appears and disappears at once",
+    "out": {
+      "durationMs": 120,
+      "curve": [
+        0.4,
+        0,
+        1,
+        1
+      ],
+      "when": "the condition of a shown node stops holding",
+      "layout": "the node keeps its place while it fades and leaves the layout when it ends"
+    },
+    "in": {
+      "durationMs": 160,
+      "curve": [
+        0,
+        0,
+        0.2,
+        1
+      ],
+      "delayMs": 120,
+      "when": "the condition of a hidden node starts to hold",
+      "layout": "the node waits «delayMs» out of the layout, then enters it with opacity 0 and fades in"
+    },
+    "pair": "no pairing: every node follows its own timeline; two neighbours with mutually exclusive conditions are both invisible at «delayMs» and the layout changes once, at that moment",
+    "interrupted": "a change during a transition goes to the new goal from the current opacity, the duration scaled by the distance (out × opacity, in × (1 − opacity)); a node still waiting out of the layout stays hidden",
+    "interaction": "a leaving node catches no press and leaves the accessibility tree at once; an entering node is a control from the moment it enters the layout",
+    "notTransition": [
+      "the first show of the screen",
+      "going back to a screen",
+      "a change of the language or of the width class («showOn»)",
+      "reduced motion",
+      "the editor canvas"
+    ],
+    "scope": "the box of the node with its subtree; the zones of the screen (app bar, pinned block, navigation bar) and the drawn navigation items follow the condition at once",
+    "notRead": "a node without «visibleIf», the first child of the screen root that is an AppBar, a pinned node, a NavBar and a NavItem",
+    "olderReader": "at once",
+    "cases": "contract/fixtures/visibility-fade/visibility-fade-cases.json"
   },
   "x-generatedFrom": "src/entities/component-schema — generated, do not edit by hand"
 }

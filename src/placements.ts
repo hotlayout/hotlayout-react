@@ -13,7 +13,7 @@
  */
 
 /** The version of the placement contract this reader is written for. */
-export const READER_PLACEMENTS_VERSION = '1.0.0'
+export const READER_PLACEMENTS_VERSION = '1.1.0'
 
 /* The major is compared as a STRING of digits: a twenty-digit major must never wrap or round to 1. */
 const READER_MAJOR = '1'

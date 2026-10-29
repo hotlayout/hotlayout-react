@@ -1,6 +1,6 @@
 /**
  * PLACEMENTS THROUGH THE PACKAGE `@hotlayout/react`: the shared table
- * `contract/fixtures/placements/placement-cases.json` (`readCases`, `sourceCases`, `showingCases`),
+ * `contract/fixtures/placements/placement-cases.json` (`readCases`, `sourceCases`, `showingCases`, `scheduleCases`),
  * every row, plus the component and the hook on a fake network.
  *
  * The package does not import the builder's `src/`, so the rule is written a second time
@@ -21,12 +21,14 @@ import {
   placementEvent,
   PLACEMENTS_READ_MAX_BYTES,
   PLACEMENTS_READ_MAX_DEPTH,
+  nextPlacementBoundary,
   readPlacementMapBytes,
   placementShowing,
   readPlacementMap,
   readPlacementMapText,
   READER_PLACEMENTS_VERSION,
   resolvePlacement,
+  resolvePlacementAt,
   usePlacement,
 } from '../src/index'
 import { computePlacement } from '../src/placement-state'
@@ -97,6 +99,20 @@ interface TransportCase {
   readonly answer: Answer
   readonly expected: string
 }
+interface ScheduleCheck {
+  readonly place: string
+  readonly now: string
+  readonly status: string
+  readonly documentId: string | null
+  readonly entry: string | null
+  readonly next: string | null
+}
+interface ScheduleCase {
+  readonly name: string
+  readonly json?: unknown
+  readonly text?: string
+  readonly checks: readonly ScheduleCheck[]
+}
 interface EventCase {
   readonly name: string
   readonly states: readonly PlacementSettled[]
@@ -117,6 +133,7 @@ const TABLE = JSON.parse(readFileSync('contract/fixtures/placements/placement-ca
   readonly transportCases: readonly TransportCase[]
   readonly eventCases: readonly EventCase[]
   readonly cacheCases: readonly { readonly name: string; readonly steps: readonly CacheStep[] }[]
+  readonly scheduleCases: readonly ScheduleCase[]
 }
 
 function bytesOf(parts: readonly BodyPart[]): Uint8Array {
@@ -278,7 +295,50 @@ describe('placement: showingCases', () => {
   })
 })
 
+const instantMs = (instant: string): number => Date.parse(instant)
+
+describe('placement schedule: scheduleCases', () => {
+  it('the table is what the shared contract documents', () => {
+    expect(TABLE.scheduleCases.length).toBe(37)
+    expect(TABLE.scheduleCases.reduce((sum, row) => sum + row.checks.length, 0)).toBe(89)
+  })
+
+  it.each(named(TABLE.scheduleCases))('%s', (_name, row) => {
+    const map = row.text === undefined ? readPlacementMap(row.json) : readPlacementMapText(row.text)
+    for (const check of row.checks) {
+      const at = `${check.place} at ${check.now}`
+      expect(resolvePlacementAt(map, check.place, instantMs(check.now)), at).toEqual({ status: check.status, documentId: check.documentId, entry: check.entry })
+      expect(nextPlacementBoundary(map, check.place, instantMs(check.now)), `${at}: next`).toBe(check.next === null ? null : instantMs(check.next))
+    }
+  })
+
+  it('a map without a schedule answers as the permanent resolver does, at any moment', () => {
+    const map = readPlacementMap({ placementsVersion: '1.0.0', placements: { 'a.b': { documentId: 'd1', entry: 'main' } } })
+    for (const now of [0, Date.now(), 4_102_444_800_000]) {
+      expect(resolvePlacementAt(map, 'a.b', now)).toEqual(resolvePlacement(map, 'a.b'))
+      expect(nextPlacementBoundary(map, 'a.b', now)).toBeNull()
+    }
+    expect(resolvePlacementAt(map, 'x.y', 0).status).toBe('unknown')
+  })
+})
+
 describe('the package mirrors the artifact', () => {
+  it('the schedule block is that of the artifact', async () => {
+    const block = ARTIFACT['x-placementSchedule'] as { instant: { pattern: string }; limits: { maxPerPlacement: number }; maxTimerMs: number }
+    const { PLACEMENT_INSTANT_PATTERN, PLACEMENT_MAX_TIMER_MS } = await import('../src/placement-schedule')
+    expect(PLACEMENT_INSTANT_PATTERN.source.replaceAll('\\/', '/')).toBe(new RegExp(block.instant.pattern).source.replaceAll('\\/', '/'))
+    expect(PLACEMENT_MAX_TIMER_MS).toBe(block.maxTimerMs)
+    expect(ARTIFACT['x-placementSchedule']).toMatchObject({
+      window: { from: 'included', until: 'excluded' },
+      reading: { notAnArray: 'no-schedule', brokenItem: 'skip', emptyWindow: 'skip', nullDocument: 'pause-empty', pauseEntry: 'ignore', nullEntry: 'absent', brokenPermanent: 'unreadable', overlap: 'latest-from-then-lowest-index', unknownFields: 'ignore' },
+      resolve: 'active-scheduled-else-permanent',
+      clock: 'device',
+      nextBoundary: 'earliest-edge-after-now',
+      recompute: ['next-boundary', 'map-read', 'app-foreground'],
+      olderReaders: 'permanent-only',
+    })
+  })
+
   it('limits and forms are those of contract/placements.json', () => {
     const limits = ARTIFACT['x-limits']
     expect(isPlacementName('a'.repeat(limits.name.maxLength))).toBe(true)
@@ -480,6 +540,73 @@ describe('<HotlayoutPlacement>', () => {
     expect(store.text).toBe(remembered)
     // The document stands, from the last known map: the host hears that, and why the map is not fresh.
     expect(events).toEqual([{ name: 'home.banner', status: 'document', report: null, mapStatus: 'corrupt', documentId: 'd-show', entry: null }])
+  })
+
+  describe('schedule: the clock of the device decides, without the network', () => {
+    const START = '2026-12-01T00:00:10Z'
+    const scheduledRoutes = (places: Record<string, unknown>) => ({ ...mapRoute(places), ...showcaseRoute, [documentUrl('d-promo')]: () => json(SHOWCASE) })
+    /** A clock that starts `leadMs` before `edge` and then runs in real time, so a timer set for `edge` fires after ~`leadMs`. */
+    const clockBefore = (edge: string, leadMs: number): (() => number) => {
+      const begun = Date.now()
+      return () => Date.parse(edge) - leadMs + (Date.now() - begun)
+    }
+
+    it('swaps the permanent document for the scheduled one at the boundary, and reads the map once', async () => {
+      const net = network(scheduledRoutes({ 'home.banner': { documentId: 'd-show', schedule: [{ documentId: 'd-promo', entry: 'mission', from: START, until: '2026-12-02T00:00:00Z' }] } }))
+      const events: PlacementStatusEvent[] = []
+      render(<HotlayoutPlacement name="home.banner" mapUrl={MAP_URL} documentUrl={documentUrl} fetch={net.fetch} lastKnown={false} clock={clockBefore(START, 600)} onPlacementStatus={(event) => events.push(event)} />)
+      await waitFor(() => expect(events).toHaveLength(2), { timeout: 4000 })
+      expect(events.map((event) => [event.status, event.documentId, event.entry])).toEqual([
+        ['document', 'd-show', null],
+        ['document', 'd-promo', 'mission'],
+      ])
+      expect(net.urls.filter((url) => url === MAP_URL)).toHaveLength(1)
+    })
+
+    it('a pause draws nothing for its window, then the permanent document returns', async () => {
+      const net = network(scheduledRoutes({ 'home.banner': { documentId: 'd-show', schedule: [{ documentId: null, entry: '../broken', from: '2026-12-01T00:00:00Z', until: START }] } }))
+      const events: PlacementStatusEvent[] = []
+      const { container } = render(
+        <HotlayoutPlacement name="home.banner" mapUrl={MAP_URL} documentUrl={documentUrl} fetch={net.fetch} lastKnown={false} clock={clockBefore(START, 600)} onPlacementStatus={(event) => events.push(event)} />,
+      )
+      await waitFor(() => expect(events).toHaveLength(1))
+      expect(events[0]).toMatchObject({ status: 'nothing', report: 'empty' })
+      expect(container.innerHTML).toBe('')
+      await waitFor(() => expect(events).toHaveLength(2), { timeout: 4000 })
+      expect(events[1]).toMatchObject({ status: 'document', report: null, documentId: 'd-show' })
+      await waitFor(() => expect(container.querySelector('[data-hotlayout]')).not.toBeNull())
+    })
+
+    it('decides again when the app comes back to the foreground, even if the clock jumped', async () => {
+      const net = network(scheduledRoutes({ 'home.banner': { documentId: 'd-show', schedule: [{ documentId: 'd-promo', from: START, until: '2026-12-02T00:00:00Z' }] } }))
+      let nowMs = Date.parse('2026-11-30T00:00:00Z')
+      const events: PlacementStatusEvent[] = []
+      render(<HotlayoutPlacement name="home.banner" mapUrl={MAP_URL} documentUrl={documentUrl} fetch={net.fetch} lastKnown={false} refreshOnVisible={false} clock={() => nowMs} onPlacementStatus={(event) => events.push(event)} />)
+      await waitFor(() => expect(events).toHaveLength(1))
+      expect(events[0]).toMatchObject({ documentId: 'd-show' })
+      nowMs = Date.parse('2026-12-01T12:00:00Z')
+      document.dispatchEvent(new Event('visibilitychange'))
+      await waitFor(() => expect(events).toHaveLength(2))
+      expect(events[1]).toMatchObject({ status: 'document', documentId: 'd-promo' })
+      // The map was not asked again: only the clock moved.
+      expect(net.urls.filter((url) => url === MAP_URL)).toHaveLength(1)
+    })
+
+    it('a boundary beyond the longest timer is cut, and a clock that is not a number falls back to the device clock', async () => {
+      const net = network(scheduledRoutes({ 'home.banner': { documentId: 'd-show', schedule: [{ documentId: 'd-promo', from: '2090-01-01T00:00:00Z', until: '2099-12-31T23:59:59Z' }] } }))
+      const events: PlacementStatusEvent[] = []
+      const timeouts: number[] = []
+      const real = globalThis.setTimeout
+      const spy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((handler: TimerHandler, delay?: number, ...rest: unknown[]) => {
+        timeouts.push(delay ?? 0)
+        return real(handler as () => void, delay, ...rest)
+      }) as typeof setTimeout)
+      render(<HotlayoutPlacement name="home.banner" mapUrl={MAP_URL} documentUrl={documentUrl} fetch={net.fetch} lastKnown={false} clock={() => Number.NaN} onPlacementStatus={(event) => events.push(event)} />)
+      await waitFor(() => expect(events).toHaveLength(1))
+      spy.mockRestore()
+      // The boundary is decades away: the timer is cut to the longest a timer can hold.
+      expect(Math.max(...timeouts)).toBe(2 ** 31 - 1)
+    })
   })
 
   it('the hook returns plain states and survives a network that throws', async () => {

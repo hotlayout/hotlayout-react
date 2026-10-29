@@ -10,6 +10,102 @@ are listed under **Changed** or **Removed**.
 The package version is independent of the contract versions. Which documents
 and themes a release reads is stated in every entry.
 
+## [0.31.0] - 2026-10-29
+
+**Reads:** placements 1.1.0 (schema 9.33.x, theme contract 4.0.x, icon set 1.0.0).
+
+### Added
+
+- Placements 1.1.0, scheduled content: a place may carry `schedule`, windows
+  `[from, until)` (UTC instants `YYYY-MM-DDTHH:MM:SSZ`) in which another document stands
+  there; a window with `documentId: null` is a pause and the place is `empty` for it.
+  `<HotlayoutPlacement>` and `usePlacement` read the device clock, with no network, set one
+  timer at the next boundary (cut to 2^31 - 1 ms and counted again at its end) and decide
+  again on every new read of the map and when the page becomes visible again. A change is an
+  ordinary `onPlacementStatus` event; the map is not read again at a boundary.
+- The `clock` option (`() => number`, milliseconds since the epoch, default `Date.now`) on
+  `<HotlayoutPlacement>` and `usePlacement`.
+- `resolvePlacementAt(map, name, nowMs)` and `nextPlacementBoundary(map, name, nowMs)`: the
+  same rule as plain functions, for hosts that decide on their own.
+- Overlapping windows: the one that started later wins. A broken window is skipped whole and
+  does not make the place `unreadable`; a broken permanent content still does.
+- A place keeps the documents it may need offline: after its first decision it reads, in the
+  background, the documents of every window of its schedule, and keeps each good read (up to
+  64 per place). A boundary that passes without network shows the next document; a failed
+  read keeps the last good copy, and only a `404` drops it. Without this a scheduled banner
+  could not appear on time with the network off, and going back to the page offline blanked
+  the current one.
+
+### Changed
+
+- `READER_PLACEMENTS_VERSION` is `1.1.0`. A map without a schedule is read exactly as before.
+
+## [0.30.0] - 2026-10-28
+
+**Reads:** schema 9.33.x (theme contract 4.0.x, icon set 1.0.0).
+
+### Added
+
+- Schema 9.33.0, `visibilityTransition: "fade"`: a node whose `visibleIf` changes on the shown
+  screen no longer blinks. The leaving node stays in the layout and fades out (120 ms), then leaves
+  it; the appearing node waits the same 120 ms out of the layout, enters it transparent and fades
+  in (160 ms). Every node follows its own timeline, so two neighbours with opposite conditions are
+  both invisible at the same moment and the layout changes once. A change during a transition goes
+  to the new goal from the current opacity. A leaving node is `inert` and `aria-hidden` from the
+  first moment; an entering node is a control from the moment it enters the layout. The first
+  draw, going back to a screen, a change of the language or of the width class, the system
+  "reduce motion" and the server render are not transitions: the node stands at rest. The zones of
+  the screen (app bar, pinned block, navigation bar and its items) follow the condition at once.
+  The numbers come from the mirrored `x-visibilityFade` block (`visibility-fade.ts`).
+
+### Fixed
+
+- A carousel row now takes the box its own `style` and its place give it. The shell around the
+  scrolling row (the row plus its dots) took the whole width of the parent whatever the row said,
+  so a carousel with its own `style.width` still filled the line, and the offset, rotation and
+  alignment of a stack `layer` landed on the inner row. The node's place (own width and limits,
+  margins, a row share, a layer) now lies on the shell; the look of the box (padding, background,
+  border, radius, shadow) stays on the scrolling row.
+
+## [0.29.0] - 2026-10-28
+
+**Reads:** schema 9.32.x (theme contract 4.0.x, icon set 1.0.0).
+
+### Added
+
+- Schema 9.32.0, `carousel.stopPath`: a carousel can tell the data which card is in front. The field
+  names a number data path. When a person swipes (or uses the wheel or the keyboard) and the scroll
+  settles on a stop, the stop number (from 0, counting stops, not cards) is written to that path
+  with the same write an input field makes: the session of the reader and `onWrite`, under
+  `writablePaths`. Nothing is written while a finger still holds the row, for a move the reader made
+  itself, or for the value already there; `onAction` is not called.
+- The carousel stands on the stop the value names when it is first laid out (clamped, no animation,
+  nothing written; also when the screen is shown again after going back) and moves to it when the
+  number changes, for example from the carousel's own dots (`setValue`) or from the host. A move
+  does not start while a finger holds the row, and is not animated under "reduce motion". A write
+  the host refused leaves the carousel where the person put it.
+- `carouselStopPathOf` and the other reference functions of the rule live in `carousel-stop.ts`,
+  with the `x-carouselStop` block mirrored whole.
+
+## [0.28.0] - 2026-10-27
+
+**Reads:** schema 9.31.x (theme contract 4.0.x, icon set 1.0.0).
+
+### Added
+
+- Schema 9.29.0: the node field `name`, a name for the author in the builder's tree, is read and
+  ignored. It is not drawn, it is not part of an accessible name and it is not sent to the host.
+- Schema 9.30.0: a write action (`setValue`, `toggleValue`) on a long press, allowed when the
+  press of the node does not write. No code change: the long press already runs the one press
+  path, so the value goes to the session and to `onWrite`, after `onTrack`; the role of the node
+  still comes from its `action` only.
+- Schema 9.31.0: the bottom safe inset of a modal sheet (`safeAreaBottom`, default `'env'`) is added
+  inside the sheet box, under its content, once. The sheet still reaches the bottom of the area, so
+  its background and radius extend under the home indicator and the last node stands above it. With
+  a pinned block the inset is under the content of that block, as before; a tall sheet scrolls its
+  body above the inset. A `center` window, a sheet shown as a window on a wide area and pages are
+  unchanged. A host that already pads the sheet passes `safeAreaBottom={0}`.
+
 ## [0.27.0] - 2026-10-26
 
 Reads the same documents and themes as 0.26.2, plus the placement map 1.x.

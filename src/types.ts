@@ -303,6 +303,8 @@ export interface UiNode {
    * its PARENT, not the widget itself.
    */
   readonly visibleIf?: VisibilityCondition
+  /** Fade when `visibleIf` changes (since 9.33.0). `unknown`: only `visibility-fade.ts` reads it; the word `fade` or "no field". */
+  readonly visibilityTransition?: unknown
   readonly style?: NodeStyle
   readonly styleWhen?: readonly StyleCase[]
   readonly fill?: true

@@ -32,6 +32,7 @@ import { animatesIn, appearDecision, appearDigits, appearTargets, VALUE_APPEAR }
 import { animatesChanges, decide, stepDigits, transitionTargets, transitionValueAt, VALUE_TRANSITION } from '../value-transition'
 import type { TransitionTarget } from '../value-transition'
 import { PlaceContext, useData } from './contexts'
+import { prefersReducedMotion } from './motion-pref'
 
 interface Run {
   readonly from: number
@@ -156,10 +157,6 @@ class Engine {
     }
     return { stepped, smooth, literal, ends }
   }
-}
-
-function prefersReducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 const now = (): number => (typeof performance === 'undefined' ? Date.now() : performance.now())

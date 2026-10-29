@@ -15,13 +15,13 @@
 import { parseInputNumber, readInputNumber } from './input-number'
 import { readInputFlag } from './input-rules'
 import type { InputWritten } from './input-rules'
-import { isRecord } from './sanitize'
+import { isRecord, MAX_DATA_PATH_LENGTH } from './sanitize'
 
 export const SET_VALUE_ACTION_TYPE = 'setValue'
 export const TOGGLE_VALUE_ACTION_TYPE = 'toggleValue'
 
 /** The longest path of a write: the common bound of a data path. */
-export const WRITE_PATH_MAX = 128
+export const WRITE_PATH_MAX = MAX_DATA_PATH_LENGTH
 
 /** The types a literal can be read as; the default is `string`. */
 export const WRITE_VALUE_TYPES = ['string', 'boolean', 'number'] as const

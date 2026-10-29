@@ -12,7 +12,9 @@ import type { ReactNode } from 'react'
 
 import { HotlayoutScreen } from './HotlayoutScreen'
 import type { HotlayoutScreenProps } from './HotlayoutScreen'
-import { computePlacement, LOADING, sameDocument } from './placement-state'
+import { PLACEMENT_MAX_TIMER_MS } from './placement-schedule'
+import { decidePlacement, LOADING, nowOf, runPlacement, sameDocument } from './placement-state'
+import type { HeldMap, PlacementDocumentCache, PlacementRun } from './placement-state'
 import type { PlacementMapStore, PlacementSettings, PlacementState } from './placement-state'
 import { placementEvent } from './placements'
 import type { PlacementEvent, PlacementSettled } from './placements'
@@ -78,6 +80,8 @@ export function usePlacement(name: string, options: UsePlacementOptions): Placem
   const key = `${name}\u0000${mapUrl}`
   const [held, setHeld] = useState<Keyed>({ key, state: LOADING })
   const latest = useRef(options)
+  // Documents this placement has read, kept across re-reads so a boundary or a lost network does not blank it.
+  const documents = useRef<PlacementDocumentCache>(new Map())
   // What the host was last told, per placement and map: an effect re-run for another reason tells nothing twice.
   const told = useRef<{ readonly key: string; readonly settled: PlacementSettled | null }>({ key, settled: null })
   // Declared before the reading effect, so the effect always sees the options of the render it runs for.
@@ -89,33 +93,70 @@ export function usePlacement(name: string, options: UsePlacementOptions): Placem
   useEffect(() => {
     let current: AbortController | undefined
     let alive = true
-    const run = (): void => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    // The map of the last read: the clock re-decides on it, without asking the network again.
+    let heldMap: HeldMap | undefined
+    // One timer at the next boundary of the schedule, cut to what a timer can hold and counted again at its end.
+    const arm = (boundary: number | null): void => {
+      if (timer !== undefined) clearTimeout(timer)
+      timer = undefined
+      if (boundary === null || !alive) return
+      const wait = Math.min(PLACEMENT_MAX_TIMER_MS, Math.max(0, boundary - nowOf(latest.current)))
+      timer = setTimeout(recompute, wait)
+    }
+    const settle = (controller: AbortController, result: PlacementRun): void => {
+      if (!alive || controller !== current || result.state.status === 'loading') return
+      const next = result.state
+      setHeld((prev) => (prev.key === key && sameState(prev.state, next) ? prev : { key, state: next }))
+      const settled = settledOf(next)
+      const event = placementEvent(told.current.key === key ? told.current.settled : null, settled)
+      told.current = { key, settled }
+      if (event !== null) latest.current.onPlacementStatus?.({ name, ...event })
+      arm(result.boundary)
+    }
+    // The clock moved: decide again on the map already held.
+    function recompute(): void {
+      if (heldMap === undefined) {
+        run()
+        return
+      }
+      // A newer pass makes the older one stale.
+      current?.abort()
+      const controller = new AbortController()
+      current = controller
+      decidePlacement(name, latest.current, heldMap, controller.signal, documents.current)
+        .then((result) => {
+          settle(controller, result)
+        })
+        .catch(() => undefined)
+    }
+    function run(): void {
       // A newer read makes the older one stale: it is aborted and its answer is dropped.
       current?.abort()
       const controller = new AbortController()
       current = controller
-      computePlacement(name, latest.current, controller.signal)
-        .then((next) => {
-          if (!alive || controller !== current || next.status === 'loading') return
-          setHeld((prev) => (prev.key === key && sameState(prev.state, next) ? prev : { key, state: next }))
-          const settled = settledOf(next)
-          const event = placementEvent(told.current.key === key ? told.current.settled : null, settled)
-          told.current = { key, settled }
-          if (event !== null) latest.current.onPlacementStatus?.({ name, ...event })
+      runPlacement(name, latest.current, controller.signal, documents.current)
+        .then((result) => {
+          if (alive && controller === current) heldMap = result.held
+          settle(controller, result)
         })
         .catch(() => undefined) // an abort; any other failure is already a state
     }
     run()
+    // Back in the foreground the clock may have jumped: read the map again, or at least decide again.
     const onVisible = (): void => {
-      if (document.visibilityState === 'visible') run()
+      if (document.visibilityState !== 'visible') return
+      if (refreshOnVisible) run()
+      else recompute()
     }
-    if (refreshOnVisible) document.addEventListener('visibilitychange', onVisible)
-    const timer = pollDelay === undefined ? undefined : setInterval(run, pollDelay)
+    document.addEventListener('visibilitychange', onVisible)
+    const poll = pollDelay === undefined ? undefined : setInterval(run, pollDelay)
     return () => {
       alive = false
       current?.abort()
       document.removeEventListener('visibilitychange', onVisible)
-      if (timer !== undefined) clearInterval(timer)
+      if (poll !== undefined) clearInterval(poll)
+      if (timer !== undefined) clearTimeout(timer)
     }
   }, [name, mapUrl, key, refreshOnVisible, pollDelay])
 
@@ -131,7 +172,7 @@ export type HotlayoutPlacementProps = UsePlacementOptions &
   }
 
 /** Keys that belong to the placement, not to the screen it draws. */
-const PLACEMENT_KEYS = ['name', 'loading', 'mapUrl', 'documentUrl', 'bundledMap', 'lastKnown', 'fetch', 'loadDocument', 'onPlacementStatus', 'refreshOnVisible', 'pollIntervalMs'] as const
+const PLACEMENT_KEYS = ['name', 'loading', 'mapUrl', 'documentUrl', 'bundledMap', 'lastKnown', 'fetch', 'loadDocument', 'onPlacementStatus', 'refreshOnVisible', 'pollIntervalMs', 'clock'] as const
 
 /**
  * Draws the document that stands in the placement `name`, or nothing: an empty, unknown or

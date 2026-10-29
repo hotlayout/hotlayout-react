@@ -122,6 +122,8 @@ function shapeOne(raw: unknown, fallbackId: string, report: IssueSink): { readon
   if (raw.pressFeedback !== undefined) node.pressFeedback = raw.pressFeedback
   // Since 9.16.0: the app bar zone arrives as it is; only `media-chrome.ts` (`barZoneOf`) reads the value: the word `leading` or "no field".
   if (raw.zone !== undefined) node.zone = raw.zone
+  // Since 9.33.0: the fade on a condition arrives as it is; only `visibility-fade.ts` reads it, and only the word `fade` counts.
+  if (raw.visibilityTransition !== undefined) node.visibilityTransition = raw.visibilityTransition
   // The colour of a widget PART lives in `props` (`Divider`, `ProgressBar`, `CircularProgress`).
   if (isRecord(raw.props) && isRecord(raw.props.color)) lintColors(raw.props.color, `${where}: props.color`, report)
 

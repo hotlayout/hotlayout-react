@@ -37,6 +37,7 @@ export type { HotlayoutPlacementProps, PlacementStatusEvent, UsePlacementOptions
 export type { PlacementMapStore, PlacementSettings, PlacementState } from './placement-state'
 export { loadPlacementMap, PLACEMENT_REQUEST_DEADLINE_MS } from './placement-load'
 export type { LoadPlacementMapOptions } from './placement-load'
+export { nextPlacementBoundary, resolvePlacementAt } from './placement-schedule'
 export {
   isPlacementName,
   pickPlacementMap,

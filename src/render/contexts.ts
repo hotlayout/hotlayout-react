@@ -298,6 +298,9 @@ export const SafeTopContext = createContext(NO_SAFE_TOP)
 /** The children of the node being drawn, by the document: what its own children read as their siblings. The place of an option in its group comes from them. */
 export const SiblingNodesContext = createContext<readonly UiNode[]>([])
 
+/** The node whose children are being drawn (`undefined` for the root): what a child reads to know its parent's type and whether it is the parent's first child. */
+export const ParentNodeContext = createContext<UiNode | undefined>(undefined)
+
 /**
  * The number of the current show of the screen stack (`Flow.show`): it grows with every transition,
  * "back" and section switch. A button that waits for the host (the busy swipe) compares it with the

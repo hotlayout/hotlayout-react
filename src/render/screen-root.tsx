@@ -109,6 +109,8 @@ interface ScreenFrame {
   readonly stickyPinned: boolean
   /** The safe area inset under the bottom zone content (`bottomZone.safeArea`); zero means none is added. */
   readonly safe: string
+  /** The inset of a modal SHEET without a bottom zone: a transparent strip inside the root box under the body (`sheetSafeBottom`); zero means none. */
+  readonly sheetSafe: string
   /** The top safe area inset (`safeTop`): inside the app bar box when there is one, otherwise above the body area; zero means none is added. */
   readonly safeTop: string
 }
@@ -125,7 +127,7 @@ function screenFrameOf(anatomy: ScreenAnatomy, zones: ScreenZones): ScreenFrame 
   const stickyTop = sticks && hasTop
   // A modal layer has no inset; a block without its own height gets it only while the app bar sticks to the top of the window.
   const topApplies = !anatomy.modal && (ownHeight || stickyTop)
-  return { ownHeight, hasTop, hasBottom, stickyTop, stickyBottom, stickyPinned: sticks && zones.topPinned.length > 0, safe: hasBottom && insetApplies ? anatomy.safeBottom : ZERO_INSET, safeTop: topApplies ? anatomy.safeTop : ZERO_INSET }
+  return { ownHeight, hasTop, hasBottom, stickyTop, stickyBottom, stickyPinned: sticks && zones.topPinned.length > 0, safe: hasBottom && insetApplies ? anatomy.safeBottom : ZERO_INSET, sheetSafe: !hasBottom && anatomy.modal && anatomy.windowed !== true ? anatomy.safeBottom : ZERO_INSET, safeTop: topApplies ? anatomy.safeTop : ZERO_INSET }
 }
 
 /**
@@ -240,6 +242,7 @@ export const ScreenRootView = screenPart(function ScreenRootView({ node, props, 
           </ContentColumn>
         </div>
       </div>
+      {frame.sheetSafe === ZERO_INSET ? null : <div aria-hidden="true" data-hl-zone="safeBottom" style={{ flex: 'none', blockSize: frame.sheetSafe }} />}
       <ScreenBottomZone zones={zones} frame={frame} contentMax={contentMax} sides={sides} padding={padding} backdrop={backdrop} stickyOffset={anatomy.stickyBottomOffset} />
     </div>
   )

@@ -5,6 +5,8 @@ A screen is assembled in a visual builder and published as JSON; your app draws
 it with one component, and the next publish changes the screen without a
 release.
 
+**Quickstart:** [docs](https://hotlayout.com/docs/integrator/quickstart-react) · [video](https://youtu.be/YVLhz5-z_bs) · **Builder and access:** [hotlayout.com](https://hotlayout.com)
+
 ```sh
 npm install @hotlayout/react
 ```
@@ -78,6 +80,7 @@ The builder and the product: [hotlayout.com](https://hotlayout.com).
 - [Placements](#placements) — named places that show what the admin chose
 - [Updating a screen without a release](#updating-a-screen-without-a-release)
 - [Limitations](#limitations)
+- [Learn more](#learn-more)
 
 ## Getting the document, the theme and the data
 
@@ -136,6 +139,7 @@ Two notes on the example:
 | **Theme fallbacks** | An unreadable theme never blanks the screen: the built-in theme is used and you are told through `onReport`. |
 | **Images** | An asset token without a URL, and a URL that failed to load, are drawn as a neutral placeholder — never as the browser's broken-image icon. |
 | **Direction** | Sets `dir` on its own root from the language the document is shown in (CLDR via `Intl.Locale`) and mirrors directional icons. |
+| **Fade on a condition** | A node with `visibilityTransition: "fade"` and a `visibleIf` does not blink when the condition changes: the leaving node fades out in place (120 ms) and then leaves the layout, the appearing one waits the same time out of the layout and fades in (160 ms). No pairing: every node has its own timeline. A leaving node is `inert` and out of the accessibility tree at once. The first draw, going back, a change of the language or of the width class, "reduce motion" and the server render are not transitions. |
 | **Motion** | A node with `motion` drifts (`float`) or breathes (`pulse`) forever; it only paints, so neighbours never move. The position follows the contract's sine formula, computed by the browser from one animated angle. The system "reduce motion" setting and the server render leave the node at rest. |
 | **Blur and glass** | A modal screen with `backdropBlur` blurs everything under the layer (the dimming lies over the blur); a node with `style.backdropBlur` blurs what is painted under its box, within its radius. Both are `backdrop-filter`. |
 | **Touch targets** | Buttons look exactly as designed (a button with `sm` padding is 40 px tall) but are *pressable* in an area of at least 48 × 48 px, without shifting neighbours. |
@@ -189,7 +193,7 @@ come from the contract.
 | `stickyBottomOffset` | `number \| string` | The same for the bottom zone: the `bottom` it sticks at when your site has a fixed bar below the block. |
 | `safeAreaTop` | `number \| 'env'` | The top safe-area inset. Default `'env'`. See [Safe areas](#safe-areas). |
 | `trapFocus` | `boolean` | Keep `Tab` inside a modal layer at all times. Default `false`: only a dismissible layer cycles `Tab`, and `Tab` may leave a layer that waits for an action. |
-| `safeAreaBottom` | `number \| 'env'` | The bottom safe-area inset under the bottom zone. Default `'env'`. See [Safe areas](#safe-areas). |
+| `safeAreaBottom` | `number \| 'env'` | The bottom safe-area inset: under the bottom zone, and inside a modal sheet. Default `'env'`. See [Safe areas](#safe-areas). |
 | `initialWidthClass` | `'compact' \| 'medium' \| 'expanded'` | The width class to draw until the root element has been measured (default `'compact'`). See [Adaptive layout by width](#adaptive-layout-by-width). |
 
 The stack is tied to `document.documentId` and `entry`, not to object identity:
@@ -238,7 +242,7 @@ server rendering.
 | `openInNewTab(url)` | A ready `openUrl` handler: `window.open(url, '_blank', 'noopener,noreferrer')`. The renderer never calls it; you pass it to `runStandardAction`. |
 | `paramFormProblem(form, value)`, `ACTION_CATALOG` | The contract's check of an action parameter and the catalog of named actions — plain data and a plain function, no React, usable on the server. |
 | `HotlayoutPlacement`, `usePlacement(name, options)` | A named place of the app that shows the document the admin put there — see [Placements](#placements). |
-| `readPlacementMapText(text)`, `readPlacementMapBytes(bytes)`, `resolvePlacement(map, name)`, `pickPlacementMap(input)`, `placementShowing(resolution, document?)`, `placementEvent(previous, next)`, `loadPlacementMap(url, options?)` | The rules behind placements as plain functions — no React, usable on the server. |
+| `readPlacementMapText(text)`, `readPlacementMapBytes(bytes)`, `resolvePlacement(map, name)`, `resolvePlacementAt(map, name, nowMs)`, `nextPlacementBoundary(map, name, nowMs)`, `pickPlacementMap(input)`, `placementShowing(resolution, document?)`, `placementEvent(previous, next)`, `loadPlacementMap(url, options?)` | The rules behind placements as plain functions — no React, usable on the server. |
 | `resolveTheme(contract, themeId?)` | The theme the renderer would draw with, plus the fallbacks it took. |
 | `resolveLocale(requested, available, source)` | Which language a document is shown in for a given user locale — the renderer's own rule, for the parts of your UI that must speak the same language as the screen. See [Languages](#languages-and-right-to-left). |
 | `BUILT_IN_THEME_CONTRACT` | The built-in light and dark themes. |
@@ -698,9 +702,16 @@ top inset included — counts as `0`.
 
 | | `safeAreaTop` | `safeAreaBottom` |
 |---|---|---|
-| **Where it is added** | Inside the box of the app bar, above its content, so a named background of the bar covers the status bar. Without an app bar, or with one hidden: above the body area. | Under the content of the bottom zone (a pinned block, a navigation bar); the background of the bar reaches the physical bottom. |
+| **Where it is added** | Inside the box of the app bar, above its content, so a named background of the bar covers the status bar. Without an app bar, or with one hidden: above the body area. | Under the content of the bottom zone (a pinned block, a navigation bar); the background of the bar reaches the physical bottom. In a modal sheet: inside the box of the sheet, under its content (below). |
 | **When** | With `scroll="screen"`, or while the app bar sticks to the top of the window (`scroll="page"`, `chrome="sticky"`). | Only when the screen has a bottom zone. With `scroll="page"`, only while the zone sticks. |
-| **Never** | Inside a modal layer. | — |
+| **Never** | Inside a modal layer. | In a window (`modalPlacement: 'center'`, or a sheet shown as a window on a `medium` or `expanded` area). |
+
+**A modal sheet.** A sheet reaches the physical bottom of the area, so the
+bottom inset lies inside its box, under its content: the background and the
+radius of the sheet go on under the home indicator, and the last node (usually
+the main button) stands above it. With a pinned block the inset is under the
+content of that block, and it is added once. The body of a tall sheet scrolls
+above the inset. If your host already pads the sheet, pass `safeAreaBottom={0}`.
 
 **The body under the app bar.** `Screen.props.bodyTop: 'screenTop'` starts the
 body at the top edge of the screen: the app bar stands over it, takes the
@@ -1747,7 +1758,7 @@ Built in; nothing to configure except `labels`.
 | **Switches and checkboxes** | A `<button>` with `role="switch"` / `role="checkbox"` and `aria-checked`, named by its label; the whole row is the target; `Space` toggles (`Enter` too for a switch). |
 | **Options and toggles** | A node with `setValue` is `role="radio"` with `aria-checked` and, among the options of one parent that write the same path, `aria-posinset` / `aria-setsize`; a node with `toggleValue` is a button with `aria-pressed`. Each is a tab stop; `Enter` and `Space` press. |
 | **Choice groups** | `role="radiogroup"` with `role="radio"` rows and `aria-checked`; each option is a tab stop, selected by `Space` or `Enter`. |
-| **Reduced motion** | With `prefers-reduced-motion: reduce` every moving node (`motion`) stands at rest; the document needs no second variant. |
+| **Reduced motion** | With `prefers-reduced-motion: reduce` every moving node (`motion`) stands at rest, and a node with `visibilityTransition` appears and disappears at once; the document needs no second variant. |
 | **Progress** | `role="progressbar"` with `aria-valuenow` / `aria-valuemax`. |
 | **Language** | The root carries `lang` and `dir`, so a screen reader switches voice for an Arabic screen on an English page. |
 
@@ -1757,7 +1768,7 @@ not say.
 
 ## Versions
 
-This version reads layout documents of schema **9.28.x** and themes of theme
+This version reads layout documents of schema **9.33.x** and themes of theme
 contract **4.0.x**, and embeds icon set 1.0.0. Any 9.x document and any 4.x
 theme is drawn; React 18 and 19 are supported by every release.
 
@@ -1818,6 +1829,9 @@ When the builder moves to a new schema major, update this package in your app
 
 | Package | Document schema |
 |---|---|
+| 0.30.x, 0.31.x | 9.33.x |
+| 0.29.x | 9.32.x |
+| 0.28.x | 9.31.x |
 | 0.26.x, 0.27.x | 9.28.x |
 | 0.24.x, 0.25.x | 9.27.x |
 | 0.23.x | 9.25.x |
@@ -1887,6 +1901,11 @@ package version otherwise.
 | 9.26 | A long press (`longPress`, `longPressLabel`), grouped lists (`Repeater.groupBy`), a sheet that follows the finger down, a modal screen that waits for an action (`dismissible: false`) | [Long press](#long-press); [below](#long-press-groups-and-sheets-926) |
 | 9.27 | A page opened from a list row follows the data | [A page follows the data](#a-page-follows-the-data) |
 | 9.28 | No new field: the rules of a reader the contract now states — the default picture address and its network limits, at most 2550 list instances per screen, theme numbers out of bounds, transparent text out of the name of a card, focus of a layer that cannot be dismissed | changelog 0.26.0 |
+| 9.29 | No reader change: a node name for the builder's tree (`name`) is read and ignored | changelog 0.28.0 |
+| 9.30 | No reader change: a write action (`setValue`, `toggleValue`) on a long press runs through the same press path as any long press action | changelog 0.28.0 |
+| 9.31 | No new field: the bottom safe inset of a modal sheet goes inside the sheet box, under its content | [Safe areas](#safe-areas) |
+| 9.32 | `carousel.stopPath`: the active stop of a carousel written to and read from a number data path | changelog 0.29.0 |
+| 9.33 | `visibilityTransition: "fade"`: a node fades out and in when its `visibleIf` changes | changelog 0.30.0 |
 
 #### Layout and text additions of 9.15–9.17
 
@@ -2200,6 +2219,42 @@ the way back: a document drawn again arrives as `status: 'document'` with
 `report: null`, so a frame you collapsed can open again. A refresh that changes
 nothing calls nothing; new content of the same document is not a change.
 
+**Scheduled content.** A place can carry a schedule: documents that stand there for a
+window of time, set in the admin. Nothing changes in your code — the placement looks
+at the clock of the device itself and switches on time, with no network. A window is
+`[from, until)` (`from` included, `until` excluded, UTC instants such as
+`2026-11-27T22:00:00Z`); outside every window the place shows its permanent content.
+A window with no document is a *pause*: the place is `empty` for that time (collapse
+your frame as you do for any `empty`), then the permanent content returns. When windows
+overlap, the one that started later wins. A broken window is skipped, and the place does
+not become `unreadable` because of it. A timer is set for the next boundary (cut to the
+longest a timer can hold and counted again at its end), and the placement decides again
+on every new read of the map and when the page becomes visible again, because the clock
+may have jumped. A change arrives through `onPlacementStatus` like any other, and the
+map is not read again for it. The `clock` option is the clock to use, in milliseconds
+since the epoch; the default is `Date.now`.
+
+<!-- example: placements.tsx#schedule -->
+```tsx
+// A place may carry a schedule in the map: documents that stand there for a window of time
+// (`from` included, `until` excluded, UTC instants such as `2026-11-27T22:00:00Z`).
+// <HotlayoutPlacement> and usePlacement read the device clock themselves and switch on time,
+// without the network. To decide on your own, ask the same rule:
+export function whatStandsThere(mapText: string, name: string) {
+  const map = readPlacementMapText(mapText)
+  const now = Date.now()
+  return {
+    now: resolvePlacementAt(map, name, now), // { status, documentId, entry }; a pause is `empty`
+    changesAt: nextPlacementBoundary(map, name, now), // milliseconds since the epoch, or null
+  }
+}
+
+// In a test, give the placement your own clock (milliseconds since the epoch):
+export function BlackFridayBanner() {
+  return <HotlayoutPlacement name="home.banner" {...placements} clock={() => Date.parse('2026-11-28T10:00:00Z')} />
+}
+```
+
 **Where the map comes from.** The network first; if it gives nothing, the last
 good map this device saw (`lastKnown`, default `localStorage`; pass `false` to
 keep nothing, or `{ read, write }` for your own storage), then the copy you ship
@@ -2339,8 +2394,12 @@ export function LiveRewards({ url, theme }: { url: string; theme: ThemeContract 
 **State and interaction**
 
 - **Carousel state is the renderer's.** Which card is open is not in the
-  document and is not reported to the host; it is kept while the screen is in
-  the stack. No animated scrolling is ever started by the renderer.
+  document; it is kept while the screen is in the stack. The host is told the
+  stop only when the carousel names a number path (`carousel.stopPath`): the
+  stop number is then written with the same `onWrite` as an input field after
+  a person's swipe settles, and the carousel follows that value. The
+  renderer starts animated scrolling only to follow a changed value, and not
+  under "reduce motion".
 - **Local UI state is not persisted.** The open tab, expanded accordions and
   unbound choices reset when the screen is left.
 - **Choice groups and options built from own nodes have no arrow-key
@@ -2366,6 +2425,13 @@ export function LiveRewards({ url, theme }: { url: string; theme: ThemeContract 
 
 The rules the renderer follows are those of the HotLayout contract; the sections
 above state the ones a host meets. Changes between versions: [CHANGELOG.md](CHANGELOG.md).
+
+## Learn more
+
+- Website: [hotlayout.com](https://hotlayout.com)
+- Documentation: [hotlayout.com/docs](https://hotlayout.com/docs), including the [quickstart for this platform](https://hotlayout.com/docs/integrator/quickstart-react)
+- Video quickstart: [YouTube](https://youtu.be/YVLhz5-z_bs)
+- Getting the builder: screens are made in the HotLayout builder, hosted at hotlayout.com or self-hosted. To get access, use "Get access" on [hotlayout.com](https://hotlayout.com) or write to [contact@hotlayout.com](mailto:contact@hotlayout.com).
 
 ## License
 

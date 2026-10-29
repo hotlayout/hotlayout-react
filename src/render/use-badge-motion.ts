@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { NAV_BADGE_MOTION, navBadgeChangeOf } from '../nav-badge-motion'
 import { useIsomorphicLayoutEffect } from '../wide-nav-view'
+import { prefersReducedMotion } from './motion-pref'
 
 export interface BadgeMotion {
   /** Whether the dot is in the markup: shown, or fading out. */
@@ -25,10 +26,6 @@ export interface BadgeMotion {
 interface Moving {
   readonly kind: 'appear' | 'disappear'
   readonly epoch: number
-}
-
-function prefersReducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 export function useBadgeMotion(dot: boolean): BadgeMotion {

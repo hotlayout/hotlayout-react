@@ -13,6 +13,12 @@ import { BUILT_IN_THEME_CONTRACT, HotlayoutScreen } from '../index'
 import type { HotlayoutReport, ThemeContract, UiDocument } from '../index'
 import { badNumberIn, EXTREMES, leavesOf, replaced, screenFixtures, serverMarkup, showingScreenOf, sinksOf, THREW, valueAt } from '../../test-support/hardening-kit'
 
+/**
+ * The browser tests render hundreds of screens in one jsdom document with `injectStyles={false}`: the
+ * stylesheet is a constant (no number reaches it), and jsdom keeps every injected sheet in
+ * `document.styleSheets` after unmount, so each later selector match walks all of them (a file run went
+ * from 4.8 s to 69 s for one test). The numbers under test reach inline styles only.
+ */
 function check(html: string, cleanLength: number, what: string): void {
   expect(html.includes(THREW), `${what}: the screen threw — ${/data-test-threw="">([^<]*)/.exec(html)?.[1] ?? ''}`).toBe(false)
   for (const sink of sinksOf(html)) {
@@ -116,11 +122,11 @@ describe('limit 1: a transition to an extreme number ends', () => {
         const shown = { ...fixture.document, initialScreenId: screen.screenId } as UiDocument
         for (const [label, value] of EXTREMES) {
           const reports: HotlayoutReport[] = []
-          const view = render(<HotlayoutScreen document={shown} data={numbered(3)} collections={collections} onReport={(report) => reports.push(report)} />)
+          const view = render(<HotlayoutScreen injectStyles={false} document={shown} data={numbered(3)} collections={collections} onReport={(report) => reports.push(report)} />)
           act(() => {
             vi.advanceTimersByTime(2000)
           })
-          view.rerender(<HotlayoutScreen document={shown} data={numbered(value)} collections={collections} onReport={(report) => reports.push(report)} />)
+          view.rerender(<HotlayoutScreen injectStyles={false} document={shown} data={numbered(value)} collections={collections} onReport={(report) => reports.push(report)} />)
           if (vi.getTimerCount() > 0) sawFrames += 1
           act(() => {
             vi.advanceTimersByTime(3000)
@@ -133,6 +139,7 @@ describe('limit 1: a transition to an extreme number ends', () => {
           if (vi.getTimerCount() > 2 || frames > 2) running += 1
           expect(reports.filter((report) => report.kind === 'render-error'), `${fixture.name}/${screen.screenId} = ${label}`).toEqual([])
           view.unmount()
+          cleanup()
         }
       }
     }
@@ -182,7 +189,7 @@ describe('limit 1: in the browser — effects, timers and measurements under ext
         for (const [label, value] of EXTREMES) {
           const reports: HotlayoutReport[] = []
           const what = `${fixture.name} ${path.join('.')} = ${label}`
-          const view = render(<HotlayoutScreen document={showingScreenOf(replaced(fixture.document, path, value), path)} onReport={(report) => reports.push(report)} />)
+          const view = render(<HotlayoutScreen injectStyles={false} document={showingScreenOf(replaced(fixture.document, path, value), path)} onReport={(report) => reports.push(report)} />)
           act(() => {
             vi.advanceTimersByTime(3000)
           })
@@ -196,6 +203,7 @@ describe('limit 1: in the browser — effects, timers and measurements under ext
           expect(delays.filter((delay) => delay < 0), what).toEqual([])
           expect(intervals.filter((delay) => delay < 1000), what).toEqual([])
           view.unmount()
+          cleanup()
         }
     }, 120_000)
   }

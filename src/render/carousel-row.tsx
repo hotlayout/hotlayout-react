@@ -12,9 +12,11 @@ import { productVar } from '../theme'
 import type { UiNode } from '../types'
 import { CAROUSEL_CARD_VAR, CarouselCardContext, CarouselMemoryContext, InstancePathContext, ScrollRowContext, useTheme } from './contexts'
 import { PressLabel } from './press-host'
+import { useCarouselStop } from './use-carousel-stop'
 import { splitRootPadding } from './screen-root'
 import type { NodeMark } from './widget-props'
 import { screenPart } from './screen-part'
+import { namesOwnWidth, splitCarouselPlace } from './carousel-place'
 
 /** One carousel card: the node (for its flags) and what to draw. A node hidden by a condition draws nothing itself, so it has no list wrapper. */
 interface CarouselCard {
@@ -53,7 +55,8 @@ function cardsOf(scroller: HTMLElement): readonly HTMLElement[] {
  *  - DOTS: one per STOP; with a single stop or more than ten there are no dots and no room for
  *    them; an inactive dot is the active colour at 0.3 opacity;
  *  - STATE belongs to the reader: the active stop is the one nearest to the offset and is kept while
- *    the screen is on the stack (`CarouselMemoryContext`); the host is not told about the card.
+ *    the screen is on the stack (`CarouselMemoryContext`); the host is told about the stop only when the
+ *    node names a `stopPath` (`use-carousel-stop.ts`).
  *
  * Right-to-left writing mirrors by itself (flex, `scroll-padding-inline-start`); `scrollLeft` is
  * negative there, so its absolute value is used.
@@ -82,9 +85,13 @@ export const CarouselRow = screenPart(function CarouselRow({
   // The key is the stack frame, the node and the chain of template instances: in a data-driven list each record has its own card.
   const instancePath = useContext(InstancePathContext)
   const memoryKey = `${memory?.scope ?? ''}\u0000${carouselStateKey(node.id, instancePath)}`
-  const [measured, setMeasured] = useState<{ readonly stops: number; readonly viewport: number; readonly active: number; readonly tooNarrow: boolean }>({ stops: 1, viewport: 0, active: 0, tooNarrow: false })
+  // The stop told to the data (`carousel.stopPath`): written after a person's swipe settled, read at show and on a change.
+  const stopPath = useCarouselStop(node, scroller, direction)
+  const [measured, setMeasured] = useState<{ readonly stops: number; readonly viewport: number; readonly active: number; readonly tooNarrow: boolean }>({ stops: 1, viewport: 0, active: stopPath.initial, tooNarrow: false })
 
-  const { overflow, ...rest } = css
+  // The place of the node in its parent (own size, margins, a stack layer) lies on the shell, the look of its box on the row.
+  const { place, box } = splitCarouselPlace(css)
+  const { overflow, ...rest } = box
   const { padding } = splitRootPadding(rest)
   const peekRef = carousel.peek ?? DEFAULT_CAROUSEL_PEEK
   const peekCss = spacingCss(peekRef, theme) ?? productVar('spacing', DEFAULT_CAROUSEL_PEEK)
@@ -110,6 +117,7 @@ export const CarouselRow = screenPart(function CarouselRow({
     const active = activeCarouselStop(next.stops, Math.abs(element.scrollLeft))
     setMeasured((previous) => (previous.stops === next.stops.length && previous.viewport === viewport && previous.active === active && previous.tooNarrow === tooNarrow ? previous : { stops: next.stops.length, viewport, active, tooNarrow }))
     memory?.set(memoryKey, Math.abs(element.scrollLeft))
+    stopPath.observe(next.stops, viewport)
   }
 
   // Returning to the screen shows the same card: the offset is restored when the element appears.
@@ -161,8 +169,12 @@ export const CarouselRow = screenPart(function CarouselRow({
      * the presence of dots; otherwise dots that appeared would change the area, and the area would
      * change the stop count (an endless flicker). Dots that are not drawn take no room
      * (`notDrawn: 'takes-no-space'`): the shell column simply reserves nothing for them.
+     *
+     * The shell is also the OUTERMOST element of the node, so the node's place in its parent lies on
+     * it: its own width and limits, margins, the share of a row and the place of a stack layer
+     * (`splitCarouselPlace`). Without an own width it takes the whole place, as above.
      */
-    <div data-hl-carousel-shell="" style={{ display: 'flex', flexDirection: 'column', gap: sm, minInlineSize: 0, inlineSize: '100%' }}>
+    <div data-hl-carousel-shell="" style={{ display: 'flex', flexDirection: 'column', gap: sm, minInlineSize: 0, ...(namesOwnWidth(place) ? {} : { inlineSize: '100%' }), ...place }}>
       <div
         {...mark}
         ref={scroller}

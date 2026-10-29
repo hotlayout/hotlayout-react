@@ -20,6 +20,7 @@ import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 
 import { SHEET_EXIT, SHEET_RETURN, SHEET_VELOCITY_WINDOW_MS, sheetDragOutcome, sheetDragStarts } from '../sheet-dismiss'
+import { prefersReducedMotion } from '../render/motion-pref'
 
 interface Sample {
   readonly y: number
@@ -40,10 +41,6 @@ const bezier = (curve: readonly number[]): string => `cubic-bezier(${curve.join(
 /** How far the body of the sheet is scrolled from its top (0 — at the very top). */
 function scrolledOf(sheet: HTMLElement): number {
   return sheet.querySelector<HTMLElement>('[data-hl-zone="body"]')?.scrollTop ?? 0
-}
-
-function reducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 /** Puts the sheet and the scrim at "dragged down by `offset` pixels". */
@@ -133,7 +130,7 @@ export function useSheetDrag(sheetRef: RefObject<HTMLElement | null>, layerRef: 
       setTimeout(() => {
         element.removeEventListener('click', swallow, { capture: true })
       }, 0)
-      const instant = reducedMotion()
+      const instant = prefersReducedMotion()
       if (outcome === 'return') {
         place(element, scrim(), 0, scale, instant ? 'none' : `transform ${String(SHEET_RETURN.durationMs)}ms ${bezier(SHEET_RETURN.curve)}`)
         return

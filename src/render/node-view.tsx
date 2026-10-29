@@ -20,13 +20,14 @@ import { useScrolledLayer } from './bar-scrolled'
 import { choicePlaceOfNode } from './choice'
 import { DashProbe, dashedPartOf } from './dashed-border'
 import type { DashMeasure } from './dashed-border'
-import { AnatomyContext, CAROUSEL_CARD_VAR, CarouselCardContext, ColumnParentContext, FillIgnoredContext, ImageContext, LayerContext, LeadingZoneContext, NavPlaceContext, PullAxisContext, ScrollRowContext, SiblingNodesContext, StackLayerContext, TextContext, TightSlotContext, WeightedRowContext, WidthClassContext, useData, useTheme } from './contexts'
+import { AnatomyContext, CAROUSEL_CARD_VAR, CarouselCardContext, ColumnParentContext, FillIgnoredContext, ImageContext, LayerContext, LeadingZoneContext, NavPlaceContext, ParentNodeContext, PullAxisContext, ScrollRowContext, SiblingNodesContext, StackLayerContext, TextContext, TightSlotContext, WeightedRowContext, WidthClassContext, useData, useTheme } from './contexts'
 import { carouselCardBox, clipSizedBox, columnChildCss, fillLayerCss, placedStyleOf, pulledShare, rowShareOf, scrollRowChildCss, tightSlotCss } from './node-box'
 import type { NodePlacement } from './node-box'
 import { layerNodeCss } from './node-css'
 import { NodePlace } from './node-place'
 import { asCss } from './prop-tokens'
 import { Children, nodeShown } from './siblings'
+import { useVisibilityFade, visibilityFadeCss, visibilityFadeMark } from './use-visibility-fade'
 import { WidgetView } from './widget-view'
 import { screenPart } from './screen-part'
 
@@ -62,12 +63,15 @@ export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): R
   const anatomy = useContext(AnatomyContext)
   const navPlace = useContext(NavPlaceContext)
   const siblings = useContext(SiblingNodesContext)
+  const parent = useContext(ParentNodeContext)
   const scrolledLayer = useScrolledLayer(node)
+  const fade = useVisibilityFade(node, parent, nodeShown(node, widthClass, scope))
   // The measured border box of a node with a dashed border (9.22.0); read by the probe drawn right after the node.
   const [dashMeasure, setDashMeasure] = useState<DashMeasure | undefined>(undefined)
 
   // 1. Visibility: the width class (`showOn`) AND the data condition (`visibleIf`) are one question.
-  if (!nodeShown(node, widthClass, scope)) return null
+  // A node with `visibilityTransition: 'fade'` (9.33.0) stays drawn while it fades out and enters the layout only after the wait.
+  if (!fade.drawn) return null
   // The place of an option in its group (schema 9.19.0): among the children of one parent with the same write path.
   const choice = choicePlaceOfNode(siblings, node, widthClass, scope)
 
@@ -148,16 +152,18 @@ export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): R
                   {/* And whether it divides the row by weights, again for direct children only. */}
                   <WeightedRowContext.Provider value={acceptsWeightedChildren(node)}>
                    <SiblingNodesContext.Provider value={node.children ?? NO_SIBLINGS}>
+                   <ParentNodeContext.Provider value={node}>
                     <WidgetView
                       node={node}
                       props={node.props}
-                      css={asCss({ ...box, ...fillCss, ...weightCss, ...rowCss, ...slotCss, ...rowViewportCss, ...columnCss, ...cardCss, ...layerCss, ...motionCss, ...dashed.css })}
+                      css={visibilityFadeCss(asCss({ ...box, ...fillCss, ...weightCss, ...rowCss, ...slotCss, ...rowViewportCss, ...columnCss, ...cardCss, ...layerCss, ...motionCss, ...dashed.css }), fade)}
                       own={own}
                       dropped={dropped}
                       text={text}
-                      mark={{ 'data-hl-node': node.id, 'data-hl-type': node.type, ...(motion === undefined ? {} : motionMarks(motion)), ...dashed.mark, ...silentMark(node, own) }}
+                      mark={{ 'data-hl-node': node.id, 'data-hl-type': node.type, ...(motion === undefined ? {} : motionMarks(motion)), ...dashed.mark, ...visibilityFadeMark(fade), ...silentMark(node, own) }}
                       choice={choice}
                     />
+                   </ParentNodeContext.Provider>
                    </SiblingNodesContext.Provider>
                   </WeightedRowContext.Provider>
                 </ColumnParentContext.Provider>

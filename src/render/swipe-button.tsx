@@ -37,6 +37,7 @@ import { useSwipeBusy } from './use-swipe-busy'
 import { swallowAutoRepeat } from './use-press'
 import type { NodeMark } from './widget-props'
 import { screenPart } from './screen-part'
+import { prefersReducedMotion } from './motion-pref'
 
 export interface SwipeButtonProps {
   readonly mark: NodeMark
@@ -57,10 +58,6 @@ export interface SwipeButtonProps {
   readonly paddingBlock: number
   /** The look of a disabled button, laid last. */
   readonly look: CSSProperties
-}
-
-function prefersReducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 /** The track as it stands now: the border box and the border on one side. `undefined` while it has no size. */

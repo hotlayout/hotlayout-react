@@ -173,7 +173,36 @@ import { ICON_SET_VERSION } from './icon-set'
  * of the name of a card (`silent-paint.ts`), focus of a layer that cannot be dismissed
  * (`screen/layers.tsx`).
  */
-export const READER_SCHEMA_VERSION = '9.28.0'
+/*
+ * 9.29.0: PERFORMED. One new node field, `name`, a name for the author in the editor's tree; the
+ * reader ignores it (not drawn, not part of an accessible name, not sent to the host).
+ */
+/*
+ * 9.30.0: PERFORMED. A write action on the long press (`x-longPressWrite`) runs through the one
+ * press path of `usePress`, like the write of `action`; the role comes from `action` only.
+ */
+/*
+ * 9.31.0: PERFORMED. No new document field: the bottom safe inset of a modal sheet goes INSIDE
+ * the sheet box, under its content (`x-style.layout.sheetSafeBottom`, `sheet-safe-bottom.ts`);
+ * with a pinned block, under the content of the zone, once. `safeAreaBottom` reaches a sheet
+ * through `render/screen-root.tsx`; a window and a sheet shown as a window get nothing.
+ */
+/*
+ * 9.32.0: PERFORMED. An optional `carousel.stopPath` (`x-carouselStop`): a number data path. After a
+ * person's swipe has settled on a stop the reader writes the stop number there (the write of an
+ * input field: the session and `onWrite`, under `writablePaths`); the carousel stands on the stop
+ * the value names at show and moves to it when the number changes (`carousel-stop.ts`,
+ * `render/use-carousel-stop.ts`).
+ */
+/*
+ * 9.33.0: PERFORMED. An optional node field `visibilityTransition: 'fade'` (`x-visibilityFade`): when
+ * the `visibleIf` of a node changes on the shown screen, the leaving node fades out in place
+ * (`inert`, out of the accessibility tree at once) and then leaves the layout, the appearing one
+ * waits the same time out of the layout and fades in; every node has its own timeline
+ * (`visibility-fade.ts`, `render/use-visibility-fade.ts`). The zones of the screen follow the
+ * condition at once.
+ */
+export const READER_SCHEMA_VERSION = '9.33.0'
 
 /**
  * The THEME contract version this renderer is written for. The theme is versioned separately

@@ -20,6 +20,10 @@ export interface NodeMark extends PressAttributes {
   readonly 'data-hl-motion-fade'?: string
   /** A node with a dashed border (since 9.22.0): the probe that measures its box finds it by this mark. */
   readonly 'data-hl-dashed'?: string
+  /** A node in a fade (since 9.33.0): the phase for the style sheet and tests; `inert` and `aria-hidden` while it fades out. */
+  readonly 'data-hl-fade'?: string
+  /** Typed as React 19 types it; the value is the string `'true'` (see `visibilityFadeMark`). */
+  readonly inert?: boolean
   /** A node that paints nothing (since 9.28.0, `x-silentText`): out of the name of a card and of the accessibility tree. */
   readonly 'aria-hidden'?: true
 }
