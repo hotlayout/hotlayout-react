@@ -14,6 +14,7 @@ import { asCss } from './prop-tokens'
 import { richParagraph, withoutTypography } from './rich-paragraph'
 import { useTextParts } from './use-text'
 import { useValueTransition } from './use-value-transition'
+import { heldLines } from './value-hold'
 import type { WidgetProps } from './widget-props'
 import { screenPart } from './screen-part'
 
@@ -26,12 +27,7 @@ export const TextView = screenPart(function TextView({ node, props, css, own, te
   const theme = useTheme()
   const place = useContext(PlaceContext)
   const item = useContext(ListNumberContext)
-  // `animateChanges`: the number being counted is read at the frame being shown; without the field the data are the node's own.
-  const shownData = useValueTransition(props)
-  const { text: content, runs } = useTextParts(props.content, 'content', shownData.stepped)
-  // A gradient on the glyphs (9.23.0): the content sits in one block that carries it; a piece with its own colour keeps that colour.
-  const paint = textGradientPaint(node.type, own?.textGradient, theme)
-  const rich = richParagraph(props, runs, text, theme, { content, glyphGradient: paint !== undefined })
+  const { rich, body, paragraphClamp } = useTextLines({ node, props, own, text })
   const base = asCss(textCss('Text', text, theme))
   const marker = listMarkerOf({ props })
   /*
@@ -52,10 +48,6 @@ export const TextView = screenPart(function TextView({ node, props, css, own, te
     // Only values from the schema list: an arbitrary string in `text-align` would be a new style declaration on the server.
     textAlign: safeEnum(props.align, TEXT_ALIGNS),
   }
-  // The lines sit in one element: the gradient block when there is one, the paragraph otherwise (the clamp goes with the lines).
-  const clamp = clampCss(props)
-  const paragraphClamp = paint === undefined ? clamp : {}
-  const body = gradientBlock(rich === undefined ? content : rich.runs, paint, clamp)
 
   // A text that paints nothing says nothing (`x-silentText`): its own opacity 0, or a colour (own or inherited) with opacity 0.
   const silent = silentText(own, text.color, theme)
@@ -101,6 +93,32 @@ export const TextView = screenPart(function TextView({ node, props, css, own, te
     </span>
   )
 })
+
+/**
+ * The lines of a text and where its clamp sits. They sit in one element: the gradient block when
+ * there is one (9.23.0; a piece with its own colour keeps that colour), the paragraph otherwise —
+ * the clamp goes with the lines. While a number of the text moves (`animateChanges`, `animateIn`)
+ * the text is read twice, at its final value and at the frame being shown, and the FINAL lines
+ * hold the layout (`x-valueLayout`, `heldLines`).
+ */
+function useTextLines({ node, props, own, text }: Pick<WidgetProps, 'node' | 'props' | 'own' | 'text'>): {
+  readonly rich: ReturnType<typeof richParagraph>
+  readonly body: ReactNode
+  readonly paragraphClamp: CSSProperties
+} {
+  const theme = useTheme()
+  const shownData = useValueTransition(props)
+  const { text: content, runs } = useTextParts(props.content, 'content')
+  const shown = useTextParts(props.content, 'content', shownData.stepped, true)
+  const paint = textGradientPaint(node.type, own?.textGradient, theme)
+  const rich = richParagraph(props, runs, text, theme, { content, glyphGradient: paint !== undefined })
+  const clamp = clampCss(props)
+  const finalLines = rich === undefined ? content : rich.runs
+  if (!shownData.moving) return { rich, body: gradientBlock(finalLines, paint, clamp), paragraphClamp: paint === undefined ? clamp : {} }
+  const shownRich = richParagraph(props, shown.runs, text, theme, { content: shown.text, glyphGradient: paint !== undefined })
+  const shownLines = shownRich === undefined ? shown.text : shownRich.runs
+  return { rich, body: heldLines(gradientBlock(finalLines, paint, {}), gradientBlock(shownLines, paint, {}), clamp), paragraphClamp: {} }
+}
 
 /**
  * `maxLines` and `overflow` are behaviour, so they stayed in `props`: a number of lines and what to do

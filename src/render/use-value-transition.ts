@@ -58,6 +58,11 @@ export interface Shown {
    * (9.25.0) take their fractions from the share of the transition already shown.
    */
   readonly ends: ReadonlyMap<string, TransitionEnds>
+  /**
+   * A number of the node is moving at this frame. While it moves, a text takes the place of its
+   * FINAL value and only paints the value between there (the layout rule `x-valueLayout`).
+   */
+  readonly moving: boolean
 }
 
 export interface TransitionEnds {
@@ -138,7 +143,7 @@ class Engine {
   }
 
   scopes(scope: DataScope): Shown {
-    if (this.runs.size === 0) return { stepped: scope, smooth: scope, literal: undefined, ends: NO_ENDS }
+    if (this.runs.size === 0) return { stepped: scope, smooth: scope, literal: undefined, ends: NO_ENDS, moving: false }
     const stepped: Record<string, unknown> = { ...scope }
     const smooth: Record<string, unknown> = { ...scope }
     let literal: Shown['literal']
@@ -155,7 +160,7 @@ class Engine {
       stepped[path] = step
       smooth[path] = flow
     }
-    return { stepped, smooth, literal, ends }
+    return { stepped, smooth, literal, ends, moving: true }
   }
 }
 

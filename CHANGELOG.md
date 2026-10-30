@@ -10,6 +10,26 @@ are listed under **Changed** or **Removed**.
 The package version is independent of the contract versions. Which documents
 and themes a release reads is stated in every entry.
 
+## [0.31.1] - 2026-10-30
+
+**Reads:** the same documents and themes as 0.31.0 (schema 9.33.x, theme contract
+4.0.x, icon set 1.0.0, placements 1.1.0).
+
+### Fixed
+
+- A number that counts (`animateChanges`) or grows from zero (`animateIn`) no
+  longer moves the layout on every frame (`x-valueLayout`). While it moves, the
+  text takes the place of its FINAL text, and the value between is painted over
+  it, out of the flow, in tabular figures: a line that wrapped at one width of
+  the number and not at another made the card change height several times a
+  second. The label of a `ProgressBar` holds its final place the same way. The
+  screen reader hears the final text; the painted one is `aria-hidden`.
+
+### Changed
+
+- The README is a short introduction; the full reference moved to
+  [hotlayout.com/docs](https://hotlayout.com/docs/integrator/react-reference).
+
 ## [0.31.0] - 2026-10-29
 
 **Reads:** placements 1.1.0 (schema 9.33.x, theme contract 4.0.x, icon set 1.0.0).

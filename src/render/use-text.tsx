@@ -48,12 +48,19 @@ export function useText(value: unknown, field?: string): string {
  * the substitution, so the text and the pieces cannot diverge. For a non-template there are no
  * `runs`.
  */
-export function useTextParts(value: unknown, field?: string, shownScope?: DataScope): { readonly text: string; readonly runs: readonly TemplateRun[] | undefined } {
+export function useTextParts(
+  value: unknown,
+  field?: string,
+  shownScope?: DataScope,
+  quiet = false,
+): { readonly text: string; readonly runs: readonly TemplateRun[] | undefined } {
   const ownScope = useData()
   // A node that leads a number to a new value (`animateChanges`) reads the data with that number at the frame being shown.
   const scope = shownScope ?? ownScope
   const place = useContext(PlaceContext)
-  const report = useContext(IssueContext)
+  const sink = useContext(IssueContext)
+  // A second reading of the same text (the painted value over the final one) does not report its issues twice.
+  const report = quiet ? noReport : sink
   // A screen with a countdown draws against a clock that ticks (9.21.0); otherwise against the moment of the render.
   const now = useContext(ClockContext)?.now ?? place.now
 
@@ -85,6 +92,8 @@ export function useTextParts(value: unknown, field?: string, shownScope?: DataSc
   // A locale the engine did not accept falls back to the language of the shown text, not to an ISO string.
   return { text: readBindable(bindable, scope, place.shown.formatting, place.timeZone, place.shown.directionLocale, now), runs: undefined }
 }
+
+const noReport = (): void => undefined
 
 /**
  * THE LABEL OF A COMPOSITE WIDGET (`ListTile`, `AppBar`, `Tab`, `Accordion`).

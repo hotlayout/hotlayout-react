@@ -189,7 +189,7 @@ describe('carousel case table: structure', () => {
   it('the row counts equal those of the reference; names within a group are unique', () => {
     expect(TABLE.hostCases).toHaveLength(8)
     expect(TABLE.readCases).toHaveLength(17)
-    expect(TABLE.cardCases).toHaveLength(17)
+    expect(TABLE.cardCases).toHaveLength(18)
     expect(TABLE.stopCases).toHaveLength(10)
     expect(TABLE.activeCases).toHaveLength(10)
     expect(TABLE.dotCases).toHaveLength(10)

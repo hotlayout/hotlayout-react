@@ -17,6 +17,7 @@ import { GlowLayer } from './glow-layer'
 import { stepsParts, stepUnitsOf } from './progress-steps'
 import type { StepsLook } from './progress-steps'
 import { useValueTransition } from './use-value-transition'
+import { heldLines } from './value-hold'
 import type { Shown } from './use-value-transition'
 import { COLUMN } from './flex-words'
 import { mathToken } from './prop-tokens'
@@ -40,11 +41,18 @@ function shownProgress(
   scope: DataScope,
   data: Shown,
   labelFormat: unknown,
-): { progress: { value: number; max: number; ratio: number }; shown: { ratio: number; ends: Shown['ends'] }; label: string | undefined } {
+): {
+  progress: { value: number; max: number; ratio: number }
+  shown: { ratio: number; ends: Shown['ends'] }
+  label: string | undefined
+  /** The label of the final value while the value moves (it holds the place, `x-valueLayout`); `undefined` at rest. */
+  finalLabel: string | undefined
+} {
   const progress = progressOf(props, scope)
   const smooth = progressOf(props, data.smooth, data.literal?.smooth)
   const stepped = progressOf(props, data.stepped, data.literal?.stepped)
-  return { progress, shown: { ratio: smooth.ratio, ends: data.ends }, label: progressLabel(labelFormat, { value: stepped.value, max: stepped.max, ratio: smooth.ratio }) }
+  const label = progressLabel(labelFormat, { value: stepped.value, max: stepped.max, ratio: smooth.ratio })
+  return { progress, shown: { ratio: smooth.ratio, ends: data.ends }, label, finalLabel: data.moving ? progressLabel(labelFormat, progress) : undefined }
 }
 
 /** The label: `percent` is the shown share, `valueOfMax` the stepped numbers (whole when both ends are whole). */
@@ -75,7 +83,7 @@ export const ProgressBarView = screenPart(function ProgressBarView({ props, css,
   const theme = useTheme()
   const direction = useContext(DirectionContext)
   const scope = useData()
-  const { progress, shown, label } = shownProgress(props, scope, useValueTransition(props), props.labelFormat ?? 'valueOfMax')
+  const { progress, shown, label, finalLabel } = shownProgress(props, scope, useValueTransition(props), props.labelFormat ?? 'valueOfMax')
   const paint = resolveProgressPaint(props, theme)
   // Round ends (9.21.0): half the thickness for the track, the fill and every step; the theme `pill` is not read.
   const round = readProgressCap(props.cap) === 'round'
@@ -210,7 +218,8 @@ export const ProgressBarView = screenPart(function ProgressBarView({ props, css,
             textAlign: 'end',
           }}
         >
-          {label}
+          {/* While the value moves the label takes the place of the final one (`x-valueLayout.scale.barLabel`). */}
+          {finalLabel === undefined ? label : heldLines(finalLabel, label)}
         </span>
       )}
     </div>
