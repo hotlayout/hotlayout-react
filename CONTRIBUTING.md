@@ -5,8 +5,12 @@
 Node.js 20 or newer.
 
 ```sh
-npm install
+npm ci
 ```
+
+`.npmrc` sets `legacy-peer-deps` and `package-lock.json` pins the toolchain, so `npm ci`
+gives every contributor the same tree. After changing a dev dependency, run `npm install` and
+commit the updated lock file.
 
 ## Build, types, tests
 

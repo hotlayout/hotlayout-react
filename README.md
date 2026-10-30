@@ -1,11 +1,22 @@
-# @hotlayout/react
+# HotLayout for React — `@hotlayout/react`
 
 React renderer for [HotLayout](https://hotlayout.com) — server-driven UI (SDUI).
 A screen is assembled in a visual builder and published as JSON; your app draws
 it with one component, and the next publish changes the screen without a
 release.
 
-**Quickstart:** [docs](https://hotlayout.com/docs/integrator/quickstart-react) · [video](https://youtu.be/YVLhz5-z_bs) · **Builder and access:** [hotlayout.com](https://hotlayout.com)
+**Quickstart:** [docs](https://hotlayout.com/docs/integrator/quickstart-react) · [video](https://youtu.be/YVLhz5-z_bs) · **Builder and access:** [hotlayout.com](https://hotlayout.com) · [try the editor](https://hotlayout.com/try)
+
+[![npm](https://img.shields.io/npm/v/@hotlayout/react?label=npm&color=0a6cc9)](https://www.npmjs.com/package/@hotlayout/react)
+[![License](https://img.shields.io/badge/license-Apache--2.0-0a6cc9)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-hotlayout.com-0a6cc9)](https://hotlayout.com/docs)
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/hotlayout/.github/main/profile/assets/app-obsidian.png" alt="A rewards screen built in HotLayout, dark theme" width="240">
+  &nbsp;&nbsp;
+  <img src="https://raw.githubusercontent.com/hotlayout/.github/main/profile/assets/app-sunny.png" alt="The same kind of screen with another theme, light and playful" width="240">
+</p>
+<p align="center"><sub>Two screens built in HotLayout. Try the editor in your browser, no sign-up: <a href="https://hotlayout.com/try">https://hotlayout.com/try</a></sub></p>
 
 ```sh
 npm install @hotlayout/react
@@ -70,9 +81,11 @@ data, and tell it what your app does with actions.
   `react-dom`; styles are scoped to the component's own root.
 - **Placements.** `<HotlayoutPlacement>` draws whichever published document the
   admin put into a named place of your app.
-- **One document, two platforms.** The same JSON is drawn in a mobile app by
-  the Flutter package
-  [`hotlayout_flutter`](https://pub.dev/packages/hotlayout_flutter).
+- **One document, four platforms.** The same JSON is drawn natively by
+  [`hotlayout_flutter`](https://pub.dev/packages/hotlayout_flutter) (Flutter),
+  [hotlayout-ios](https://github.com/hotlayout/hotlayout-ios) (SwiftUI) and
+  [hotlayout-android](https://github.com/hotlayout/hotlayout-android) (Jetpack Compose).
+  All readers follow the open [contract](https://github.com/hotlayout/contract).
 
 ### What the renderer does on its own
 

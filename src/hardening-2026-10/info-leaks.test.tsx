@@ -43,7 +43,7 @@ describe('limit 8: data values stay on screen', () => {
     expect(serverMarkup(document, { data, initialWidthClass: 'compact' })).not.toContain(SECRET)
   })
 
-  it('LIMIT DOES NOT HOLD: a refused picture address from DATA does not put its query (a token) into the console', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): a refused picture address from DATA does not put its query (a token) into the console', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     render(<HotlayoutScreen document={screenWith([boundImage('p', 'item.image')])} data={{ 'item.image': `http://cdn.example.com/u/42.png?token=${SECRET}` }} />)
     const said = warn.mock.calls.map((call) => call.map(String).join(' ')).join('\n')
@@ -51,7 +51,7 @@ describe('limit 8: data values stay on screen', () => {
     expect(said).not.toContain(SECRET)
   })
 
-  it('LIMIT DOES NOT HOLD: the report handed to onReport for that refusal does not carry the data value either', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): the report handed to onReport for that refusal does not carry the data value either', () => {
     const reports: HotlayoutReport[] = []
     render(<HotlayoutScreen document={screenWith([boundImage('p', 'item.image')])} data={{ 'item.image': `http://cdn.example.com/u/42.png?token=${SECRET}` }} onReport={(report) => reports.push(report)} />)
     expect(reports.length).toBeGreaterThan(0)

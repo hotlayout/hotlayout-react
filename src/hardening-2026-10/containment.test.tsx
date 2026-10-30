@@ -75,7 +75,7 @@ describe('limit 7: nothing leaves the root', () => {
     }
   }, 120_000)
 
-  it('LIMIT DOES NOT HOLD: server markup holds nothing outside the package root (React hoists an image preload link before it)', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): server markup holds nothing outside the package root (React hoists an image preload link before it)', () => {
     const picture = { id: 'pic', type: 'Image', props: { source: { kind: 'url', url: 'https://cdn.example.com/a.png' }, alt: 'x', fit: 'cover' } } as unknown as UiNode
     const html = renderToString(<HotlayoutScreen document={withModal([], true)} onReport={() => undefined} />)
     expect(html.startsWith('<div data-hotlayout')).toBe(true)
@@ -106,7 +106,7 @@ describe('limit 7: nothing leaves the root', () => {
 })
 
 describe('limit 7: no keyboard trap on the host page', () => {
-  it('LIMIT DOES NOT HOLD: a layer that waits for an action and has nothing to focus does not swallow Tab', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): a layer that waits for an action and has nothing to focus does not swallow Tab', () => {
     const { container } = hostPage(withModal([text('t', 'Please wait')], false))
     const layer = openLayer(container)
     const focused = document.activeElement
@@ -116,7 +116,7 @@ describe('limit 7: no keyboard trap on the host page', () => {
     expect(passed, 'Tab was cancelled inside the layer').toBe(true)
   })
 
-  it('LIMIT DOES NOT HOLD: Tab from the last stop of a non-dismissible layer may leave the package instead of cycling forever', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): Tab from the last stop of a non-dismissible layer may leave the package instead of cycling forever', () => {
     const button = { id: 'ok', type: 'Button', props: { label: label('OK'), variant: 'primary', action: { type: 'confirm.ok' } } } as unknown as UiNode
     const { container } = hostPage(withModal([text('t', 'Confirm'), button], false))
     const layer = openLayer(container)

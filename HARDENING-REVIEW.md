@@ -1,33 +1,35 @@
 # Hardening review, October 2026
 
 `@hotlayout/react` renders documents, themes and data that arrive from the network inside
-someone else's page. This review checks nine limits against that input. Each limit has tests in
-`src/hardening-2026-10/`; a test whose name starts with `LIMIT DOES NOT HOLD` states the correct
-behaviour and fails today. Shared helpers live in `test-support/hardening-kit.tsx`.
+someone else's page. This review checked nine limits against that input with the tests in
+`src/hardening-2026-10/` (shared helpers in `test-support/hardening-kit.tsx`).
+
+**State: every limit holds.** The review found ten gaps in four limits; all ten were fixed in
+0.25.0 and every test in `src/hardening-2026-10/` passes since. The sections below keep the
+original findings, each marked with the release that closed it, so that the reasoning behind
+the current behaviour stays readable.
 
 Earlier hardening tests (`src/hardening*.test.tsx`, `src/*adversarial*.test.tsx`) put one hostile
 string and one hostile number (123 456 789) into every leaf. This pass widens the inputs (every
 extreme number, every key, every gesture sequence, large data) rather than repeating those.
 
-Result: 230 tests pass, 10 fail. Six limits hold completely; four hold only in part.
-
 ## Summary
 
-| # | Limit | Status | Failing tests |
+| # | Limit | Found in review | Status |
 |---|---|---|---|
-| 2 | Pictures | **does not hold** | 4 |
-| 7 | UI containment | **does not hold in part** | 3 |
-| 8 | Information leaks | **does not hold in part** | 2 |
-| 3 | Accessible name of a card | **does not hold in part** | 1 |
-| 1 | Number handling | holds | 0 |
-| 4 | Actions | holds | 0 |
-| 5 | Writes | holds | 0 |
-| 6 | Resource exhaustion | holds | 0 |
-| 9 | Server render | holds | 0 |
+| 2 | Pictures | 3 gaps | **fixed in 0.25.0** |
+| 7 | UI containment | 3 gaps | **fixed in 0.25.0** |
+| 8 | Information leaks | 2 gaps | **fixed in 0.25.0** |
+| 3 | Accessible name of a card | 1 gap | **fixed in 0.25.0** |
+| 1 | Number handling | holds | holds |
+| 4 | Actions | holds | holds |
+| 5 | Writes | holds | holds |
+| 6 | Resource exhaustion | holds | holds |
+| 9 | Server render | holds | holds |
 
-Ordered by importance below.
+Ordered by the importance they had at the time of the review.
 
-## 2. Pictures — does not hold
+## 2. Pictures — fixed in 0.25.0
 
 `pictures.test.tsx`
 
@@ -41,7 +43,7 @@ click, so a document can make every visitor's browser send GET requests into the
 (router admin pages, printers, local dev servers). The response is not readable, but the request
 happens, and a timing difference reveals whether the host exists. The `openUrl` form
 (`x-actions.forms.httpsUrl`, `HTTPS_URL_PATTERN`) already refuses all of these for a link, so
-today a picture is looser than a link.
+At the time of the review a picture was looser than a link.
 *Fix:* judge the default with the same host form as `httpsUrl` (a host name with a letter top-level
 label, no `@`, no IP literal, no `localhost`) and report "not a public host name". A host that needs
 such addresses (development, an intranet) still allows them through `resolveImageUrl`.
@@ -71,7 +73,7 @@ Noted, not tested: browsers bound the decoding of a huge picture themselves; the
 in it. `srcset` is never written (checked). No `crossorigin` attribute, so no credentialed CORS
 request (checked).
 
-## 7. UI containment — does not hold in part
+## 7. UI containment — fixed in 0.25.0
 
 `containment.test.tsx`
 
@@ -100,7 +102,7 @@ What holds: no element of any fixture screen is fixed-positioned, `z-index` stay
 nothing is drawn outside the root (no portals), `inert` lands only on the package's own layers, and
 Esc inside a dismissible layer does not reach the host's listeners.
 
-## 8. Information leaks — does not hold in part
+## 8. Information leaks — fixed in 0.25.0
 
 `info-leaks.test.tsx`
 
@@ -116,7 +118,7 @@ scheme and host). Document addresses may stay in the report: they are the docume
 What holds: a node hidden by `visibleIf` or by `showOn` leaves no data value in the markup, in the
 browser or on the server; a refused write reports the path, never the value.
 
-## 3. Accessible name of a pressable card — does not hold in part
+## 3. Accessible name of a pressable card — fixed in 0.25.0
 
 `accessible-name.test.tsx`
 

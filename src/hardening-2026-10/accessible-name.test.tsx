@@ -92,7 +92,7 @@ describe('limit 3: a card is named only by what it shows', () => {
     expect(cardName(card([text('a', 'Show offer'), tabs]))).not.toContain('Confirm transfer')
   })
 
-  it('LIMIT DOES NOT HOLD: text painted fully transparent (style.opacity 0) is not in the name', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): text painted fully transparent (style.opacity 0) is not in the name', () => {
     const name = cardName(card([text('a', 'Show offer'), text('b', 'Confirm transfer', { style: { opacity: 0 } })]))
     expect(name).not.toContain('Confirm transfer')
   })

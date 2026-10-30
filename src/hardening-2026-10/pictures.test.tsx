@@ -55,20 +55,20 @@ describe('limit 2: the default picture rule', () => {
     expect(html).toContain('src="https://cdn.example.com/a.png"')
   })
 
-  it('LIMIT DOES NOT HOLD: an IP literal, localhost or an address with credentials is not loaded without the host’s word', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): an IP literal, localhost or an address with credentials is not loaded without the host’s word', () => {
     const policy = imagePolicy(undefined)
     const loaded = NOT_A_PUBLIC_PICTURE.filter((url) => policy.src(url, 'image', 'document') !== undefined || policy.src(url, 'image', 'data') !== undefined)
     expect(loaded, 'loaded by default').toEqual([])
   })
 
-  it('LIMIT DOES NOT HOLD: the same addresses from DATA give a placeholder on a real screen', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): the same addresses from DATA give a placeholder on a real screen', () => {
     for (const url of ['https://192.168.1.1/router.png', 'https://169.254.169.254/latest/meta-data/', 'https://localhost/a.png']) {
       const html = serverMarkup(screenWith([boundImage('i', 'item.image')]), { data: { 'item.image': url } })
       expect(html, url).not.toContain(`src="${url}"`)
     }
   })
 
-  it('LIMIT DOES NOT HOLD: a picture does not send the host page address as Referer (referrerpolicy="no-referrer")', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): a picture does not send the host page address as Referer (referrerpolicy="no-referrer")', () => {
     const { container } = render(<HotlayoutScreen document={screenWith([image('i', 'https://cdn.example.com/a.png')])} onReport={() => undefined} />)
     const img = container.querySelector('img')
     expect(img).not.toBeNull()
@@ -89,7 +89,7 @@ describe('limit 2: the default picture rule', () => {
 })
 
 describe('limit 2: the one exception the host cannot override — a script address is never a picture', () => {
-  it('LIMIT DOES NOT HOLD: control characters and tabs the URL parser strips do not hide the scheme', () => {
+  it('LIMIT HOLDS (fixed in 0.25.0): control characters and tabs the URL parser strips do not hide the scheme', () => {
     const anything = imagePolicy((url) => url)
     // The WHATWG URL parser strips leading C0 controls and removes tab / line feed / carriage return anywhere,
     // so each of these is `javascript:` to the browser.
