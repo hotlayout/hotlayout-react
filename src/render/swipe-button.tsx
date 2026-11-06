@@ -1,15 +1,13 @@
 /**
  * The "drag to confirm" button (schema 9.22.0, `Button.confirm: 'swipe'`): a track with a thumb. The
- * rule is `swipe-confirm.ts`; this file is the gesture and the markup.
+ * rule is `swipe-confirm.ts`; this file is the markup, `use-swipe-gesture.ts` is the drag.
  *
  * The element is the same `<button>` (the role, the name from the label, the surface of the role
- * and of the node's own style, the touch target); inside it the round thumb stands at the inline
- * start and the label is centred in the strip between the two places of the thumb. A POINTER drags
- * the thumb along the inline axis; releasing it at 0.9 of the way or further runs the action (with
- * its analytics event, once, before it), anything less returns the thumb. A press with no drag does
- * nothing: the `click` the browser sends after a pointer carries `detail > 0` and is ignored. The
- * keyboard and assistive technology make a `click` with `detail === 0`, which acts at once, and a
- * held key repeating is swallowed as for every button.
+ * and of the node's own style, the touch target); inside it the thumb stands at the inline start
+ * and the label is centred in the strip between the two places of the thumb. A press with no drag
+ * does nothing: the `click` the browser sends after a pointer carries `detail > 0` and is ignored.
+ * The keyboard and assistive technology make a `click` with `detail === 0`, which acts at once, and
+ * a held key repeating is swallowed as for every button.
  *
  * THE END (9.24.0, `swipe-busy.ts`): past the threshold the action runs at once and the thumb glides
  * to the end and STAYS there, busy: a ring instead of the glyph, `aria-busy`, no drag, no press, no
@@ -17,23 +15,29 @@
  * the thumb then returns); without a promise the state lasts until the shown screen changes or
  * eight seconds pass. An action that nothing runs (`none`, an invalid one) returns the thumb at once.
  *
- * `touch-action: pan-y` keeps the vertical scroll of the body with the page; the drag is taken
- * (`setPointerCapture`) only once the pointer has moved more along the line than across it, and a
- * `pointercancel` (the browser took the gesture for a scroll) returns the thumb without an action.
+ * THE MOTION (9.34.0, `swipe-motion.ts`): a fill of the colour of the thumb follows it (under the
+ * thumb and the label), the label fades with the way, the thumb takes the radius concentric with the
+ * track. Busy, the button collapses into a circle with the indicator (`swipe-parts.tsx`), and with
+ * `confirmTransition: 'ripple'` the circle grows over the screen and the action runs after it
+ * (`use-swipe-motion.ts`, `swipe-ripple-layer.ts`).
+ *
+ * `touch-action: pan-y` keeps the vertical scroll of the body with the page.
  */
-import { useContext, useRef, useState } from 'react'
-import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode, RefObject } from 'react'
+import { useContext, useRef } from 'react'
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 
 import { DirectionContext } from '../runtime'
 import type { PressOutcome } from '../runtime'
 import { SWIPE_BUSY } from '../swipe-busy'
-import { SWIPE_THUMB_GLYPH, swipeCapturedBy, swipeGeometryOf, swipeProgressOf, swipeReleaseOf } from '../swipe-confirm'
-import type { SwipeTrack } from '../swipe-confirm'
+import { swipeGeometryOf } from '../swipe-confirm'
+import { SWIPE_COLLAPSE, swipeLabelOpacityOf, swipeThumbRadiusOf } from '../swipe-motion'
 import { PRESSABLE_CLASS } from '../styles'
-import { productVar } from '../theme'
-import { useIsomorphicLayoutEffect } from '../wide-nav-view'
-import { Glyph } from './icon'
-import { useSwipeBusy } from './use-swipe-busy'
+import { COLLAPSE_EASING, Spinner, SwipeLabel, SwipeOrbView, SwipeThumb, SwipeTrail } from './swipe-parts'
+import { useTrack } from './swipe-track'
+import type { Measured } from './swipe-track'
+import { useSwipeGesture } from './use-swipe-gesture'
+import type { SwipeOrb } from './use-swipe-motion'
+import { useSwipeButtonMotion } from './use-swipe-button-motion'
 import { swallowAutoRepeat } from './use-press'
 import type { NodeMark } from './widget-props'
 import { screenPart } from './screen-part'
@@ -58,131 +62,77 @@ export interface SwipeButtonProps {
   readonly paddingBlock: number
   /** The look of a disabled button, laid last. */
   readonly look: CSSProperties
+  /** The type of the action of the button and its `confirmTransition` (9.34.0): the fill plays on a navigation of the reader only. */
+  readonly actionType: string | undefined
+  readonly transition: 'ripple' | undefined
 }
-
-/** The track as it stands now: the border box and the border on one side. `undefined` while it has no size. */
-function measure(element: HTMLElement, inset: number): SwipeTrack | undefined {
-  const width = element.offsetWidth
-  const height = element.offsetHeight
-  if (!(width > 0) || !(height > 0)) return undefined
-  const border = Number.parseFloat(getComputedStyle(element).borderBlockStartWidth)
-  return { width, height, border: Number.isFinite(border) ? border : 0, inset }
-}
-
-const sameTrack = (a: SwipeTrack | undefined, b: SwipeTrack | undefined): boolean => a?.width === b?.width && a?.height === b?.height && a?.border === b?.border
 
 /** Ease-out of the third power, the curve of `x-swipeConfirmBusy`. */
 const EASE_OUT_CUBIC = 'cubic-bezier(0.215, 0.61, 0.355, 1)'
-
-interface Gesture {
-  readonly id: number
-  readonly x: number
-  readonly y: number
-  captured: boolean
-}
 
 /** Enter and Space do nothing on a disabled or busy button. */
 function refuseKey(event: KeyboardEvent<HTMLElement>): void {
   if (event.key === 'Enter' || event.key === ' ') event.preventDefault()
 }
 
-/** The transition of the thumb between two states; none under "reduce motion" (the thumb jumps). */
-function glideCss(glide: 'complete' | 'return' | 'short'): CSSProperties {
+type GlideProperty = 'translate' | 'inline-size' | 'opacity'
+
+/** The transition of a part that follows the thumb between two states; none under "reduce motion" (the thumb jumps). */
+function glideCss(glide: 'complete' | 'return' | 'short', property: GlideProperty): CSSProperties {
   if (prefersReducedMotion()) return {}
-  if (glide === 'short') return { transition: 'translate 160ms ease-out' }
+  if (glide === 'short') return { transition: `${property} 160ms ease-out` }
   const ms = glide === 'complete' ? SWIPE_BUSY.completeMs : SWIPE_BUSY.returnMs
-  return { transition: `translate ${String(ms)}ms ${EASE_OUT_CUBIC}` }
+  return { transition: `${property} ${String(ms)}ms ${EASE_OUT_CUBIC}` }
 }
 
-/** The track as it is now, measured before paint and again whenever the button changes size. */
-function useTrack(ref: RefObject<HTMLButtonElement | null>, inset: number): SwipeTrack | undefined {
-  const [track, setTrack] = useState<SwipeTrack | undefined>(undefined)
-  useIsomorphicLayoutEffect(() => {
-    const element = ref.current
-    if (element === null) return undefined
-    const read = (): void => {
-      const next = measure(element, inset)
-      setTrack((previous) => (sameTrack(previous, next) ? previous : next))
-    }
-    read()
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(read)
-    observer?.observe(element)
-    return () => observer?.disconnect()
-  }, [ref, inset])
-  return track
+/**
+ * The surface of a collapsed button (background, border, shadow) fades out; the transition runs while
+ * the circle is there. The border goes through the logical longhands: the role may set the `border`
+ * shorthand, which React cannot update beside a physical `borderColor`.
+ */
+const SURFACE_GONE: CSSProperties = { backgroundColor: 'transparent', backgroundImage: 'none', borderBlockColor: 'transparent', borderInlineColor: 'transparent', boxShadow: 'none' }
+const SURFACE_FADE = ['background-color', 'border-color', 'box-shadow'].map((property) => `${property} ${String(SWIPE_COLLAPSE.durationMs)}ms ${COLLAPSE_EASING}`).join(', ')
+
+/** How far along the way the thumb is, 0..1; no way, no progress. */
+function progressOf(shown: number, travel: number): number {
+  return travel > 0 ? shown / travel : 0
 }
 
-export const SwipeButton = screenPart(function SwipeButton({ mark, semantics, box, layout, label, icon, thumb, disabled, press, inset, paddingBlock, look }: SwipeButtonProps): ReactNode {
+/** Until the track is measured (the server, the first frame) the room of the thumb is its estimate from the size: the line and the padding. */
+function roomOf(track: Measured | undefined, paddingBlock: number, inset: number): string {
+  if (track === undefined) return `calc(1lh + ${String(2 * paddingBlock - inset)}px)`
+  return `${String(swipeGeometryOf(track).thumbRoom - track.border)}px`
+}
+
+/** The surface while the circle is there: it fades to nothing once the circle is round. */
+function surfaceOf(orb: SwipeOrb): CSSProperties {
+  if (orb === 'none') return {}
+  return orb === 'round' ? { transition: SURFACE_FADE, ...SURFACE_GONE } : { transition: SURFACE_FADE }
+}
+
+export const SwipeButton = screenPart(function SwipeButton({ mark, semantics, box, layout, label, icon, thumb, disabled, press, inset, paddingBlock, look, actionType, transition }: SwipeButtonProps): ReactNode {
   const rtl = useContext(DirectionContext) === 'rtl'
   const ref = useRef<HTMLButtonElement>(null)
-  const gesture = useRef<Gesture | null>(null)
+  const orbRef = useRef<HTMLSpanElement>(null)
+  const coreRef = useRef<HTMLSpanElement>(null)
   const track = useTrack(ref, inset)
-  // How far the thumb has gone from the start, in points along the inline axis.
-  const [offset, setOffset] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const { waiting, glide, run, shortReturn } = useSwipeBusy(press)
+  const motion = useSwipeButtonMotion({ press, actionType, transition, orbRef, coreRef })
+  const { waiting, locked, orb } = motion
 
   const geometry = track === undefined ? undefined : swipeGeometryOf(track)
   const travel = geometry?.travel ?? 0
-
-  const release = (action: boolean): void => {
-    gesture.current = null
-    setDragging(false)
-    setOffset(0)
-    shortReturn()
-    if (action) run()
-  }
-
-  const onPointerDown = (event: PointerEvent<HTMLButtonElement>): void => {
-    if (disabled || waiting || event.button !== 0 || gesture.current !== null) return
-    gesture.current = { id: event.pointerId, x: event.clientX, y: event.clientY, captured: false }
-  }
-
-  const onPointerMove = (event: PointerEvent<HTMLButtonElement>): void => {
-    const current = gesture.current
-    if (current === null) return
-    if (event.pointerId !== current.id) return
-    const dx = event.clientX - current.x
-    const dy = event.clientY - current.y
-    if (!current.captured) {
-      if (!swipeCapturedBy(dx, dy)) return
-      current.captured = true
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId)
-      } catch {
-        // A pointer that cannot be captured still drags while it stays over the track.
-      }
-      setDragging(true)
-    }
-    setOffset(swipeProgressOf(dx, travel, rtl) * travel)
-  }
-
-  const onPointerUp = (event: PointerEvent<HTMLButtonElement>): void => {
-    const current = gesture.current
-    if (current === null) return
-    if (event.pointerId !== current.id) return
-    if (!current.captured) {
-      // A press with no drag: nothing, and the `click` that follows has `detail > 0`.
-      gesture.current = null
-      return
-    }
-    const progress = swipeProgressOf(event.clientX - current.x, travel, rtl)
-    release(swipeReleaseOf(progress, disabled) === 'act')
-  }
-
-  const onPointerCancel = (event: PointerEvent<HTMLButtonElement>): void => {
-    if (gesture.current?.id === event.pointerId) release(false)
-  }
+  const { offset, dragging, handlers } = useSwipeGesture({ disabled, locked, travel, rtl, onRelease: motion.release })
 
   // Enter, Space and an assistive activation are a `click` with no count; a pointer's `click` has one and is not a press.
-  const onClick = disabled || waiting ? undefined : (event: { readonly detail: number }): void => {
-    if (event.detail === 0) run()
+  const onClick = disabled || locked ? undefined : (event: { readonly detail: number }): void => {
+    if (event.detail === 0) motion.press()
   }
 
-  // Until the track is measured (the server, the first frame) the room of the thumb is its estimate from the size: the line and the padding.
-  const room = geometry === undefined || track === undefined ? `calc(1lh + ${String(2 * paddingBlock - inset)}px)` : `${String(geometry.thumbRoom - track.border)}px`
-  const motion = dragging ? {} : glideCss(glide)
-  const shown = waiting ? travel : offset
+  const room = roomOf(track, paddingBlock, inset)
+  const shown = locked ? travel : offset
+  const circled = orb !== 'none'
+  const followed = (property: GlideProperty): CSSProperties => (dragging ? {} : glideCss(motion.glide, property))
+  const thumbRadius = track === undefined ? undefined : swipeThumbRadiusOf(track)
 
   return (
     <button
@@ -201,53 +151,26 @@ export const SwipeButton = screenPart(function SwipeButton({ mark, semantics, bo
         paddingInlineStart: room,
         paddingInlineEnd: room,
         position: 'relative',
+        isolation: 'isolate',
         touchAction: 'pan-y',
         userSelect: 'none',
+        ...surfaceOf(orb),
         ...look,
       }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
+      {...handlers}
       onClick={onClick}
-      onKeyDown={disabled || waiting ? refuseKey : swallowAutoRepeat}
+      onKeyDown={disabled || locked ? refuseKey : swallowAutoRepeat}
     >
-      <span
-        aria-hidden="true"
-        data-hl-swipe-thumb=""
-        style={{
-          position: 'absolute',
-          insetBlockStart: productVar('spacing', 'xs'),
-          insetBlockEnd: productVar('spacing', 'xs'),
-          insetInlineStart: productVar('spacing', 'xs'),
-          aspectRatio: '1 / 1',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-          backgroundColor: thumb.background,
-          color: thumb.color,
-          translate: `${String(rtl ? -shown : shown)}px 0`,
-          ...motion,
-        }}
-      >
-        {waiting ? <Spinner /> : <Glyph name={typeof icon === 'string' && icon !== '' ? icon : SWIPE_THUMB_GLYPH} />}
-      </span>
-      <span style={{ display: 'block', minInlineSize: 0, textAlign: 'center' }}>{label}</span>
+      {track === undefined || thumbRadius === undefined ? null : <SwipeTrail track={track} radius={thumbRadius} shown={shown} fill={thumb.background} motion={followed('inline-size')} hidden={circled} />}
+      <SwipeLabel opacity={circled ? 0 : swipeLabelOpacityOf(progressOf(shown, travel))} motion={followed('opacity')}>
+        {label}
+      </SwipeLabel>
+      <SwipeThumb colors={thumb} icon={icon} busy={waiting} hidden={circled} radius={thumbRadius} circle={(geometry?.diameter ?? 0) / 2} offset={rtl ? -shown : shown} motion={followed('translate')} />
+      {circled && track !== undefined ? (
+        <SwipeOrbView orb={orb} track={track} colors={thumb} orbRef={orbRef} coreRef={coreRef}>
+          <Spinner />
+        </SwipeOrbView>
+      ) : null}
     </button>
-  )
-})
-
-/**
- * The busy indicator: a ring of three quarters (the top segment is clear), the size and colour of
- * the glyph it replaces, the stroke an eighth of its size. It turns once in 800 ms; the style sheet
- * stops it under "reduce motion".
- */
-const Spinner = screenPart(function Spinner(): ReactNode {
-  return (
-    <span aria-hidden="true" data-hl-spinner="" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', inlineSize: '1em', blockSize: '1lh' }}>
-      <span style={{ display: 'block', inlineSize: '1em', blockSize: '1em', borderRadius: '50%', border: '0.125em solid currentColor', borderBlockStartColor: 'transparent', animation: `hl-spin ${String(SWIPE_BUSY.turnMs)}ms linear infinite` }} />
-    </span>
   )
 })

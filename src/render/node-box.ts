@@ -5,6 +5,7 @@ import type { TextDirection } from '../direction'
 import { isInputWidget } from '../input-rules'
 import { isReadableSpacingRef } from '../layer-placement'
 import type { ReaderLayer } from '../layer-placement'
+import { glowEscapesOwnBox } from '../progress-glow'
 import { mathLength, spacingMathCss } from '../resolve'
 import { cssNumber, lookup } from '../sanitize'
 import { HEIGHT_KEYS, WIDTH_KEYS, withoutScreenExcluded } from '../style'
@@ -164,8 +165,8 @@ export function rowShareOf(node: UiNode, box: Css, dropped: string[], inWeighted
   return { weight, shareCss, weightCss, rowCss }
 }
 
-/** A named box clips the content larger than itself. */
-export function clipSizedBox(box: Css): void {
+/** A named box clips the content larger than itself; the box of a glowing scale clips nothing. */
+export function clipSizedBox(box: Css, node: UiNode): void {
   /*
    * A NAMED BOX CLIPS content larger than itself (`sizedBoxOverflow: 'clip'`): `style.width` /
    * `height` are EXACT, not minimums. Computed AFTER `fill` and `weight` took their sizes, because a
@@ -173,6 +174,12 @@ export function clipSizedBox(box: Css): void {
    */
   const hasSizedBox = SIZED_BOX_KEYS.some((key) => box[key] !== undefined)
   if (hasSizedBox && box.overflow === undefined) box.overflow = 'hidden'
+  /*
+   * The glow of a scale is not clipped by the box of its node, only by ancestors that clip, as a
+   * shadow (`x-progressGlow.clip`). Neither a named size nor a radius clips it; the scale itself
+   * already fits the box (the ring takes its diameter from it, the bar its width).
+   */
+  if (box.overflow !== undefined && glowEscapesOwnBox(node)) box.overflow = 'visible'
 }
 
 /** A node in a tight slot (a grid cell, an instance of a list in columns). */

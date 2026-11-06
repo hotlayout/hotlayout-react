@@ -215,6 +215,22 @@ export function safeColor(value: unknown): string | undefined {
   return typeof value === 'string' && COLOR_VALUE.test(value) ? value.toLowerCase() : undefined
 }
 
+const COMPUTED_RGB = /^rgba?\(\s*(\d{1,3}(?:\.\d+)?)\s*,\s*(\d{1,3}(?:\.\d+)?)\s*,\s*(\d{1,3}(?:\.\d+)?)\s*(?:,\s*(\d(?:\.\d+)?|\.\d+)\s*)?\)$/
+
+/**
+ * A colour the BROWSER computed (`getComputedStyle(...).backgroundColor`: `rgb(r, g, b)` or
+ * `rgba(r, g, b, a)`), rebuilt from its numbers; anything else gives `undefined`. A layer that lives
+ * outside the screen root cannot use the theme variables, so it paints with the colour a styled
+ * element resolved to.
+ */
+export function safeComputedColor(value: unknown): string | undefined {
+  const match = typeof value === 'string' ? COMPUTED_RGB.exec(value) : null
+  if (match === null) return undefined
+  const channel = (text: string | undefined): number => Math.round(safeNumber(Number(text), 0, 255) ?? 0)
+  const alpha = safeNumber(match[4] === undefined ? 1 : Number(match[4]), 0, 1) ?? 1
+  return `rgba(${String(channel(match[1]))}, ${String(channel(match[2]))}, ${String(channel(match[3]))}, ${cssNumber(alpha)})`
+}
+
 /** Channels and alpha of a validated color. Alpha comes LAST (`colorAlpha: 'rrggbbaa-alpha-last'`). */
 export function hexChannels(color: string): { readonly rgb: readonly [number, number, number]; readonly alpha: number } {
   const safe = safeColor(color) ?? '#000000'

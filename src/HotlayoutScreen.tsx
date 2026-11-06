@@ -22,7 +22,7 @@ import type { ScreenLabels } from './runtime'
 import { isRecord } from './sanitize'
 import { isPinnedNow } from './countdown'
 import { anatomyOf } from './render/anatomy'
-import { ShowContext } from './render/contexts'
+import { ScreenCoverContext, ShowContext } from './render/contexts'
 import { safeRecordOf } from './render/host-boundary'
 import { DEFAULT_LABELS } from './runtime'
 import { infoOf, startOf } from './screen/flow'
@@ -241,6 +241,20 @@ export interface HotlayoutScreenProps {
    * renderer then does nothing, and navigation is yours.
    */
   readonly onNavigate?: ((event: NavigationEvent) => boolean | undefined) | undefined
+  /**
+   * Pass it when YOUR code can change the route and remove this screen after an action — a router
+   * that reacts to `onNavigate` returning `false`, or to `onAction`. Its presence is the signal.
+   *
+   * A swipe-to-confirm button with `confirmTransition: 'ripple'` covers the screen with a growing
+   * circle before the action runs. With this prop the circle is a layer on `document.body` that
+   * outlives this component: the renderer calls `onScreenCovered(true)` right BEFORE the action —
+   * change the route then, without a transition of your own — then the circle fades out over the
+   * new screen in 200 ms (it does not wait for you), and `onScreenCovered(false)` follows when the
+   * layer is gone. Without the prop the circle is a layer inside the screen root, which a host that
+   * removes the screen would take away with it. No `document` (a server render) — no circle, the
+   * action runs at once.
+   */
+  readonly onScreenCovered?: ((covered: boolean) => void) | undefined
   /** The screen-shown event: called once per show of a screen, the first one included (see {@link ScreenShown}). */
   readonly onScreenChange?: ((screen: ScreenShown) => void) | undefined
   /**
@@ -397,7 +411,7 @@ export interface HotlayoutScreenProps {
  */
 export function HotlayoutScreen(props: HotlayoutScreenProps): ReactNode {
   const { theme: themeContract, themeId, data = NO_DATA, collections, locale, timeZone, now, dir, entry, assets, labels } = props
-  const { onAction, onTrack, onHaptic, onNavigate, onScreenChange, onWrite, onReport, renderIncompatible, renderError, injectStyles = true, className, style } = props
+  const { onAction, onTrack, onHaptic, onNavigate, onScreenCovered, onScreenChange, onWrite, onReport, renderIncompatible, renderError, injectStyles = true, className, style } = props
   const { writablePaths, resolveImageUrl, autofill } = props
   const anatomy = anatomyOf(props)
   // The document comes from the network: `null`, a string or an array in its place means a document with no version and no screens.
@@ -514,7 +528,9 @@ export function HotlayoutScreen(props: HotlayoutScreenProps): ReactNode {
   return (
     <div {...{ [ROOT_ATTRIBUTE]: '' }} ref={measureRoot} className={className} dir={direction} lang={lang} style={rootStyle}>
       {injectStyles ? <style dangerouslySetInnerHTML={{ __html: HOTLAYOUT_CSS }} /> : null}
-      <ShowContext.Provider value={current.show}>{visible.map((frame, offset) => stackLayer(env, frame, offset))}</ShowContext.Provider>
+      <ScreenCoverContext.Provider value={onScreenCovered}>
+        <ShowContext.Provider value={current.show}>{visible.map((frame, offset) => stackLayer(env, frame, offset))}</ShowContext.Provider>
+      </ScreenCoverContext.Provider>
     </div>
   )
 }

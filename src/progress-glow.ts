@@ -24,6 +24,17 @@ export function readProgressGlow(value: unknown): ProgressGlow | undefined {
   return PROGRESS_GLOWS.find((glow) => glow === value)
 }
 
+/**
+ * Whether a node is a scale that glows: its own box must then not clip (`x-progressGlow.clip`).
+ * A named size or a radius clips the content of a box, and the glow lies outside the scale by its
+ * blur, so a clipping box would cut it with straight edges where the fill is.
+ */
+export function glowEscapesOwnBox(node: { readonly type: string; readonly props?: unknown }): boolean {
+  if (!(PROGRESS_GLOW_RULES.on as readonly string[]).includes(node.type)) return false
+  const props = node.props
+  return typeof props === 'object' && props !== null && readProgressGlow((props as Record<string, unknown>).glow) !== undefined
+}
+
 export type GlowingStep =
   | { readonly kind: 'none' }
   /** The current step, painted by `currentColor`: the whole step glows in that colour. */

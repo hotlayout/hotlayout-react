@@ -8,6 +8,7 @@ import { shownTextOf } from '../shown-text'
 import { BADGE_PADDING, BUTTON_LABEL_ALIGN, ICON_BESIDE_TEXT, ICON_BUTTON, PROP_DEFAULTS, buttonGeometryOf, hasIconBesideText, iconBesideTextOrder, iconButtonNameOf } from '../layout-rules'
 import { roleSurfaceCss } from '../style-roles'
 import { SWIPE_THUMB_INSET, confirmOf } from '../swipe-confirm'
+import { confirmTransitionOf } from '../swipe-motion'
 import { typographyToCss } from '../style'
 import type { Css } from '../style'
 import { PRESSABLE_CLASS } from '../styles'
@@ -101,6 +102,8 @@ export const ButtonView = screenPart(function ButtonView({ node, props, css, own
         inset={theme.spacing[SWIPE_THUMB_INSET] ?? 0}
         paddingBlock={theme.spacing[geometry.padding.block] ?? 0}
         look={disabledPressLook(disabled, box.opacity)}
+        actionType={action?.type}
+        transition={confirmTransitionOf(props)}
       />
     )
   }

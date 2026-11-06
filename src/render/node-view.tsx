@@ -108,7 +108,7 @@ export const NodeView = screenPart(function NodeView({ node }: NodeViewProps): R
   const fillCss = fillLayerCss(node, box, dropped, place)
   const row = rowShareOf(node, box, dropped, inWeightedRow)
   const { weightCss, rowCss } = row
-  clipSizedBox(box)
+  clipSizedBox(box, node)
   const slotCss = tightSlotCss(node, box, place.tightSlot)
   const rowViewportCss = scrollRowChildCss(node, box, place.inScrollRow, theme)
   const columnCss = columnChildCss(node, box, place.columnAlign, theme)

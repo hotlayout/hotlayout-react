@@ -137,7 +137,7 @@ entry stay callable on the server. See
 
 ## Versions
 
-This version reads layout documents of schema **9.33.x** and themes of theme
+This version reads layout documents of schema **9.34.x** and themes of theme
 contract **4.0.x**, and embeds icon set 1.0.0. Any 9.x document and any 4.x
 theme is drawn; React 18 and 19 are supported by every release.
 

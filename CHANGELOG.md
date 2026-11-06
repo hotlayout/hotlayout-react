@@ -10,6 +10,30 @@ are listed under **Changed** or **Removed**.
 The package version is independent of the contract versions. Which documents
 and themes a release reads is stated in every entry.
 
+## [0.32.0] - 2026-11-05
+
+**Reads:** schema 9.34.x (theme contract 4.0.x, icon set 1.0.0, placements 1.1.0).
+
+### Added
+
+- The motion of the drag-to-confirm button (schema 9.34.0): a fill of the thumb's colour follows it,
+  the label fades as the thumb moves, and the thumb and the fill behind it take a radius concentric
+  with the track (a pill track keeps a round thumb). Once the thumb passes the threshold the button
+  collapses into a circle with the busy indicator, and the circle expands back when the busy state
+  ends before the thumb returns.
+- `Button.confirmTransition: "ripple"`: after a drag on a `navigate` or `navigate.back` action the
+  circle grows over the screen, the action runs once the screen is covered, and the fill fades out
+  over the next screen. A keyboard press, a screen reader, "reduce motion" and any other action skip
+  the fill. A button that leaves before the screen is covered runs no action and removes its fill.
+- `onScreenCovered(covered)` on `HotlayoutScreen` for hosts that change the route themselves. With it
+  the fill is a layer on `document.body` that outlives the screen: the host is told `true` right before
+  the action and `false` once the fill has faded out, and does not have to wait for it.
+
+### Changed
+
+- When a busy drag-to-confirm button's wait ends, the circle expands back for 600 ms before the thumb
+  returns (it used to return at once).
+
 ## [0.31.1] - 2026-10-30
 
 **Reads:** the same documents and themes as 0.31.0 (schema 9.33.x, theme contract

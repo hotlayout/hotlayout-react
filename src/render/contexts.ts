@@ -307,3 +307,9 @@ export const ParentNodeContext = createContext<UiNode | undefined>(undefined)
  * number it started at: a different one means the shown screen changed and the wait is over.
  */
 export const ShowContext = createContext(0)
+
+/**
+ * `onScreenCovered` of the host (`HotlayoutScreen`): present means the host may change the route
+ * itself and remove the screen, so the fill of a swipe button lives outside the screen root.
+ */
+export const ScreenCoverContext = createContext<((covered: boolean) => void) | undefined>(undefined)

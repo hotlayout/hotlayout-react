@@ -28,6 +28,8 @@ export interface SwipeBusy {
   readonly run: () => void
   /** A drag that did not reach the threshold: the thumb returns with the short glide. */
   readonly shortReturn: () => void
+  /** The thumb glides to the end although the action has not run yet (the fill plays first). */
+  readonly glideToEnd: () => void
 }
 
 export function useSwipeBusy(press: (() => PressOutcome | undefined) | undefined): SwipeBusy {
@@ -75,6 +77,9 @@ export function useSwipeBusy(press: (() => PressOutcome | undefined) | undefined
     run,
     shortReturn: () => {
       setGlide('short')
+    },
+    glideToEnd: () => {
+      setGlide('complete')
     },
   }
 }

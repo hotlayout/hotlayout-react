@@ -202,7 +202,15 @@ import { ICON_SET_VERSION } from './icon-set'
  * (`visibility-fade.ts`, `render/use-visibility-fade.ts`). The zones of the screen follow the
  * condition at once.
  */
-export const READER_SCHEMA_VERSION = '9.33.0'
+/*
+ * 9.34.0: performed. The motion of a swipe-to-confirm button (`x-swipeConfirmMotion`, `swipe-motion.ts`): a
+ * fill follows the thumb, the label fades with the progress, the thumb and the fill take the radius
+ * concentric with the track, the button collapses into a circle with the busy indicator and expands
+ * back when the busy state ends. `Button.confirmTransition: 'ripple'` grows the circle over the
+ * screen before a `navigate` / `navigate.back` action and the action runs after it; the layer lives
+ * in the screen root, or on the document body when the host passes `onScreenCovered`.
+ */
+export const READER_SCHEMA_VERSION = '9.34.0'
 
 /**
  * The THEME contract version this renderer is written for. The theme is versioned separately
