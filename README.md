@@ -7,6 +7,7 @@ release.
 
 **Quickstart:** [docs](https://hotlayout.com/docs/integrator/quickstart-react) · [video](https://youtu.be/YVLhz5-z_bs) · **Builder and access:** [hotlayout.com](https://hotlayout.com) · [try the editor](https://hotlayout.com/try)
 
+[![CI](https://github.com/hotlayout/hotlayout-react/actions/workflows/ci.yml/badge.svg)](https://github.com/hotlayout/hotlayout-react/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@hotlayout/react?label=npm&color=0a6cc9)](https://www.npmjs.com/package/@hotlayout/react)
 [![License](https://img.shields.io/badge/license-Apache--2.0-0a6cc9)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-hotlayout.com-0a6cc9)](https://hotlayout.com/docs)

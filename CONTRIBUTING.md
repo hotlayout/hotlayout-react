@@ -8,9 +8,11 @@ Node.js 20 or newer.
 npm ci
 ```
 
-`.npmrc` sets `legacy-peer-deps` and `package-lock.json` pins the toolchain, so `npm ci`
-gives every contributor the same tree. After changing a dev dependency, run `npm install` and
-commit the updated lock file.
+`package-lock.json` pins the toolchain, so `npm ci` gives every contributor the same tree.
+After changing a dev dependency, run `npm install` and commit the updated lock file.
+`@vitest/mocker` is listed explicitly on purpose: npm 10 and 11 cannot resolve the peer
+dependencies of `vitest` 4.1 and newer otherwise (`Cannot read properties of null (reading
+'edgesOut')`). Keep it at the version `vitest` uses.
 
 ## Build, types, tests
 
@@ -40,6 +42,14 @@ It is a snapshot. The contract is maintained outside this repository, so do not
 edit these files here: a change to the contract arrives as a new snapshot together
 with the renderer code that implements it. `npm run icons:sync` regenerates
 `src/icon-set.ts` from `contract/icons.json`.
+
+## Releasing
+
+Releases are published from the `Publish` workflow (`.github/workflows/publish.yml`), which a
+maintainer starts by hand; nothing is published automatically. It runs the same checks as CI and
+then `npm publish --provenance`, so every published version carries a provenance statement linking
+it to the commit and the workflow run that built it. Publishing uses npm Trusted Publishing (OIDC)
+and needs no token, once the package owner has configured it on npmjs.com for this repository.
 
 ## Pull requests
 
