@@ -132,6 +132,9 @@ const TRAVEL = TRACK.width - 2 * TRACK.border - 2 * TRACK.inset - THUMB
 const ROOT = { width: 393, height: 852 }
 const ORB_BOX = { left: 100, top: 700, size: TRACK.height }
 const CORE_SIZE = THUMB
+/** The side of the busy ring that stands in the core of the collapsed button. */
+const SPINNER = 18
+const GLYPH = 'rgb(255, 255, 255)'
 const FILL = 'rgb(79, 70, 229)'
 const restore: (() => void)[] = []
 const computed = { radius: '' as string, fill: FILL as string }
@@ -174,6 +177,7 @@ beforeAll(() => {
     if (this.hasAttribute('data-hotlayout')) return rect(0, 0, ROOT.width, ROOT.height)
     if (this.hasAttribute('data-hl-swipe-orb')) return rect(ORB_BOX.left, ORB_BOX.top, ORB_BOX.size, ORB_BOX.size)
     if (this.parentElement?.hasAttribute('data-hl-swipe-orb') === true && this.style.display === 'flex') return rect(ORB_BOX.left + 5, ORB_BOX.top + 5, CORE_SIZE, CORE_SIZE)
+    if (this.hasAttribute('data-hl-spinner')) return rect(ORB_BOX.left + 15, ORB_BOX.top + 15, SPINNER, SPINNER)
     return originalRect.call(this)
   }
   restore.push(() => {
@@ -184,7 +188,7 @@ beforeAll(() => {
     const style = originalStyle(element, pseudo)
     const overrides: Record<string, string> = {}
     if (element.getAttribute('data-hl-confirm') === 'swipe') Object.assign(overrides, { borderBlockStartWidth: `${String(TRACK.border)}px`, borderTopLeftRadius: computed.radius })
-    if (element.parentElement?.hasAttribute('data-hl-swipe-orb') === true && (element as HTMLElement).style.display === 'flex') overrides.backgroundColor = computed.fill
+    if (element.parentElement?.hasAttribute('data-hl-swipe-orb') === true && (element as HTMLElement).style.display === 'flex') Object.assign(overrides, { backgroundColor: computed.fill, color: GLYPH })
     if (Object.keys(overrides).length === 0) return style
     return new Proxy(style, {
       get: (target, key) => {
@@ -465,7 +469,7 @@ describe('confirmTransition: ripple (938-943) inside the screen root', () => {
     view.unmount()
     expect(layer()).toBeNull()
     advance(5000)
-    expect(view.log).toEqual([])
+    expect(view.log).toEqual(['covered:true', 'covered:false'])
   })
 
   it('leaving during the collapse is also nothing: no fill, no action', () => {
@@ -501,7 +505,7 @@ describe('confirmTransition: ripple (938-943) inside the screen root', () => {
 })
 
 describe('when the host steers the route (947): onScreenCovered', () => {
-  it('the layer is on the body, over the window; the host is told before the action and after the fade', () => {
+  it('the layer is on the body, over the window; the host is told as the circle starts and after the fade', () => {
     fake()
     const view = show({ cover: true })
     swipe(view.button('pay-swipe'))
@@ -514,8 +518,11 @@ describe('when the host steers the route (947): onScreenCovered', () => {
     // The far corner is the corner of the WINDOW, not of the root.
     const scale = swipeRippleScaleOf({ centerX: ORB_BOX.left + ORB_BOX.size / 2, centerY: ORB_BOX.top + ORB_BOX.size / 2, screenWidth: window.innerWidth, screenHeight: window.innerHeight, core: CORE_SIZE })
     expect((cover.firstElementChild as HTMLElement).style.transform).toBe(`scale(${String(scale)})`)
-    expect(view.log).toEqual([])
-    advance(SWIPE_RIPPLE.durationMs)
+    // The host hears of the cover as the circle STARTS to grow, 800 ms before the action.
+    expect(view.log).toEqual(['covered:true'])
+    advance(SWIPE_RIPPLE.durationMs - 1)
+    expect(view.log).toEqual(['covered:true'])
+    advance(1)
     expect(view.log).toEqual(['covered:true', 'navigate:paid'])
     expect(cover.getAttribute('data-hl-swipe-cover')).toBe('revealing')
     advance(SWIPE_REVEAL.durationMs - 1)
@@ -553,15 +560,92 @@ describe('when the host steers the route (947): onScreenCovered', () => {
     expect(log).toEqual(['covered:true', 'navigate:paid', 'covered:false'])
   })
 
-  it('the button leaves first: the host is not told anything, the layer goes', () => {
+  it('the button leaves first: the layer goes, there is no action, and the host that heard "covered" hears that it is over', () => {
     fake()
     const view = show({ cover: true })
     swipe(view.button('pay-swipe'))
     advance(SWIPE_BUSY_COMPLETE_MS + SWIPE_COLLAPSE.durationMs + 100)
+    expect(view.log).toEqual(['covered:true'])
     view.unmount()
     advance(5000)
     expect(layer()).toBeNull()
-    expect(view.log).toEqual([])
+    expect(view.log).toEqual(['covered:true', 'covered:false'])
+  })
+
+  it('two fills in a row are one state: the host hears true once and false once', () => {
+    fake()
+    const seen = notes()
+    const doc = structuredClone(FIXTURE) as unknown as { screens: { root: { children: Record<string, unknown>[] } }[] }
+    const children = doc.screens[0]?.root.children ?? []
+    const first = children.find((child) => child.id === 'pay-swipe')
+    if (first === undefined) throw new Error('no pay-swipe')
+    children.push({ ...structuredClone(first), id: 'pay-swipe-2' })
+    // The host takes the route over and keeps this screen, so both fills run to their end.
+    const view = render(<HotlayoutScreen document={doc as unknown as UiDocument} injectStyles={false} onNavigate={(event) => (seen.navigate(event), false)} onScreenCovered={seen.covered} />)
+    const buttonOf = (id: string): HTMLElement => view.container.querySelector<HTMLElement>(`[data-hl-node="${id}"]`) as HTMLElement
+    swipe(buttonOf('pay-swipe'))
+    advance(SWIPE_BUSY_COMPLETE_MS + SWIPE_COLLAPSE.durationMs)
+    swipe(buttonOf('pay-swipe-2'))
+    advance(SWIPE_BUSY_COMPLETE_MS + SWIPE_COLLAPSE.durationMs + SWIPE_RIPPLE.durationMs + SWIPE_REVEAL.durationMs + 100)
+    expect(layer()).toBeNull()
+    expect(seen.log.filter((entry) => entry.startsWith('navigate'))).toEqual(['navigate:paid', 'navigate:paid'])
+    expect(seen.log.filter((entry) => entry.startsWith('covered'))).toEqual(['covered:true', 'covered:false'])
+  })
+
+  it('a host that passes a new function on every render still hears one pair', () => {
+    fake()
+    const log: string[] = []
+    const view = render(<HotlayoutScreen document={FIXTURE} injectStyles={false} onScreenCovered={(covered) => log.push(`covered:${String(covered)}`)} />)
+    swipe(view.container.querySelector<HTMLElement>('[data-hl-node="pay-swipe"]') as HTMLElement)
+    advance(SWIPE_BUSY_COMPLETE_MS + SWIPE_COLLAPSE.durationMs)
+    // A re-render with a different function in between: the end of the fill goes to the function that is current.
+    view.rerender(<HotlayoutScreen document={FIXTURE} injectStyles={false} onScreenCovered={(covered) => log.push(`again:${String(covered)}`)} />)
+    advance(SWIPE_RIPPLE.durationMs + SWIPE_REVEAL.durationMs)
+    expect(log).toEqual(['covered:true', 'again:false'])
+  })
+
+  it('the busy indicator stands in the middle of the circle, the size and colour of the glyph, and does not grow with it', () => {
+    fake()
+    const view = show({ cover: true })
+    swipe(view.button('pay-swipe'))
+    advance(SWIPE_BUSY_COMPLETE_MS + SWIPE_COLLAPSE.durationMs)
+    const indicator = layer()?.querySelector<HTMLElement>('[data-hl-swipe-indicator]')
+    if (indicator === null || indicator === undefined) throw new Error('no indicator in the fill')
+    const stroke = SPINNER / 8
+    const centre = { x: ORB_BOX.left + ORB_BOX.size / 2, y: ORB_BOX.top + ORB_BOX.size / 2 }
+    close(Number.parseFloat(indicator.style.left) + (SPINNER + 2 * stroke) / 2, centre.x)
+    close(Number.parseFloat(indicator.style.top) + (SPINNER + 2 * stroke) / 2, centre.y)
+    expect(indicator.style.width).toBe(`${String(SPINNER)}px`)
+    expect(indicator.style.borderTopColor).toBe('transparent')
+    expect(indicator.style.borderLeftColor).toBe(GLYPH)
+    // A sibling of the circle, not inside it: the circle is scaled, the indicator is not.
+    expect(indicator.parentElement).toBe(layer())
+    expect(indicator.parentElement?.firstElementChild?.contains(indicator)).toBe(false)
+  })
+
+  it('the indicator is also in the fill inside the screen root', () => {
+    fake()
+    const view = show()
+    swipe(view.button('pay-swipe'))
+    advance(SWIPE_BUSY_COMPLETE_MS + SWIPE_COLLAPSE.durationMs)
+    expect(layer()?.querySelector('[data-hl-swipe-indicator]')).not.toBeNull()
+  })
+
+  it('a jump whose target is not found goes to the host: no circle, no fill over a screen that does not change', () => {
+    fake()
+    const seen = notes()
+    const actions: string[] = []
+    const doc = structuredClone(FIXTURE) as unknown as { screens: { root: { children: { id: string; props: { action: { params: { screenId: string } } } }[] } }[] }
+    const target = doc.screens[0]?.root.children.find((child) => child.id === 'pay-swipe')
+    if (target === undefined) throw new Error('no pay-swipe')
+    target.props.action.params.screenId = 'nowhere'
+    const view = render(<HotlayoutScreen document={doc as unknown as UiDocument} injectStyles={false} onNavigate={seen.navigate} onAction={((action: { type: string }) => actions.push(action.type)) as never} onScreenCovered={seen.covered} />)
+    swipe(view.container.querySelector<HTMLElement>('[data-hl-node="pay-swipe"]') as HTMLElement)
+    // The action runs at the release, as for any host action; the fill never starts.
+    expect(actions).toEqual(['navigate'])
+    advance(SWIPE_BUSY_COMPLETE_MS + SWIPE_COLLAPSE.durationMs + SWIPE_RIPPLE.durationMs + SWIPE_REVEAL.durationMs)
+    expect(layer()).toBeNull()
+    expect(seen.log).toEqual([])
   })
 
   it('a throwing host does not leave the layer on the screen, and the action still runs', () => {
@@ -582,7 +666,10 @@ describe('when the host steers the route (947): onScreenCovered', () => {
     )
     swipe(view.container.querySelector<HTMLElement>('[data-hl-node="pay-swipe"]') as HTMLElement)
     advance(SWIPE_BUSY_COMPLETE_MS + SWIPE_COLLAPSE.durationMs)
-    expect(() => advance(SWIPE_RIPPLE.durationMs)).toThrow('host failure')
+    // The host that throws on `true` does not stop the fill: the layer is there, the action still runs and the layer still goes; the error is rethrown outside the layer's timers.
+    expect(layer()).not.toBeNull()
+    expect(() => advance(1)).toThrow('host failure')
+    advance(SWIPE_RIPPLE.durationMs)
     expect(log).toEqual(['navigate:paid'])
     advance(SWIPE_REVEAL.durationMs)
     expect(layer()).toBeNull()

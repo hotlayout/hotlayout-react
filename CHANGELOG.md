@@ -10,6 +10,31 @@ are listed under **Changed** or **Removed**.
 The package version is independent of the contract versions. Which documents
 and themes a release reads is stated in every entry.
 
+## [0.32.1] - 2026-11-07
+
+**Reads:** schema 9.34.x (theme contract 4.0.x, icon set 1.0.0, placements 1.1.0).
+
+### Changed
+
+- `onScreenCovered(true)` now comes once, as the fill starts to grow (800 ms before the action), not
+  right before the action, so a host has time to get ready. `onScreenCovered(false)` comes once, when
+  the last fill is gone, also when the button left before the screen was covered.
+- Fills in a row are one state: the host hears `true` for the first and `false` after the last, instead
+  of `true, true, false, false`. The count lives on the screen, so a host that passes a new function on
+  every render still hears one pair.
+- A host that throws from `onScreenCovered(true)` no longer stops the fill or its action; the error is
+  rethrown outside the fill's timers.
+
+### Added
+
+- The busy indicator stands in the middle of the growing circle, with the size and colour of the glyph
+  it replaces; it does not scale with the circle.
+
+### Fixed
+
+- A `navigate` whose target is not found (it goes to the host) no longer plays the fill over a screen
+  that does not change. The screen is asked who would run the action before the press.
+
 ## [0.32.0] - 2026-11-05
 
 **Reads:** schema 9.34.x (theme contract 4.0.x, icon set 1.0.0, placements 1.1.0).

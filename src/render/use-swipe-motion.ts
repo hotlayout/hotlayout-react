@@ -14,7 +14,7 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 
-import type { PressOutcome } from '../runtime'
+import type { PressHandle } from '../runtime'
 import { SWIPE_BUSY } from '../swipe-busy'
 import { RIPPLE_ACTION_TYPES, SWIPE_COLLAPSE, swipeSequenceOf } from '../swipe-motion'
 import { useIsomorphicLayoutEffect } from '../wide-nav-view'
@@ -100,7 +100,7 @@ export function useSwipeOrb(active: boolean): SwipeOrbState {
 export interface RippleInput {
   /** From the release to the action: the button is busy and takes no gesture. */
   readonly setRippling: (rippling: boolean) => void
-  readonly press: (() => PressOutcome | undefined) | undefined
+  readonly press: PressHandle | undefined
   readonly actionType: string | undefined
   readonly transition: 'ripple' | undefined
   readonly orbRef: RefObject<HTMLElement | null>
@@ -149,8 +149,9 @@ export function useSwipeRipple(input: RippleInput): () => boolean {
   const begin = (): boolean => {
     const { actionType, transition, press } = latest.current.input
     if (press === undefined || actionType === undefined) return false
+    // Who would run the action is the screen's answer: a jump whose target is not found goes to the host, and there is nowhere to cover. Without a screen to ask, the type decides.
     const steps = swipeSequenceOf({
-      runner: (RIPPLE_ACTION_TYPES as readonly string[]).includes(actionType) ? 'reader' : 'host',
+      runner: press.runner?.() ?? ((RIPPLE_ACTION_TYPES as readonly string[]).includes(actionType) ? 'reader' : 'host'),
       actionType,
       transition,
       way: 'swipe',

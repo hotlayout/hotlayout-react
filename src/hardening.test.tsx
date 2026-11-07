@@ -3,7 +3,7 @@
  * tests that looked for holes; these keep the fix in place).
  *
  *  1. mirror: the patterns and bounds of `sanitize.ts` equal those in the schema artifacts;
- *  2. GUARD: no leaf of the document or theme, replaced by a hostile string or number, reaches
+ *  2. GUARD (sweeps in `hardening.<k>.deep.test.tsx`): no leaf of the document or theme, replaced by a hostile string or number, reaches
  *     `style` or `src`, i.e. no path bypasses the sanitization layer, not only the paths already
  *     known;
  *  3. source guard: an address (`url(`) is composed only in `sanitize.ts`;
@@ -18,6 +18,11 @@ import { renderToStaticMarkup, renderToString } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { contractFile, SRC_DIR } from '../test-support/paths'
+import { expectPartition, expectSliceFiles } from '../test-support/shard'
+import {
+  ACTIONS, ADAPTIVE, BUTTONS, CAROUSEL_STEPS, CATALOG, decode, eachScreen, expectClean, GUARD_DOCUMENTS, GUARD_SLICE_COUNT, GUARD_THEMES, HOSTILE_NUMBER, HOSTILE_STRING, INPUTS, kindTypeCases, leafCases, MARK,
+  MEDIA_CHROME, OFFSET, PROGRESS, RICH_TEXT, SHOWCASE, SHOWCASE_THEME, sweptLeaves, themeGuardCases, themeLeavesOf,
+} from '../test-support/hardening-guard-kit'
 import { COLLECTION_PATHS, sampleData } from '../test-support/sample-data'
 
 import { HotlayoutScreen, READER_SCHEMA_VERSION, READER_THEME_VERSION, resolveTheme } from './index'
@@ -250,101 +255,9 @@ describe('parsing by shape: individual functions', () => {
 
 /* ───────────────────────────── guard: every leaf ───────────────────────────── */
 
-const MARK = 'attacker.test'
-const HOSTILE_STRING = `#000"');},url(http://${MARK}/x);position:fixed;inset:0;z-index:9;--y:`
-const HOSTILE_NUMBER = 123_456_789
-
-type Path = readonly (string | number)[]
-
-/** Paths to all leaves (strings, numbers, booleans) and to all object keys. */
-function leavesOf(value: unknown, path: Path = [], out: Path[] = []): Path[] {
-  if (Array.isArray(value)) value.forEach((item, index) => leavesOf(item, [...path, index], out))
-  else if (typeof value === 'object' && value !== null) for (const [key, item] of Object.entries(value)) leavesOf(item, [...path, key], out)
-  else out.push(path)
-  return out
-}
-
-function replaced(value: unknown, path: Path, next: unknown): unknown {
-  const copy: unknown = structuredClone(value)
-  let cursor = copy as Record<string | number, unknown>
-  for (const key of path.slice(0, -1)) cursor = cursor[key] as Record<string | number, unknown>
-  const last = path[path.length - 1]
-  if (last !== undefined) cursor[last] = next
-  return copy
-}
-
-/** The same tree where the key at the path is renamed to a hostile string. */
-function renamedKey(value: unknown, path: Path, next: string): unknown {
-  const copy: unknown = structuredClone(value)
-  let cursor = copy as Record<string | number, unknown>
-  for (const key of path.slice(0, -1)) cursor = cursor[key] as Record<string | number, unknown>
-  const last = path[path.length - 1]
-  if (last === undefined || Array.isArray(cursor)) return copy
-  cursor[next] = cursor[last]
-  Reflect.deleteProperty(cursor, last)
-  return copy
-}
-
-function decode(text: string): string {
-  return text.replaceAll('&quot;', '"').replaceAll('&#x27;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&')
-}
-
-/**
- * What in the markup is CSS and addresses: the `style` and `src` attributes. Node text and
- * `data-hl-*` are of no interest here: they are document data, which React escapes as HTML.
- */
-function sinksOf(html: string): readonly string[] {
-  return [...html.matchAll(/\s(?:style|src|srcset|href)="([^"]*)"/g)].map((match) => decode(match[1] ?? ''))
-}
-
-function expectClean(html: string, what: string): void {
-  for (const sink of sinksOf(html)) {
-    if (sink.includes(MARK) || /position\s*:\s*fixed/.test(sink) || /\d{7,}px/.test(sink) || /repeat\(\s*\d{2,}/.test(sink) || /url\((?!"data:image\/svg\+xml,)/.test(sink) || /[\n\r]/.test(sink)) {
-      throw new Error(`${what}: hostile value reached a style or an address — ${sink.slice(0, 200)}`)
-    }
-  }
-}
-
-const FIXTURES_DIR = contractFile('fixtures')
-const SHOWCASE = json<UiDocument>(join(FIXTURES_DIR, 'rewards-showcase-screens.json'))
-const SHOWCASE_THEME = json<ThemeContract>(join(FIXTURES_DIR, 'themes', 'rewards-showcase-theme.json'))
-const CATALOG = json<UiDocument>(join(FIXTURES_DIR, 'full-catalog-screen.json'))
-// 9.5.0: icon in a button and badge, button sizes, icon button: every field of these nodes is also a leaf from the network.
-const BUTTONS = json<UiDocument>(join(FIXTURES_DIR, 'buttons-chips-screens.json'))
-// 9.6.0: `Text.spans` (map of part styles) and the template word; 9.7.0: `thickness`, `trackColor`, `gradient` of bar and ring.
-const RICH_TEXT = json<UiDocument>(join(FIXTURES_DIR, 'rich-text-screens.json'))
-const PROGRESS = json<UiDocument>(join(FIXTURES_DIR, 'progress-screens.json'))
-// 9.8.0: actions (address, parameter from data, analytics event, `carryRecord`) are leaves from the network too.
-const ACTIONS = json<UiDocument>(join(FIXTURES_DIR, 'actions-screens.json'))
-// 9.9.0: image ratio, app bar actions, layer placement; 9.10.0: `layer` (offset, rotation) and `pull`: each value is a network leaf too.
-const MEDIA_CHROME = json<UiDocument>(join(FIXTURES_DIR, 'media-chrome-screens.json'))
-const OFFSET = json<UiDocument>(join(FIXTURES_DIR, 'offset-screens.json'))
-// 9.11.0: `carousel` (perView, peek, indicator) and `segments` / `currentColor` of the bar are network leaves too.
-const CAROUSEL_STEPS = json<UiDocument>(join(FIXTURES_DIR, 'carousel-steps-screens.json'))
-// 9.13.0: input fields: label, placeholder, helper, error and value are network leaves too.
-const INPUTS = json<UiDocument>(join(FIXTURES_DIR, 'inputs-screens.json'))
-// 9.18.0: `showOn`, `styleOn`, `propsOn` and `contentMaxWidth` are network leaves too; they are drawn in all three width classes.
-const ADAPTIVE = json<UiDocument>(join(FIXTURES_DIR, 'adaptive-screens.json'))
-
 describe('guard: no path bypasses the sanitization layer', () => {
   const silent = (): void => undefined
   const { data, collections } = sampleData()
-
-  /**
-   * Each screen of the document as a separate page: modal and unreachable ones must also
-   * be rendered. `only` is the number of the screen the substitution concerns: the rest need
-   * no rendering, they equal the clean document.
-   */
-  function eachScreen(document: UiDocument, theme: ThemeContract | undefined, what: string, only?: number, widthClass?: WidthClass): void {
-    const screens: unknown = (document as { screens?: unknown }).screens
-    const all = Array.isArray(screens) ? (screens as readonly { screenId?: unknown }[]).map((entry) => entry.screenId) : []
-    const ids = (only === undefined ? all : [all[only]]).filter((id): id is string => typeof id === 'string')
-    for (const screenId of ids.length === 0 ? [undefined] : ids) {
-      const shown = screenId === undefined ? document : ({ ...document, initialScreenId: screenId } as UiDocument)
-      expectClean(renderToStaticMarkup(<HotlayoutScreen document={shown} theme={theme} data={data} collections={collections} initialWidthClass={widthClass} injectStyles={false} onReport={silent} />), what)
-    }
-  }
-
   it('the guard lets clean fixtures through (otherwise it would catch itself)', () => {
     eachScreen(CATALOG, undefined, 'catalog')
     eachScreen(SHOWCASE, SHOWCASE_THEME, 'showcase')
@@ -359,22 +272,25 @@ describe('guard: no path bypasses the sanitization layer', () => {
     for (const widthClass of WIDTH_CLASSES) eachScreen(ADAPTIVE, undefined, `adaptive, ${widthClass}`, undefined, widthClass)
   })
 
-  // 9.18.0: every leaf of the new fields (`showOn`, `styleOn`, `propsOn`, `contentMaxWidth`): a hostile string and number in EVERY width class.
-  it.each(WIDTH_CLASSES)('document "adaptive", class %s: each leaf in turn, a hostile string and a hostile number', (widthClass) => {
-    const leaves = leavesOf(ADAPTIVE).filter((path) => {
-      const key = path[path.length - 1]
-      return key !== 'schemaVersion' && key !== 'type' && key !== 'screenId' && key !== 'initialScreenId' && key !== 'kind'
-    })
-    expect(leaves.length).toBeGreaterThan(500)
-    // The leaves of the new fields exist in the fixture: otherwise the guard would be empty for them.
-    for (const field of ['showOn', 'styleOn', 'propsOn', 'contentMaxWidth']) expect(leaves.some((path) => path.includes(field)), field).toBe(true)
-    for (const path of leaves) {
-      const where = `adaptive ${widthClass}: ${path.join('.')}`
-      const only = path[0] === 'screens' && typeof path[1] === 'number' ? path[1] : undefined
-      eachScreen(replaced(ADAPTIVE, path, HOSTILE_STRING) as UiDocument, undefined, where, only, widthClass)
-      eachScreen(replaced(ADAPTIVE, path, HOSTILE_NUMBER) as UiDocument, undefined, where, only, widthClass)
-    }
-  }, 240_000)
+  it('the sweeps have something to sweep: enough leaves, and the fields they exist for are in the fixtures', () => {
+    for (const [name, document, , atLeast] of GUARD_DOCUMENTS) expect(sweptLeaves(document).length, name).toBeGreaterThan(atLeast)
+    const adaptive = sweptLeaves(ADAPTIVE)
+    expect(adaptive.length).toBeGreaterThan(500)
+    // The leaves of the 9.18 fields exist in the fixture: otherwise the guard would be empty for them.
+    for (const field of ['showOn', 'styleOn', 'propsOn', 'contentMaxWidth']) expect(adaptive.some((path) => path.includes(field)), field).toBe(true)
+    for (const [name, theme] of GUARD_THEMES) expect(themeLeavesOf(theme).length, name).toBeGreaterThan(100)
+  })
+
+  it('the slices of the sweeps cover every case exactly once, and every slice has a file', () => {
+    expectPartition(
+      leafCases().map((entry) => `${entry.name}\u0000${entry.path.join('\u0000')}`),
+      GUARD_SLICE_COUNT,
+    )
+    expectPartition(kindTypeCases(), GUARD_SLICE_COUNT)
+    expectPartition(themeGuardCases(), GUARD_SLICE_COUNT)
+    expect(new Set(leafCases().map((entry) => `${entry.name}\u0000${entry.path.join('\u0000')}`)).size).toBe(leafCases().length)
+    expectSliceFiles('', 'hardening', GUARD_SLICE_COUNT)
+  })
 
   it('hostile `showOn` / `styleOn` / `propsOn` / `contentMaxWidth` as a whole (a shape, not a leaf): no hostile value in the style, in any class', () => {
     const hostileShapes: unknown[] = [HOSTILE_STRING, HOSTILE_NUMBER, [HOSTILE_STRING], { [HOSTILE_STRING]: { padding: HOSTILE_STRING } }, { medium: HOSTILE_STRING, expanded: { color: HOSTILE_STRING, padding: HOSTILE_NUMBER, width: HOSTILE_NUMBER, gap: HOSTILE_STRING, columns: HOSTILE_NUMBER, perView: HOSTILE_NUMBER, carousel: { perView: HOSTILE_STRING }, direction: HOSTILE_STRING } }]
@@ -448,73 +364,6 @@ describe('guard: no path bypasses the sanitization layer', () => {
       for (const radius of radii) probe(undefined, 'top', radius, widthClass, `${widthClass}: radius`)
     }
   })
-
-    it.each([
-    // The last number is how many leaves the document MUST have (the guard is not empty): the 9.6 and 9.7 fixtures are smaller than the catalog.
-    ['widget catalog', CATALOG, undefined, 200],
-    ['showcase', SHOWCASE, SHOWCASE_THEME, 200],
-    ['buttons and chips', BUTTONS, undefined, 200],
-    ['rich text', RICH_TEXT, undefined, 150],
-    ['bar and ring', PROGRESS, undefined, 150],
-    ['actions', ACTIONS, undefined, 150],
-    ['image, app bar, layer', MEDIA_CHROME, undefined, 100],
-    ['offset stacking', OFFSET, undefined, 100],
-    ['carousel and steps', CAROUSEL_STEPS, undefined, 100],
-    ['input fields', INPUTS, undefined, 60],
-  ] as const)('document "%s": each leaf in turn, a hostile string and a hostile number', (name, document, theme, atLeast) => {
-    const leaves = leavesOf(document).filter((path) => {
-      // We do not touch the version, the widget type and the screen address: without them a different tree is drawn, not this value.
-      const key = path[path.length - 1]
-      return key !== 'schemaVersion' && key !== 'type' && key !== 'screenId' && key !== 'initialScreenId' && key !== 'kind'
-    })
-    expect(leaves.length).toBeGreaterThan(atLeast)
-    for (const path of leaves) {
-      const where = `${name}: ${path.join('.')}`
-      const only = path[0] === 'screens' && typeof path[1] === 'number' ? path[1] : undefined
-      eachScreen(replaced(document, path, HOSTILE_STRING) as UiDocument, theme, where, only)
-      eachScreen(replaced(document, path, HOSTILE_NUMBER) as UiDocument, theme, where, only)
-    }
-  }, 120_000)
-
-  it('document: `kind` and `type` are also strings from the network', () => {
-    for (const document of [CATALOG, RICH_TEXT, PROGRESS, ACTIONS, MEDIA_CHROME, OFFSET, CAROUSEL_STEPS, INPUTS]) {
-      for (const path of leavesOf(document).filter((candidate) => ['type', 'kind'].includes(String(candidate[candidate.length - 1])))) {
-        eachScreen(replaced(document, path, HOSTILE_STRING) as UiDocument, undefined, path.join('.'))
-      }
-    }
-  }, 60_000)
-
-  it.each([
-    ['showcase', SHOWCASE_THEME],
-    ['built-in', THEME_ARTIFACT.contract],
-  ] as const)('theme "%s": each leaf and each KEY in turn', (name, theme) => {
-    const leaves = leavesOf(theme).filter((path) => path[path.length - 1] !== 'themeContractVersion' && path[path.length - 1] !== 'defaultThemeId')
-    expect(leaves.length).toBeGreaterThan(100)
-    const keys = new Map<string, Path>()
-    for (const path of leaves) for (let depth = 2; depth <= path.length; depth += 1) keys.set(path.slice(0, depth).join('\u0000'), path.slice(0, depth))
-
-    for (const path of leaves) {
-      const where = `theme ${name}: ${path.join('.')}`
-      for (const hostile of [HOSTILE_STRING, HOSTILE_NUMBER, -HOSTILE_NUMBER]) {
-        const mutated = replaced(theme, path, hostile) as ThemeContract
-        eachScreen(CATALOG, mutated, where)
-        // And what is attached to the root directly: no variable value carries an address or a semicolon.
-        for (const themeId of Object.keys(mutated.themes)) {
-          for (const [variable, value] of Object.entries(themeCssVariables(resolveTheme(mutated, themeId).theme))) {
-            expect(variable, where).toMatch(/^--product-[a-z0-9-]+$/)
-            expect(value, where).not.toMatch(/[;{}]|url\(|@import|image-set|\d{7,}/i)
-          }
-        }
-      }
-    }
-    for (const path of keys.values()) {
-      // Keys of the themes themselves (`themes.light`) are theme identifiers: they do not go into CSS, but there is no theme without them.
-      if (path.length === 2 && path[0] === 'themes') continue
-      const mutated = renamedKey(theme, path, `x:1;position:fixed;inset:0;--y`) as ThemeContract
-      eachScreen(CATALOG, mutated, `theme key ${name}: ${path.join('.')}`)
-    }
-  }, 120_000)
-
   it('host data and collections: an image address from data is only https', () => {
     const hostile: Record<string, unknown> = {}
     for (const key of Object.keys(data)) hostile[key] = `javascript:alert(1)//${HOSTILE_STRING}`

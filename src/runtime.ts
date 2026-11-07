@@ -18,7 +18,13 @@ import type { SwipeActionRunner } from './swipe-busy'
  * record `navigate` opens the screen with (`record-scope.ts`); the flag is not passed to the
  * host, which gets the record itself in `source.record`.
  */
-export type ActionHandler = (action: HotlayoutAction, source: ActionSource, insideListItem?: boolean, extras?: PressExtras) => PressOutcome | undefined
+export type ActionHandler = ((action: HotlayoutAction, source: ActionSource, insideListItem?: boolean, extras?: PressExtras) => PressOutcome | undefined) & {
+  /** Who WOULD run this checked action, without running it: the fill of a swipe button plays only when the reader itself navigates. */
+  readonly runnerOf?: ((action: HotlayoutAction) => SwipeActionRunner) | undefined
+}
+
+/** A press of a node, with the question a swipe button asks before it presses: who would run the action (`undefined`: not known). */
+export type PressHandle = (() => PressOutcome | undefined) & { readonly runner?: () => SwipeActionRunner | undefined }
 
 /**
  * What a press LEARNED about its action (since 9.24.0): who runs it and, for the host, the promise

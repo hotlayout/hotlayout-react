@@ -112,7 +112,7 @@ export interface ScreenViewProps {
   /** Writing direction. Without it, from the language the document is SHOWN in. */
   readonly direction?: TextDirection | undefined
   /** The handler of the screen stack returns what the press learned (`PressOutcome`); a plain handler may return anything. */
-  readonly onAction?: ((...args: Parameters<ActionHandler>) => unknown) | undefined
+  readonly onAction?: (((...args: Parameters<ActionHandler>) => unknown) & Pick<ActionHandler, 'runnerOf'>) | undefined
   readonly onWrite?: WriteHandler | undefined
   readonly assets?: Readonly<Record<string, string>> | undefined
   readonly labels?: ScreenLabels | undefined
@@ -255,11 +255,14 @@ export const ScreenView = screenPart(function ScreenView({
   const safeRoot = classRoot ?? shaped.root
 
   // Everything that leaves the document for the HOST leaves here: an action with string parameters, a write to an allowed path.
-  const dispatch: ActionHandler = (action, source, insideListItem, extras) => {
-    const carried = safeRecordOf(source.record, onIssue, `node “${source.nodeId}”: record`)
-    const safeSource: ActionSource = carried === undefined ? { nodeId: source.nodeId, screenId: source.screenId } : { nodeId: source.nodeId, screenId: source.screenId, record: carried }
-    return outcomeOf(onAction(action, safeSource, insideListItem === true, extras))
-  }
+  const dispatch: ActionHandler = Object.assign(
+    (...[action, source, insideListItem, extras]: Parameters<ActionHandler>) => {
+      const carried = safeRecordOf(source.record, onIssue, `node “${source.nodeId}”: record`)
+      const safeSource: ActionSource = carried === undefined ? { nodeId: source.nodeId, screenId: source.screenId } : { nodeId: source.nodeId, screenId: source.screenId, record: carried }
+      return outcomeOf(onAction(action, safeSource, insideListItem === true, extras))
+    },
+    { runnerOf: onAction.runnerOf },
+  )
   const { write, writeInput } = hostWriters({ onWrite, writablePaths, onSessionWrite, onWriteRefused, onIssue })
   // Form of the SCREEN (9.14.0): the root of this `screens[]` entry and the data layers it was opened with. Only a button that asks will compute it.
   const formFilled = (): boolean => isFormFilled(safeRoot, scope, klass)

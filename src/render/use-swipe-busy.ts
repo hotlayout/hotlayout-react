@@ -8,7 +8,7 @@
  */
 import { useContext, useEffect, useState } from 'react'
 
-import type { PressOutcome } from '../runtime'
+import type { PressHandle } from '../runtime'
 import { SWIPE_BUSY, swipeAfterReleaseOf } from '../swipe-busy'
 import { ShowContext } from './contexts'
 
@@ -32,7 +32,7 @@ export interface SwipeBusy {
   readonly glideToEnd: () => void
 }
 
-export function useSwipeBusy(press: (() => PressOutcome | undefined) | undefined): SwipeBusy {
+export function useSwipeBusy(press: PressHandle | undefined): SwipeBusy {
   const show = useContext(ShowContext)
   const [busy, setBusy] = useState<Busy | undefined>(undefined)
   const [glide, setGlide] = useState<Glide>('short')

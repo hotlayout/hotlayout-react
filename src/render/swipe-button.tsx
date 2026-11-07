@@ -27,7 +27,7 @@ import { useContext, useRef } from 'react'
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 
 import { DirectionContext } from '../runtime'
-import type { PressOutcome } from '../runtime'
+import type { PressHandle } from '../runtime'
 import { SWIPE_BUSY } from '../swipe-busy'
 import { swipeGeometryOf } from '../swipe-confirm'
 import { SWIPE_COLLAPSE, swipeLabelOpacityOf, swipeThumbRadiusOf } from '../swipe-motion'
@@ -56,7 +56,7 @@ export interface SwipeButtonProps {
   /** The thumb: the background of the ROLE (not the own background of the node) and the colour of its label. */
   readonly thumb: { readonly background: string; readonly color: string }
   readonly disabled: boolean
-  readonly press: (() => PressOutcome | undefined) | undefined
+  readonly press: PressHandle | undefined
   /** The inset step as a number of the theme, and the block padding of the size (for the first paint, before the track is measured). */
   readonly inset: number
   readonly paddingBlock: number

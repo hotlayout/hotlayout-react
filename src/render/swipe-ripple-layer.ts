@@ -17,13 +17,16 @@
  *  - the host changes the route (`onScreenCovered` given): the host may unmount the whole screen
  *    right after the action, so the layer is a child of `document.body`, `position: fixed;
  *    inset: 0` over everything; the far corner is the corner of the window. The host is told that
- *    the screen is covered before the action and that it is not any more once the layer is gone.
+ *    the screen is being covered when the circle starts to grow (800 ms before the action, so it
+ *    can prepare its route) and that it is not any more once the layer is gone, whether it faded
+ *    out or left with its button.
  *
  * The layer paints with the colour its circle resolved to (`safeComputedColor`): outside the
  * root the theme variables do not exist.
  */
 import { cssNumber, cssPx, safeComputedColor } from '../sanitize'
 import { ROOT_ATTRIBUTE } from '../styles'
+import { SWIPE_BUSY } from '../swipe-busy'
 import { SWIPE_HALO_OPACITY, SWIPE_REVEAL, SWIPE_RIPPLE, swipeRippleScaleOf } from '../swipe-motion'
 
 export interface RippleStart {
@@ -32,7 +35,7 @@ export interface RippleStart {
   readonly core: HTMLElement
   /** Runs the action (once), when the circle has covered the screen. */
   readonly act: () => void
-  /** The host's notice; its presence moves the layer out of the root. */
+  /** The host's notice, `true` once when the circle starts to grow and `false` once when the layer is gone; its presence moves the layer out of the root. */
   readonly onScreenCovered: ((covered: boolean) => void) | undefined
 }
 
@@ -77,8 +80,37 @@ function block(doc: Document, style: Partial<CSSStyleDeclaration>): HTMLDivEleme
   return element
 }
 
+/**
+ * The busy indicator in the middle of the core: the same ring as on the collapsed button, in the
+ * colour and size of its glyph. It does not grow with the circle; it stays the size of a glyph while
+ * the core spreads under it. `undefined` when the collapsed button shows none (not measurable).
+ */
+function indicatorOf(doc: Document, place: Place, start: RippleStart, centre: { readonly x: number; readonly y: number }): HTMLDivElement | undefined {
+  const ring = start.core.querySelector<HTMLElement>('[data-hl-spinner]')
+  const size = ring === null ? 0 : ring.getBoundingClientRect().width / place.zoom
+  const colour = safeComputedColor(getComputedStyle(start.core).color)
+  if (!(size > 0) || colour === undefined) return undefined
+  const stroke = size / 8
+  const outer = size + 2 * stroke
+  const element = block(doc, {
+    position: 'absolute',
+    left: cssPx(centre.x - outer / 2),
+    top: cssPx(centre.y - outer / 2),
+    width: cssPx(size),
+    height: cssPx(size),
+    boxSizing: 'content-box',
+    borderRadius: '50%',
+    border: `${cssPx(stroke)} solid ${colour}`,
+    borderTopColor: 'transparent',
+  })
+  element.dataset.hlSwipeIndicator = ''
+  // Animated from here, not from the style sheet of the screen: the layer may outlive that screen.
+  if (typeof element.animate === 'function') element.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: SWIPE_BUSY.turnMs, iterations: Infinity })
+  return element
+}
+
 /** The circle with its halo and core, where the collapsed button is, and the scale that covers the place. */
-function circleOf(doc: Document, place: Place, start: RippleStart, fill: string): { readonly circle: HTMLDivElement; readonly scale: number } {
+function circleOf(doc: Document, place: Place, start: RippleStart, fill: string): { readonly circle: HTMLDivElement; readonly scale: number; readonly indicator: HTMLDivElement | undefined } {
   const orbBox = start.orb.getBoundingClientRect()
   const size = orbBox.height / place.zoom
   const left = (orbBox.left - place.left) / place.zoom
@@ -90,7 +122,7 @@ function circleOf(doc: Document, place: Place, start: RippleStart, fill: string)
     block(doc, { position: 'absolute', inset: '0', borderRadius: '9999px', backgroundColor: fill, opacity: cssNumber(SWIPE_HALO_OPACITY) }),
     block(doc, { position: 'absolute', inset: cssPx((size - core) / 2), borderRadius: '9999px', backgroundColor: fill }),
   )
-  return { circle, scale }
+  return { circle, scale, indicator: indicatorOf(doc, place, start, { x: left + size / 2, y: top + size / 2 }) }
 }
 
 /**
@@ -104,7 +136,7 @@ export function startRipple(start: RippleStart): RippleRun | undefined {
   const place = start.onScreenCovered === undefined ? rootPlace(start.orb) : windowPlace(doc)
   if (fill === undefined || place === undefined) return undefined
 
-  const { circle, scale } = circleOf(doc, place, start, fill)
+  const { circle, scale, indicator } = circleOf(doc, place, start, fill)
   const layer = block(doc, {
     position: place.fixed ? 'fixed' : 'absolute',
     inset: '0',
@@ -116,6 +148,7 @@ export function startRipple(start: RippleStart): RippleRun | undefined {
   layer.setAttribute('aria-hidden', 'true')
   layer.dataset.hlSwipeCover = 'growing'
   layer.append(circle)
+  if (indicator !== undefined) layer.append(indicator)
   place.host.append(layer)
   // The first frame is the circle where the button is; the growth starts from the next one.
   circle.getBoundingClientRect()
@@ -123,6 +156,14 @@ export function startRipple(start: RippleStart): RippleRun | undefined {
   circle.style.transform = `scale(${cssNumber(scale)})`
 
   let covered = false
+  let gone = false
+  // The layer is gone: the host hears it once, however the layer went.
+  const remove = (): void => {
+    if (gone) return
+    gone = true
+    layer.remove()
+    start.onScreenCovered?.(false)
+  }
   let growing: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
     growing = undefined
     covered = true
@@ -130,23 +171,25 @@ export function startRipple(start: RippleStart): RippleRun | undefined {
     layer.dataset.hlSwipeCover = 'revealing'
     layer.style.transition = `opacity ${String(SWIPE_REVEAL.durationMs)}ms ${SWIPE_REVEAL.curve}`
     layer.style.opacity = '0'
-    setTimeout(() => {
-      layer.remove()
-      start.onScreenCovered?.(false)
-    }, SWIPE_REVEAL.durationMs)
-    try {
-      start.onScreenCovered?.(true)
-    } finally {
-      start.act()
-    }
+    setTimeout(remove, SWIPE_REVEAL.durationMs)
+    start.act()
   }, SWIPE_RIPPLE.durationMs)
+
+  // The host hears of the cover as it starts to grow; a host that throws must not take the layer's timers with it.
+  try {
+    start.onScreenCovered?.(true)
+  } catch (error) {
+    setTimeout(() => {
+      throw error
+    }, 0)
+  }
 
   return {
     cancel: () => {
       if (covered) return
       if (growing !== undefined) clearTimeout(growing)
       growing = undefined
-      layer.remove()
+      remove()
     },
   }
 }

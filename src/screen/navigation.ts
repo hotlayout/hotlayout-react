@@ -8,6 +8,7 @@ import type { HapticWord } from '../haptic'
 import type { HotlayoutReport, NavigationEvent, ScreenInfo } from '../HotlayoutScreen'
 import { recordForOpenedScreen } from '../record-scope'
 import { promiseOf } from '../swipe-busy'
+import type { SwipeActionRunner } from '../swipe-busy'
 import type { ActionHandler, PressExtras, PressOutcome } from '../runtime'
 import type { ScreenEntry } from '../types'
 import { infoOf } from './flow'
@@ -79,9 +80,17 @@ function stepBack(env: NavigationEnv, topInfo: ScreenInfo, { safe, source }: Pre
   setFlow({ ...current, stack: current.stack.slice(0, -1), moved: true, show: current.show + 1, cause: 'back' })
 }
 
+/** Who runs an action: the reader for a jump to a known screen, a step back, a section switch; the host for the rest. */
+function runnerOf(env: NavigationEnv, safe: HotlayoutAction): SwipeActionRunner {
+  const intent = intentOf(safe, env.screens.map((screen) => screen.screenId), env.frames.length)
+  if (intent.kind === 'inert') return 'none'
+  if (intent.kind === 'host' || env.topInfo === undefined) return safe.invalid === undefined ? 'host' : 'invalid'
+  return 'reader'
+}
+
 export function actionHandlerOf(env: NavigationEnv): ActionHandler {
   const { issues, deliver, onTrack, onHaptic, onAction, screens, frames, topInfo } = env
-  return (safe: HotlayoutAction, source: ActionSource, insideListItem = false, extras?: PressExtras): PressOutcome | undefined => {
+  const handler = (safe: HotlayoutAction, source: ActionSource, insideListItem = false, extras?: PressExtras): PressOutcome | undefined => {
     // What the reader ignored in an action (a field of the wrong shape) is noticed at press time, not at render time: there may be no render to deliver the report from an effect.
     for (const report of issues.drain()) deliver(report)
     // The haptic request goes before everything else of the press (haptic, track, action) and exactly once, also for `none` and for a transition the host cancels.
@@ -110,4 +119,5 @@ export function actionHandlerOf(env: NavigationEnv): ActionHandler {
     else stepBack(env, topInfo, press)
     return { runner: 'reader', answer: undefined }
   }
+  return Object.assign(handler, { runnerOf: (safe: HotlayoutAction) => runnerOf(env, safe) })
 }

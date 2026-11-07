@@ -8,7 +8,9 @@ import { valueAt } from '../data'
 import { FORM_RULES, pressDisabledOf } from '../form-rules'
 import { preparePress } from '../press'
 import { ActionContext, FormContext, InputWriteContext } from '../runtime'
+import type { PressHandle } from '../runtime'
 import type { PressOutcome } from '../runtime'
+import type { SwipeActionRunner } from '../swipe-busy'
 import type { UiNode } from '../types'
 import { isWriteAction } from '../write-action'
 import { pressWriteAction } from './choice'
@@ -31,7 +33,7 @@ export function swallowAutoRepeat(event: KeyboardEvent<HTMLElement>): void {
   if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault()
 }
 
-export function usePress(action: { readonly type: string } | undefined, nodeId: string): (() => PressOutcome | undefined) | undefined {
+export function usePress(action: { readonly type: string } | undefined, nodeId: string): PressHandle | undefined {
   const dispatch = useContext(ActionContext)
   const place = useContext(PlaceContext)
   const { record, insideListItem, links } = useContext(RecordContext)
@@ -39,7 +41,7 @@ export function usePress(action: { readonly type: string } | undefined, nodeId: 
   const report = useContext(IssueContext)
   const write = useContext(InputWriteContext)
   if (action === undefined) return undefined
-  return () => {
+  const press = (): PressOutcome | undefined => {
     // The action carries the row record of its node (schema 9.2.0): that is how the host learns WHICH row was pressed.
     const source: ActionSource = record === undefined ? { nodeId, screenId: place.screenId } : { nodeId, screenId: place.screenId, record }
     // A write action (schema 9.19.0): the event first, then the write along the same path as for input fields; it does not go to the host through `onAction`.
@@ -51,6 +53,12 @@ export function usePress(action: { readonly type: string } | undefined, nodeId: 
     const press = preparePress(action, (path) => valueAt(scope, path), report, `node “${nodeId}”: action`)
     return dispatch(press.action, source, insideListItem, { haptic: press.haptic, track: press.track, carryRecord: press.carryRecord, links })
   }
+  // Who would run the action, asked BEFORE it runs: parameters from data are resolved the same way, and nothing is reported or sent.
+  const runner = (): SwipeActionRunner | undefined => {
+    if (isWriteAction(action.type)) return 'none'
+    return dispatch.runnerOf?.(preparePress(action, (path) => valueAt(scope, path), () => undefined, '').action)
+  }
+  return Object.assign(press, { runner })
 }
 
 /**

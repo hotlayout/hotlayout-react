@@ -6,14 +6,14 @@
 import { useState } from 'react'
 import type { RefObject } from 'react'
 
-import type { PressOutcome } from '../runtime'
+import type { PressHandle } from '../runtime'
 import type { Glide } from './use-swipe-busy'
 import { useSwipeBusy } from './use-swipe-busy'
 import type { SwipeOrb } from './use-swipe-motion'
 import { useSwipeOrb, useSwipeRipple } from './use-swipe-motion'
 
 export interface SwipeButtonMotionInput {
-  readonly press: (() => PressOutcome | undefined) | undefined
+  readonly press: PressHandle | undefined
   readonly actionType: string | undefined
   readonly transition: 'ripple' | undefined
   readonly orbRef: RefObject<HTMLElement | null>
